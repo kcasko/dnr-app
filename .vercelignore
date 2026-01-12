@@ -1,0 +1,13 @@
+# .vercelignore
+.venv/
+dnr.db
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+.env
+.DS_Store
+.git/
+.gitignore
+Procfile
