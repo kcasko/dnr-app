@@ -14,7 +14,7 @@
         }
 
         header {
-            background: #0a2240; /* Sleep Inn navy */
+            background: #0a2240;
             color: #ffffff;
             padding: 14px 20px;
             display: flex;
@@ -28,14 +28,10 @@
         }
 
         header nav a {
-            color: #f2c94c; /* Sleep Inn gold */
+            color: #f2c94c;
             text-decoration: none;
             margin-left: 16px;
             font-weight: bold;
-        }
-
-        header nav a:hover {
-            text-decoration: underline;
         }
 
         main {
@@ -45,10 +41,6 @@
             padding: 24px;
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        }
-
-        h2 {
-            margin-top: 0;
         }
 
         form {
@@ -104,24 +96,14 @@
             font-size: 16px;
         }
 
-        .actions button:hover {
-            background: #12315d;
-        }
-
-        .actions a {
-            color: #0a2240;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .actions a:hover {
-            text-decoration: underline;
-        }
-
-        .hint {
-            font-size: 13px;
-            color: #555;
-            margin-top: 4px;
+        .warning {
+            grid-column: 1 / -1;
+            background: #fff4d6;
+            border: 1px solid #e0b400;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: none;
         }
     </style>
 </head>
@@ -131,7 +113,7 @@
     <div class="title">Sleep Inn · Guest Incident Records</div>
     <nav>
         <a href="/">Search</a>
-        <a href="/add">Add Incident</a>
+        <a href="/history">History</a>
     </nav>
 </header>
 
@@ -141,22 +123,24 @@
     <form method="post" action="/add">
         <div>
             <label>First Name</label>
-            <input name="first_name" required placeholder="First Name" title="Enter first name">
+            <input name="first_name" required placeholder="Enter first name">
         </div>
 
         <div>
             <label>Last Name</label>
-            <input name="last_name" required placeholder="Last Name" title="Enter last name">
+            <input name="last_name" id="last_name" required placeholder="Enter last name" title="Last Name">
         </div>
+
+        <div class="warning" id="dup-warning"></div>
 
         <div>
             <label>Room Number</label>
-            <input name="room_number" placeholder="Room Number" title="Enter room number">
+            <input name="room_number" title="Room Number" placeholder="Enter room number">
         </div>
 
         <div>
-            <label for="reason">Reason</label>
-            <select id="reason" name="reason" required>
+            <label>Reason</label>
+            <select name="reason" required title="Reason">
                 <option value="">Select…</option>
                 <option value="nonpayment">Nonpayment</option>
                 <option value="damage">Damage</option>
@@ -168,26 +152,19 @@
 
         <div class="full-width">
             <label>Description</label>
-            <textarea name="description" rows="4" required title="Enter a factual description of the incident" placeholder="Describe the incident (facts only)"></textarea>
-            <div class="hint">Facts only. No opinions.</div>
+            <textarea name="description" rows="4" required title="Description" placeholder="Enter incident description"></textarea>
         </div>
 
         <div>
             <label>Staff Initials</label>
-            <input name="staff_initials" required title="Enter staff initials" placeholder="Staff Initials">
+            <input name="staff_initials" required title="Staff Initials" placeholder="Enter staff initials">
         </div>
 
         <div>
             <label>Ban Type</label>
             <div class="radio-group">
-                <label>
-                    <input type="radio" name="ban_type" value="temporary" required>
-                    Temporary (until paid)
-                </label>
-                <label>
-                    <input type="radio" name="ban_type" value="permanent">
-                    Permanent
-                </label>
+                <label><input type="radio" name="ban_type" value="temporary" required> Temporary</label>
+                <label><input type="radio" name="ban_type" value="permanent"> Permanent</label>
             </div>
         </div>
 
@@ -197,6 +174,34 @@
         </div>
     </form>
 </main>
+
+<script>
+const lastNameInput = document.getElementById("last_name");
+const warningBox = document.getElementById("dup-warning");
+
+let timeout = null;
+
+lastNameInput.addEventListener("input", () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(checkDuplicates, 400);
+});
+
+async function checkDuplicates() {
+    const last = lastNameInput.value.trim();
+    warningBox.style.display = "none";
+
+    if (last.length < 3) return;
+
+    const res = await fetch(`/search?q=${encodeURIComponent(last)}`);
+    const rows = await res.json();
+
+    if (Array.isArray(rows) && rows.length > 0) {
+        warningBox.textContent =
+            `Warning: ${rows.length} active incident(s) already exist for this last name. Please review before submitting.`;
+        warningBox.style.display = "block";
+    }
+}
+</script>
 
 </body>
 </html>

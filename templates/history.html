@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Guest Incident Records</title>
+    <title>Resolved Incidents · Guest Incident Records</title>
 
     <style>
         body {
@@ -51,45 +51,12 @@
             margin-top: 0;
         }
 
-        .search-bar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .search-bar input {
-            flex: 1;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-
-        .search-bar button {
-            padding: 10px 16px;
-            font-size: 16px;
-            background: #0a2240;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .search-bar button:hover {
-            background: #12315d;
-        }
-
-        #status {
-            margin-top: 10px;
-            font-style: italic;
-        }
-
         .incident-card {
             margin-top: 14px;
             padding: 14px;
             border: 1px solid #ddd;
             border-radius: 6px;
-            background: #fafafa;
+            background: #f0f0f0;
         }
 
         .incident-header {
@@ -104,13 +71,8 @@
             font-size: 16px;
         }
 
-        .badge-permanent {
-            color: #b00020;
-            font-weight: bold;
-        }
-
-        .badge-temporary {
-            color: #d17b00;
+        .badge-resolved {
+            color: #2d7d46;
             font-weight: bold;
         }
 
@@ -120,18 +82,16 @@
             margin-bottom: 6px;
         }
 
-        .resolve-form button {
-            background: #2d7d46;
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
+        .note {
             font-size: 14px;
+            font-style: italic;
+            color: #333;
         }
 
-        .resolve-form button:hover {
-            background: #25673a;
+        .empty {
+            font-style: italic;
+            color: #666;
+            margin-top: 12px;
         }
     </style>
 </head>
@@ -142,23 +102,43 @@
     <nav>
         <a href="/">Search</a>
         <a href="/add">Add Incident</a>
+        <a href="/history">History</a>
         <a href="/export.csv">Export CSV</a>
     </nav>
 </header>
 
 <main>
-    <h2>Search Active Bans</h2>
-    <p>Search by first name, last name, or both.</p>
+    <h2>Resolved Incidents</h2>
+    <p>This page shows incidents that are no longer active. Records are read-only.</p>
 
-    <div class="search-bar">
-        <input id="q" type="text" placeholder="Jane Smith or Smith Jane">
-        <button id="btn" type="button">Search</button>
+ {% if incidents %}
+    {% for r in incidents %}
+        <div class="incident-card">
+            <div class="incident-header">
+                <div class="name">{{ r.first_name }} {{ r.last_name }}</div>
+                <div class="badge-resolved">RESOLVED</div>
+            </div>
+            <div class="meta">
+                Reason: {{ r.reason }} |
+                Room: {{ r.room_number or "" }} |
+                Incident Date: {{ r.incident_date }} |
+                Resolved On: {{ r.expires_on }} |
+                Staff: {{ r.staff_initials }}
+            </div>
+            {% if r.resolve_note %}
+                <div class="note">
+                    {{ r.resolve_note }}
+                </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="empty">
+        No resolved incidents found.
     </div>
+{% endif %}
 
-    <div id="status"></div>
-    <div id="results"></div>
 </main>
 
-<script src="/static/script.js"></script>
 </body>
 </html>
