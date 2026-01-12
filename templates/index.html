@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Guest Incident Records</title>
+
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+            background: #f4f6f8;
+            color: #1f2933;
+        }
+
+        header {
+            background: #0a2240; /* Sleep Inn navy */
+            color: #ffffff;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        header .title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        header nav a {
+            color: #f2c94c; /* Sleep Inn gold */
+            text-decoration: none;
+            margin-left: 16px;
+            font-weight: bold;
+        }
+
+        header nav a:hover {
+            text-decoration: underline;
+        }
+
+        main {
+            max-width: 900px;
+            margin: 30px auto;
+            background: #ffffff;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .search-bar input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .search-bar button {
+            padding: 10px 16px;
+            font-size: 16px;
+            background: #0a2240;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .search-bar button:hover {
+            background: #12315d;
+        }
+
+        #status {
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        .incident-card {
+            margin-top: 14px;
+            padding: 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+
+        .incident-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .name {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .badge-permanent {
+            color: #b00020;
+            font-weight: bold;
+        }
+
+        .badge-temporary {
+            color: #d17b00;
+            font-weight: bold;
+        }
+
+        .meta {
+            font-size: 14px;
+            color: #444;
+            margin-bottom: 6px;
+        }
+
+        .resolve-form button {
+            background: #2d7d46;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .resolve-form button:hover {
+            background: #25673a;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="title">Sleep Inn · Guest Incident Records</div>
+    <nav>
+        <a href="/">Search</a>
+        <a href="/add">Add Incident</a>
+    </nav>
+</header>
+
+<main>
+    <h2>Search Active Bans</h2>
+    <p>Search by first name, last name, or both.</p>
+
+    <div class="search-bar">
+        <input id="q" type="text" placeholder="Jane Smith or Smith Jane">
+        <button id="btn" type="button">Search</button>
+    </div>
+
+    <div id="status"></div>
+    <div id="results"></div>
+</main>
+
+<script src="/static/script.js"></script>
+</body>
+</html>
