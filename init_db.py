@@ -1,35 +1,90 @@
+"""
+Database initialization script for Restricted Guests Log (DNR System)
+Run this once to create/reset the database schema.
+"""
+import os
 import sqlite3
 
-DB_PATH = "dnr.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "dnr.db")
 
-def main():
+def init_db():
     conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON;")
+    cursor = conn.cursor()
 
-    conn.execute("""
-    CREATE TABLE IF NOT EXISTS incidents (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        first_name TEXT NOT NULL,
-        last_name TEXT NOT NULL,
-        incident_date TEXT NOT NULL,
-        room_number TEXT,
-        reason TEXT NOT NULL,
-        description TEXT NOT NULL,
-        staff_initials TEXT NOT NULL,
-        ban_type TEXT NOT NULL CHECK (ban_type IN ('permanent', 'temporary')),
-        expires_on TEXT,
-        active INTEGER NOT NULL CHECK (active IN (0, 1))
-     );
-     """)
-    
-    conn.execute("""
-                 CREATE INDEX IF NOT EXISTS idx_incidents_name
-                 ON incidents (last_name, first_name);
-                 """)
-    
+    # Drop existing tables if they exist (for clean reset)
+    cursor.execute("DROP TABLE IF EXISTS photos")
+    cursor.execute("DROP TABLE IF EXISTS timeline_entries")
+    cursor.execute("DROP TABLE IF EXISTS password_attempts")
+    cursor.execute("DROP TABLE IF EXISTS records")
+    cursor.execute("DROP TABLE IF EXISTS incidents")
+
+    # Main records table
+    cursor.execute("""
+        CREATE TABLE records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guest_name TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            ban_type TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            reason_detail TEXT,
+            date_added TEXT NOT NULL,
+            expiration_type TEXT,
+            expiration_date TEXT,
+            lifted_date TEXT,
+            lifted_type TEXT,
+            lifted_reason TEXT,
+            lifted_initials TEXT
+        )
+    """)
+    # status: 'active', 'expired', 'lifted'
+    # ban_type: 'temporary', 'permanent'
+    # expiration_type: 'date', 'resolved', 'manager_review' (only for temporary)
+
+    # Timeline entries table
+    cursor.execute("""
+        CREATE TABLE timeline_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_id INTEGER NOT NULL,
+            entry_date TEXT NOT NULL,
+            staff_initials TEXT,
+            note TEXT NOT NULL,
+            is_system INTEGER DEFAULT 0,
+            FOREIGN KEY (record_id) REFERENCES records(id)
+        )
+    """)
+
+    # Photos table
+    cursor.execute("""
+        CREATE TABLE photos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_id INTEGER NOT NULL,
+            filename TEXT NOT NULL,
+            original_name TEXT,
+            upload_date TEXT NOT NULL,
+            FOREIGN KEY (record_id) REFERENCES records(id)
+        )
+    """)
+
+    # Failed password attempts log (silent logging)
+    cursor.execute("""
+        CREATE TABLE password_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_id INTEGER,
+            attempt_date TEXT NOT NULL,
+            ip_address TEXT
+        )
+    """)
+
+    # Create indexes
+    cursor.execute("CREATE INDEX idx_records_guest_name ON records(guest_name)")
+    cursor.execute("CREATE INDEX idx_records_status ON records(status)")
+    cursor.execute("CREATE INDEX idx_timeline_record ON timeline_entries(record_id)")
+    cursor.execute("CREATE INDEX idx_photos_record ON photos(record_id)")
+
     conn.commit()
     conn.close()
-    print(f"OK: initialized {DB_PATH}")
+    print(f"Database initialized at: {DB_PATH}")
 
 if __name__ == "__main__":
-    main()
+    init_db()

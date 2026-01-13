@@ -3,162 +3,668 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Guest Incident Records</title>
-
-    <style>
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            margin: 0;
-            background: #f4f6f8;
-            color: #1f2933;
-        }
-
-        header {
-            background: #0a2240; /* Sleep Inn navy */
-            color: #ffffff;
-            padding: 14px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        header .title {
-            font-size: 18px;
-            font-weight: bold;
-        }
-
-        header nav a {
-            color: #f2c94c; /* Sleep Inn gold */
-            text-decoration: none;
-            margin-left: 16px;
-            font-weight: bold;
-        }
-
-        header nav a:hover {
-            text-decoration: underline;
-        }
-
-        main {
-            max-width: 900px;
-            margin: 30px auto;
-            background: #ffffff;
-            padding: 24px;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        }
-
-        h2 {
-            margin-top: 0;
-        }
-
-        .search-bar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .search-bar input {
-            flex: 1;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-
-        .search-bar button {
-            padding: 10px 16px;
-            font-size: 16px;
-            background: #0a2240;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .search-bar button:hover {
-            background: #12315d;
-        }
-
-        #status {
-            margin-top: 10px;
-            font-style: italic;
-        }
-
-        .incident-card {
-            margin-top: 14px;
-            padding: 14px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background: #fafafa;
-        }
-
-        .incident-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-
-        .name {
-            font-weight: bold;
-            font-size: 16px;
-        }
-
-        .badge-permanent {
-            color: #b00020;
-            font-weight: bold;
-        }
-
-        .badge-temporary {
-            color: #d17b00;
-            font-weight: bold;
-        }
-
-        .meta {
-            font-size: 14px;
-            color: #444;
-            margin-bottom: 6px;
-        }
-
-        .resolve-form button {
-            background: #2d7d46;
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .resolve-form button:hover {
-            background: #25673a;
-        }
-    </style>
+    <title>Restricted Guests Log</title>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
 
 <header>
-    <div class="title">Sleep Inn · Guest Incident Records</div>
-    <nav>
-        <a href="/">Search</a>
-        <a href="/add">Add Incident</a>
-        <a href="/export.csv">Export CSV</a>
-    </nav>
+    <h1>Restricted Guests Log</h1>
+    <div class="subtitle">Do Not Rent System - Internal Use Only</div>
 </header>
 
-<main>
-    <h2>Search Active Bans</h2>
-    <p>Search by first name, last name, or both.</p>
+<div class="container">
+    <div class="toolbar">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search by guest name...">
+        </div>
 
-    <div class="search-bar">
-        <input id="q" type="text" placeholder="Jane Smith or Smith Jane">
-        <button id="btn" type="button">Search</button>
+        <div class="filter-group">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="active">Active</button>
+            <button class="filter-btn" data-filter="temporary">Temporary</button>
+            <button class="filter-btn" data-filter="permanent">Permanent</button>
+            <button class="filter-btn" data-filter="expired">Expired</button>
+            <button class="filter-btn" data-filter="lifted">Lifted</button>
+        </div>
+
+        <button class="btn-add" onclick="openAddModal()">
+            <span>+</span> Add Record
+        </button>
     </div>
 
-    <div id="status"></div>
-    <div id="results"></div>
-</main>
+    <div class="records-list">
+        <div class="records-header">
+            <div>Guest Name</div>
+            <div>Status</div>
+            <div>Ban Type</div>
+            <div>Reason</div>
+            <div>Date Added</div>
+        </div>
+        <div id="recordsList">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </div>
+</div>
 
-<script src="/static/script.js"></script>
+<!-- Add Record Modal -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Add New Record</h2>
+            <button class="modal-close" onclick="closeModal('addModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="addForm" onsubmit="submitAddForm(event)">
+                <div class="form-group">
+                    <label>Guest Full Name *</label>
+                    <input type="text" name="guest_name" required placeholder="Enter guest's full name">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ban Type *</label>
+                        <div class="radio-group">
+                            <label>
+                                <input type="radio" name="ban_type" value="temporary" required onchange="toggleExpiration()"> Temporary
+                            </label>
+                            <label>
+                                <input type="radio" name="ban_type" value="permanent" onchange="toggleExpiration()"> Permanent
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Staff Initials *</label>
+                        <input type="text" name="staff_initials" required placeholder="e.g., JD" maxlength="5" class="input-initials">
+                    </div>
+                </div>
+
+                <div class="expiration-fields" id="expirationFields">
+                    <div class="form-group">
+                        <label>Expiration Type *</label>
+                        <div class="radio-group">
+                            <label>
+                                <input type="radio" name="expiration_type" value="date" onchange="toggleExpirationDate()"> Auto expire on date
+                            </label>
+                            <label>
+                                <input type="radio" name="expiration_type" value="resolved" onchange="toggleExpirationDate()"> When issue resolved
+                            </label>
+                            <label>
+                                <input type="radio" name="expiration_type" value="manager_review" onchange="toggleExpirationDate()"> Manager review required
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="expirationDateField">
+                        <label>Expiration Date</label>
+                        <input type="date" name="expiration_date" placeholder="Select expiration date" title="Expiration Date">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="reason-select">Reason *</label>
+                    <select name="reason" id="reason-select" required title="Select ban reason">
+                        <option value="">Select a reason...</option>
+                        {% for reason in reasons %}
+                        <option value="{{ reason }}">{{ reason }}</option>
+                        {% endfor %}
+                        <option value="Other">Other (specify in details)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Additional Details</label>
+                    <textarea name="reason_detail" placeholder="Enter any additional details about the incident..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Detail View Modal -->
+<div class="modal-overlay" id="detailModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="detailTitle">Record Details</h2>
+            <button class="modal-close" onclick="closeModal('detailModal')">&times;</button>
+        </div>
+        <div class="modal-body" id="detailContent">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="toast" id="toast"></div>
+
+<script>
+// State
+let currentFilter = { status: '', ban_type: '' };
+let currentSearch = '';
+let currentRecordId = null;
+
+// Utility functions
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast ' + type + ' visible';
+    setTimeout(() => {
+        toast.classList.remove('visible');
+    }, 3000);
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Modal functions
+function openModal(id) {
+    document.getElementById(id).classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function openAddModal() {
+    document.getElementById('addForm').reset();
+    document.getElementById('expirationFields').classList.remove('visible');
+    document.getElementById('expirationDateField').style.display = 'none';
+    openModal('addModal');
+}
+
+// Form helpers
+function toggleExpiration() {
+    const banType = document.querySelector('input[name="ban_type"]:checked');
+    const expirationFields = document.getElementById('expirationFields');
+
+    if (banType && banType.value === 'temporary') {
+        expirationFields.classList.add('visible');
+    } else {
+        expirationFields.classList.remove('visible');
+        document.querySelectorAll('input[name="expiration_type"]').forEach(r => r.checked = false);
+        document.getElementById('expirationDateField').style.display = 'none';
+    }
+}
+
+function toggleExpirationDate() {
+    const expType = document.querySelector('input[name="expiration_type"]:checked');
+    const dateField = document.getElementById('expirationDateField');
+
+    if (expType && expType.value === 'date') {
+        dateField.style.display = 'block';
+    } else {
+        dateField.style.display = 'none';
+    }
+}
+
+// API functions
+async function loadRecords() {
+    const listEl = document.getElementById('recordsList');
+    listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+    const params = new URLSearchParams();
+    if (currentFilter.status) params.set('status', currentFilter.status);
+    if (currentFilter.ban_type) params.set('ban_type', currentFilter.ban_type);
+    if (currentSearch) params.set('search', currentSearch);
+
+    try {
+        const res = await fetch('/api/records?' + params.toString());
+        const records = await res.json();
+
+        if (records.length === 0) {
+            listEl.innerHTML = `
+                <div class="empty-state">
+                    <h3>No records found</h3>
+                    <p>Try adjusting your filters or search term.</p>
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = records.map(r => {
+            const isDimmed = r.status === 'lifted' || r.status === 'expired';
+            return `
+                <div class="record-row ${isDimmed ? 'dimmed' : ''}" onclick="viewRecord(${r.id})">
+                    <div class="name">${escapeHtml(r.guest_name)}</div>
+                    <div><span class="status-badge ${r.status}">${r.status}</span></div>
+                    <div class="ban-type ${r.ban_type}">${r.ban_type}</div>
+                    <div class="reason-summary">${escapeHtml(r.reason)}</div>
+                    <div class="date-added">${formatDate(r.date_added)}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        listEl.innerHTML = '<div class="empty-state"><h3>Error loading records</h3></div>';
+        showToast('Failed to load records', 'error');
+    }
+}
+
+async function submitAddForm(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    // Validation
+    const banType = data.ban_type;
+    if (banType === 'temporary' && !data.expiration_type) {
+        showToast('Please select an expiration type for temporary bans', 'error');
+        return;
+    }
+
+    if (data.expiration_type === 'date' && !data.expiration_date) {
+        showToast('Please select an expiration date', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/records', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+            showToast(result.error || 'Failed to add record', 'error');
+            return;
+        }
+
+        closeModal('addModal');
+        showToast('Record added successfully', 'success');
+        loadRecords();
+    } catch (err) {
+        showToast('Failed to add record', 'error');
+    }
+}
+
+async function viewRecord(id) {
+    currentRecordId = id;
+    openModal('detailModal');
+    document.getElementById('detailContent').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+    try {
+        const res = await fetch(`/api/records/${id}`);
+        const record = await res.json();
+
+        if (!res.ok) {
+            showToast(record.error || 'Failed to load record', 'error');
+            closeModal('detailModal');
+            return;
+        }
+
+        document.getElementById('detailTitle').textContent = record.guest_name;
+        renderRecordDetail(record);
+    } catch (err) {
+        showToast('Failed to load record', 'error');
+        closeModal('detailModal');
+    }
+}
+
+function renderRecordDetail(record) {
+    const isReadOnly = record.status === 'lifted';
+
+    let expirationInfo = '-';
+    if (record.ban_type === 'temporary') {
+        if (record.expiration_type === 'date') {
+            expirationInfo = `Auto expires: ${formatDate(record.expiration_date)}`;
+        } else if (record.expiration_type === 'resolved') {
+            expirationInfo = 'Expires when issue resolved';
+        } else if (record.expiration_type === 'manager_review') {
+            expirationInfo = 'Manager review required';
+        }
+    } else {
+        expirationInfo = 'Never (Permanent ban)';
+    }
+
+    let liftedInfo = '';
+    if (record.status === 'lifted') {
+        const liftTypeDisplay = {
+            'manager_override': 'Manager Override',
+            'issue_resolved': 'Issue Resolved',
+            'error_entry': 'Error Entry'
+        }[record.lifted_type] || record.lifted_type;
+
+        liftedInfo = `
+            <div class="detail-section">
+                <h3>Lift Information</h3>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="label">Lifted Date</div>
+                        <div class="value">${formatDate(record.lifted_date)}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">Lift Type</div>
+                        <div class="value">${escapeHtml(liftTypeDisplay)}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">Manager Initials</div>
+                        <div class="value">${escapeHtml(record.lifted_initials)}</div>
+                    </div>
+                    <div class="detail-item full-width">
+                        <div class="label">Lift Reason</div>
+                        <div class="value">${escapeHtml(record.lifted_reason)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    const timelineHtml = record.timeline.map(t => `
+        <div class="timeline-entry">
+            <div class="timeline-date">${formatDate(t.entry_date)}</div>
+            <div class="timeline-initials">${t.staff_initials ? escapeHtml(t.staff_initials) : 'SYS'}</div>
+            <div class="timeline-note ${t.is_system ? 'timeline-system' : ''}">${escapeHtml(t.note)}</div>
+        </div>
+    `).join('');
+
+    const photosHtml = record.photos.map(p => `
+        <div class="photo-item">
+            <img src="/uploads/${escapeHtml(p.filename)}" alt="${escapeHtml(p.original_name)}" onclick="window.open('/uploads/${escapeHtml(p.filename)}', '_blank')">
+            ${!isReadOnly ? `<button type="button" class="delete-photo" onclick="deletePhoto(${p.id}, event)">&times;</button>` : ''}
+        </div>
+    `).join('');
+
+    const photoUploadHtml = !isReadOnly && record.photos.length < 5 ? `
+        <label class="photo-upload">
+            <input type="file" accept="image/*" onchange="uploadPhoto(${record.id}, this)">
+            <div class="photo-upload-icon">+</div>
+            <div class="photo-upload-text">Add Photo<br>(${5 - record.photos.length} remaining)</div>
+        </label>
+    ` : '';
+
+    const addNoteHtml = !isReadOnly ? `
+        <div class="add-note-form">
+            <input type="text" id="noteInitials" placeholder="Init." maxlength="5">
+            <textarea id="noteText" placeholder="Add incident note..."></textarea>
+            <button class="btn btn-primary" onclick="addNote(${record.id})">Add</button>
+        </div>
+    ` : '';
+
+    const liftBanHtml = !isReadOnly ? `
+        <div class="lift-section">
+            <h3>Lift Ban</h3>
+            <form id="liftForm" onsubmit="submitLiftForm(event, ${record.id})">
+                <div class="form-group">
+                    <label>Manager Password *</label>
+                    <input type="password" name="password" required placeholder="Enter manager password">
+                </div>
+                <div class="form-group">
+                    <label>Removal Type *</label>
+                    <select name="lift_type" required>
+                        <option value="">Select...</option>
+                        <option value="manager_override">Manager Override</option>
+                        <option value="issue_resolved">Issue Resolved</option>
+                        <option value="error_entry">Error Entry</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Removal Reason *</label>
+                    <textarea name="lift_reason" required placeholder="Explain why this ban is being lifted..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Manager Initials *</label>
+                    <input type="text" name="initials" required placeholder="e.g., JD" maxlength="5" style="width: 100px;">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-danger">Lift Ban</button>
+                </div>
+            </form>
+        </div>
+    ` : '<div class="read-only-notice">This record has been lifted and is now read-only.</div>';
+
+    document.getElementById('detailContent').innerHTML = `
+        <div class="detail-section">
+            <h3>Ban Information</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="label">Guest Name</div>
+                    <div class="value">${escapeHtml(record.guest_name)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Status</div>
+                    <div class="value"><span class="status-badge ${record.status}">${record.status}</span></div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Ban Type</div>
+                    <div class="value ban-type ${record.ban_type}">${record.ban_type}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Date Added</div>
+                    <div class="value">${formatDate(record.date_added)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Reason</div>
+                    <div class="value">${escapeHtml(record.reason)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="label">Expiration</div>
+                    <div class="value">${expirationInfo}</div>
+                </div>
+                ${record.reason_detail ? `
+                <div class="detail-item full-width">
+                    <div class="label">Additional Details</div>
+                    <div class="value">${escapeHtml(record.reason_detail)}</div>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+
+        ${liftedInfo}
+
+        <div class="detail-section">
+            <h3>Incident Timeline</h3>
+            <div class="timeline">
+                ${timelineHtml || '<p style="color: var(--text-muted);">No timeline entries.</p>'}
+            </div>
+            ${addNoteHtml}
+        </div>
+
+        <div class="detail-section">
+            <h3>Photo Evidence</h3>
+            <div class="photos-grid">
+                ${photosHtml}
+                ${photoUploadHtml}
+            </div>
+            <div class="photo-warning">
+                Incident evidence only. No guest photos unless required for safety documentation.
+            </div>
+        </div>
+
+        ${liftBanHtml}
+    `;
+}
+
+async function addNote(recordId) {
+    const initials = document.getElementById('noteInitials').value.trim();
+    const note = document.getElementById('noteText').value.trim();
+
+    if (!initials) {
+        showToast('Please enter your initials', 'error');
+        return;
+    }
+    if (!note) {
+        showToast('Please enter a note', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/records/${recordId}/timeline`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ staff_initials: initials, note: note })
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+            showToast(result.error || 'Failed to add note', 'error');
+            return;
+        }
+
+        showToast('Note added', 'success');
+        viewRecord(recordId); // Reload detail
+    } catch (err) {
+        showToast('Failed to add note', 'error');
+    }
+}
+
+async function uploadPhoto(recordId, input) {
+    if (!input.files || !input.files[0]) return;
+
+    const formData = new FormData();
+    formData.append('photo', input.files[0]);
+
+    try {
+        const res = await fetch(`/api/records/${recordId}/photos`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+            showToast(result.error || 'Failed to upload photo', 'error');
+            return;
+        }
+
+        showToast('Photo uploaded', 'success');
+        viewRecord(recordId); // Reload detail
+    } catch (err) {
+        showToast('Failed to upload photo', 'error');
+    }
+}
+
+async function deletePhoto(photoId, event) {
+    event.stopPropagation();
+
+    if (!confirm('Delete this photo?')) return;
+
+    try {
+        const res = await fetch(`/api/photos/${photoId}`, { method: 'DELETE' });
+        const result = await res.json();
+
+        if (!res.ok) {
+            showToast(result.error || 'Failed to delete photo', 'error');
+            return;
+        }
+
+        showToast('Photo deleted', 'success');
+        viewRecord(currentRecordId); // Reload detail
+    } catch (err) {
+        showToast('Failed to delete photo', 'error');
+    }
+}
+
+async function submitLiftForm(e, recordId) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+        const res = await fetch(`/api/records/${recordId}/lift`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+            showToast(result.error || 'Failed to lift ban', 'error');
+            return;
+        }
+
+        showToast('Ban lifted successfully', 'success');
+        closeModal('detailModal');
+        loadRecords();
+    } catch (err) {
+        showToast('Failed to lift ban', 'error');
+    }
+}
+
+// Filter handling
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const filter = btn.dataset.filter;
+
+        currentFilter = { status: '', ban_type: '' };
+
+        if (filter === 'active') {
+            currentFilter.status = 'active';
+        } else if (filter === 'expired') {
+            currentFilter.status = 'expired';
+        } else if (filter === 'lifted') {
+            currentFilter.status = 'lifted';
+        } else if (filter === 'temporary') {
+            currentFilter.ban_type = 'temporary';
+        } else if (filter === 'permanent') {
+            currentFilter.ban_type = 'permanent';
+        }
+
+        loadRecords();
+    });
+});
+
+// Search handling
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        currentSearch = e.target.value.trim();
+        loadRecords();
+    }, 300);
+});
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(m => {
+            m.classList.remove('active');
+        });
+        document.body.style.overflow = '';
+    }
+});
+
+// Initial load
+loadRecords();
+</script>
+
 </body>
 </html>
