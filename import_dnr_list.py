@@ -28,8 +28,8 @@ REASON_MAPPING = {
     "trashed": "Damage under review",
     "broke": "Damage under review",
     "destroyed": "Damage under review",
-    "ruined linen": "Ruined linnen",
-    "blood": "Ruined linnen",
+    "ruined linen": "Ruined linen",
+    "blood": "Ruined linen",
     "stole": "Stole property",
     "animals": "Animals",
     "dog": "Animals",
@@ -176,7 +176,7 @@ DNR_ENTRIES = [
     ("Yasmin Craven", "Too many declined cards and canceled reservations", "4/1/24"),
 
     # New entries (below the line in PDF)
-    ("LAZHANE Mobley", "Cut wires in smoke alarm", "5/7/24"),
+    ("Lazhane Mobley", "Cut wires in smoke alarm", "5/7/24"),
     ("Catalies Bailey", "Extremely hostile/argumentative with guests and staff", "5/8/24"),
     ("Tom Rand", "Refusal to pay when we asked, blood all over shower curtain", "5/20/24"),
     ("Lisa Franklin", "Left without paying", "5/23/24"),

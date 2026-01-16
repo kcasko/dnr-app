@@ -406,7 +406,24 @@ def get_records():
         sql += " AND guest_name LIKE ?"
         params.append(f"%{search}%")
 
-    sql += " ORDER BY date_added DESC"
+
+    # Sorting logic
+    sort = request.args.get('sort', None)
+    dir_ = request.args.get('dir', None)
+    allowed_sorts = {
+        'name': 'LOWER(guest_name)',
+        'date': 'date_added',
+        'status': 'status',
+        'ban_type': 'ban_type'
+    }
+    allowed_dirs = {'asc', 'desc'}
+
+    if sort in allowed_sorts and dir_ in allowed_dirs:
+        order_by = f"{allowed_sorts[sort]} {dir_.upper()}"
+    else:
+        order_by = "date_added DESC"
+
+    sql += f" ORDER BY {order_by}"
 
     conn = connect_db()
     records = conn.execute(sql, params).fetchall()

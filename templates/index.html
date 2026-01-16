@@ -38,8 +38,17 @@
         </div>
 
         <button class="btn-add" onclick="openAddModal()">
-            <span>+</span> Add Record
-        </button>
+                        <span>+</span> Add Record
+                </button>
+
+                <!-- Sorting controls -->
+                <select id="sortSelect" style="margin-left:12px;">
+                    <option value="date">Date Added</option>
+                    <option value="name">Guest Name</option>
+                    <option value="status">Status</option>
+                    <option value="ban_type">Ban Type</option>
+                </select>
+                <button id="sortDirBtn" type="button" style="margin-left:4px;">Desc</button>
     </div>
 
     <div class="records-list">
@@ -175,6 +184,8 @@ let currentFilter = { status: '', ban_type: '' };
 let currentSearch = '';
 let currentRecordId = null;
 let csrfToken = null;
+let currentSort = 'date';
+let currentDir = 'desc';
 
 // Get CSRF token on page load
 async function getCsrfToken() {
@@ -269,10 +280,15 @@ async function loadRecords() {
     const listEl = document.getElementById('recordsList');
     listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
+
     const params = new URLSearchParams();
     if (currentFilter.status) params.set('status', currentFilter.status);
     if (currentFilter.ban_type) params.set('ban_type', currentFilter.ban_type);
     if (currentSearch) params.set('search', currentSearch);
+    if (typeof currentSort !== 'undefined' && typeof currentDir !== 'undefined') {
+        params.set('sort', currentSort);
+        params.set('dir', currentDir);
+    }
 
     try {
         const res = await fetch('/api/records?' + params.toString());
@@ -741,8 +757,30 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Initial load
-getCsrfToken().then(() => loadRecords());
+// Sorting controls event listeners (safe, after DOM is loaded)
+document.addEventListener('DOMContentLoaded', function() {
+    var sortSelect = document.getElementById('sortSelect');
+    var sortDirBtn = document.getElementById('sortDirBtn');
+
+    if (sortSelect) {
+        sortSelect.value = currentSort;
+        sortSelect.addEventListener('change', function() {
+            currentSort = sortSelect.value;
+            loadRecords();
+        });
+    }
+
+    if (sortDirBtn) {
+        sortDirBtn.addEventListener('click', function() {
+            currentDir = (currentDir === 'desc') ? 'asc' : 'desc';
+            sortDirBtn.textContent = currentDir.charAt(0).toUpperCase() + currentDir.slice(1);
+            loadRecords();
+        });
+    }
+
+    // Initial load
+    getCsrfToken().then(() => loadRecords());
+});
 </script>
 
 </body>
