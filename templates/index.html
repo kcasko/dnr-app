@@ -15,6 +15,10 @@
             <h1>Restricted Guests Log</h1>
             <div class="subtitle">Do Not Rent System - Internal Use Only</div>
         </div>
+        <div class="header-actions">
+            <a href="/settings" class="logout-btn">Settings</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
     </div>
 </header>
 
@@ -85,6 +89,12 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label>Date of Incident (Optional)</label>
+                    <input type="date" name="incident_date" placeholder="Select incident date" title="Date of Incident">
+                    <small class="form-hint">Leave blank to use today's date</small>
+                </div>
+
                 <div class="expiration-fields" id="expirationFields">
                     <div class="form-group">
                         <label>Expiration Type *</label>
@@ -108,14 +118,17 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="reason-select">Reason *</label>
-                    <select name="reason" id="reason-select" required title="Select ban reason">
-                        <option value="">Select a reason...</option>
+                    <label>Reasons * (Select all that apply)</label>
+                    <div class="checkbox-group" id="reason-checkboxes">
                         {% for reason in reasons %}
-                        <option value="{{ reason }}">{{ reason }}</option>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="reasons" value="{{ reason }}"> {{ reason }}
+                        </label>
                         {% endfor %}
-                        <option value="Other">Other (specify in details)</option>
-                    </select>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="reasons" value="Other"> Other (specify in details)
+                        </label>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -148,11 +161,39 @@
 <!-- Toast Notification -->
 <div class="toast" id="toast"></div>
 
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-content">
+        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
+    </div>
+</footer>
+
 <script>
 // State
 let currentFilter = { status: '', ban_type: '' };
 let currentSearch = '';
 let currentRecordId = null;
+let csrfToken = null;
+
+// Get CSRF token on page load
+async function getCsrfToken() {
+    try {
+        const res = await fetch('/api/csrf-token');
+        const data = await res.json();
+        csrfToken = data.csrf_token;
+    } catch (err) {
+        console.error('Failed to get CSRF token');
+    }
+}
+
+// Helper to get headers with CSRF token
+function getHeaders(contentType = 'application/json') {
+    const headers = {};
+    if (contentType) headers['Content-Type'] = contentType;
+    if (csrfToken) headers['X-CSRFToken'] = csrfToken;
+    return headers;
+}
 
 // Utility functions
 function escapeHtml(str) {
@@ -269,9 +310,31 @@ async function submitAddForm(e) {
     e.preventDefault();
     const form = e.target;
     const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
+
+    // Get all checked reasons
+    const reasons = [];
+    form.querySelectorAll('input[name="reasons"]:checked').forEach(checkbox => {
+        reasons.push(checkbox.value);
+    });
+
+    // Build data object manually to handle array properly
+    const data = {
+        guest_name: formData.get('guest_name'),
+        ban_type: formData.get('ban_type'),
+        reasons: reasons,
+        reason_detail: formData.get('reason_detail'),
+        staff_initials: formData.get('staff_initials'),
+        incident_date: formData.get('incident_date'),
+        expiration_type: formData.get('expiration_type'),
+        expiration_date: formData.get('expiration_date')
+    };
 
     // Validation
+    if (reasons.length === 0) {
+        showToast('Please select at least one reason', 'error');
+        return;
+    }
+
     const banType = data.ban_type;
     if (banType === 'temporary' && !data.expiration_type) {
         showToast('Please select an expiration type for temporary bans', 'error');
@@ -286,7 +349,7 @@ async function submitAddForm(e) {
     try {
         const res = await fetch('/api/records', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders(),
             body: JSON.stringify(data)
         });
 
@@ -460,9 +523,15 @@ function renderRecordDetail(record) {
                     <div class="label">Date Added</div>
                     <div class="value">${formatDate(record.date_added)}</div>
                 </div>
+                ${record.incident_date ? `
                 <div class="detail-item">
-                    <div class="label">Reason</div>
-                    <div class="value">${escapeHtml(record.reason)}</div>
+                    <div class="label">Date of Incident</div>
+                    <div class="value">${formatDate(record.incident_date)}</div>
+                </div>
+                ` : ''}
+                <div class="detail-item">
+                    <div class="label">Reasons</div>
+                    <div class="value">${Array.isArray(record.reasons) ? record.reasons.map(r => escapeHtml(r)).join(', ') : escapeHtml(record.reason || '')}</div>
                 </div>
                 <div class="detail-item">
                     <div class="label">Expiration</div>
@@ -518,7 +587,7 @@ async function addNote(recordId) {
     try {
         const res = await fetch(`/api/records/${recordId}/timeline`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders(),
             body: JSON.stringify({ staff_initials: initials, note: note })
         });
 
@@ -543,8 +612,11 @@ async function uploadPhoto(recordId, input) {
     formData.append('photo', input.files[0]);
 
     try {
+        const headers = {};
+        if (csrfToken) headers['X-CSRFToken'] = csrfToken;
         const res = await fetch(`/api/records/${recordId}/photos`, {
             method: 'POST',
+            headers: headers,
             body: formData
         });
 
@@ -568,7 +640,9 @@ async function deletePhoto(photoId, event) {
     if (!confirm('Delete this photo?')) return;
 
     try {
-        const res = await fetch(`/api/photos/${photoId}`, { method: 'DELETE' });
+        const headers = {};
+        if (csrfToken) headers['X-CSRFToken'] = csrfToken;
+        const res = await fetch(`/api/photos/${photoId}`, { method: 'DELETE', headers: headers });
         const result = await res.json();
 
         if (!res.ok) {
@@ -592,7 +666,7 @@ async function submitLiftForm(e, recordId) {
     try {
         const res = await fetch(`/api/records/${recordId}/lift`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders(),
             body: JSON.stringify(data)
         });
 
@@ -668,7 +742,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Initial load
-loadRecords();
+getCsrfToken().then(() => loadRecords());
 </script>
 
 </body>

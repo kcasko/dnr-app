@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# Database
+*.db
+
+# Uploads - Contains user uploaded images
+uploads/
+
+# Credentials (CRITICAL: Never commit this file!)
+.credentials
+
+# Environment variables (CRITICAL: Contains secrets!)
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmpclaude-*
+*.tmp
+*.log
+
+# Security: Never commit these
+*.pem
+*.key
+secrets.json
