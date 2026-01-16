@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Restricted Guests Log</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .visually-hidden {
+            position: absolute !important;
+            height: 1px; width: 1px;
+            overflow: hidden;
+            clip: rect(1px, 1px, 1px, 1px);
+            white-space: nowrap;
+        }
+    </style>
 </head>
 <body>
 
@@ -42,13 +51,14 @@
                 </button>
 
                 <!-- Sorting controls -->
-                <select id="sortSelect" style="margin-left:12px;">
+                <label for="sortSelect" class="visually-hidden">Sort records by</label>
+                <select id="sortSelect" title="Sort records by">
                     <option value="date">Date Added</option>
                     <option value="name">Guest Name</option>
                     <option value="status">Status</option>
                     <option value="ban_type">Ban Type</option>
                 </select>
-                <button id="sortDirBtn" type="button" style="margin-left:4px;">Desc</button>
+                <button id="sortDirBtn" type="button" class="sort-dir-btn">Desc</button>
     </div>
 
     <div class="records-list">
