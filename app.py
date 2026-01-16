@@ -206,12 +206,19 @@ def connect_db():
 
 def login_required(f):
     """Decorator to require login for routes."""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if is_setup_required():
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Setup required"}), 401
             return redirect(url_for('setup'))
+
         if not session.get('logged_in'):
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Unauthorized"}), 401
             return redirect(url_for('login'))
+
         # Refresh session on activity
         session.modified = True
         return f(*args, **kwargs)
