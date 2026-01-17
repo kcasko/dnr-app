@@ -25,6 +25,8 @@
             <div class="subtitle">Do Not Rent System - Internal Use Only</div>
         </div>
         <div class="header-actions">
+            <a href="/log-book" class="logout-btn">Log Book</a>
+            <a href="/maintenance" class="logout-btn">Maintenance</a>
             <a href="/settings" class="logout-btn">Settings</a>
             <a href="/logout" class="logout-btn">Logout</a>
         </div>
@@ -53,12 +55,13 @@
                 <!-- Sorting controls -->
                 <label for="sortSelect" class="visually-hidden">Sort records by</label>
                 <select id="sortSelect" title="Sort records by">
+                    <option value="name">First Name</option>
+                    <option value="last_name">Last Name</option>
                     <option value="date">Date Added</option>
-                    <option value="name">Guest Name</option>
                     <option value="status">Status</option>
                     <option value="ban_type">Ban Type</option>
                 </select>
-                <button id="sortDirBtn" type="button" class="sort-dir-btn">Desc</button>
+                <button id="sortDirBtn" type="button" class="sort-dir-btn">Asc</button>
     </div>
 
     <div class="records-list">
@@ -194,8 +197,8 @@ let currentFilter = { status: '', ban_type: '' };
 let currentSearch = '';
 let currentRecordId = null;
 let csrfToken = null;
-let currentSort = 'date';
-let currentDir = 'desc';
+let currentSort = 'name';
+let currentDir = 'asc';
 
 // Get CSRF token on page load
 async function getCsrfToken() {
@@ -240,6 +243,16 @@ function formatDate(dateStr) {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatNameForSort(name) {
+    if (!name) return '';
+    if (currentSort !== 'last_name') return name;
+    const parts = name.trim().split(/\s+/);
+    if (parts.length <= 1) return name;
+    const last = parts.pop();
+    const first = parts.join(' ');
+    return `${last}, ${first}`;
 }
 
 // Modal functions
@@ -299,7 +312,6 @@ async function loadRecords() {
         params.set('sort', currentSort);
         params.set('dir', currentDir);
     }
-
     try {
         const res = await fetch('/api/records?' + params.toString());
         const records = await res.json();
@@ -318,7 +330,7 @@ async function loadRecords() {
             const isDimmed = r.status === 'lifted' || r.status === 'expired';
             return `
                 <div class="record-row ${isDimmed ? 'dimmed' : ''}" onclick="viewRecord(${r.id})">
-                    <div class="name">${escapeHtml(r.guest_name)}</div>
+                    <div class="name">${escapeHtml(formatNameForSort(r.guest_name))}</div>
                     <div><span class="status-badge ${r.status}">${r.status}</span></div>
                     <div class="ban-type ${r.ban_type}">${r.ban_type}</div>
                     <div class="reason-summary">${escapeHtml(r.reason)}</div>
@@ -788,7 +800,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initial load
     getCsrfToken().then(() => loadRecords());
 });
 </script>

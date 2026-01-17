@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Log Book - Restricted Guests Log</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+        <div class="header-text">
+            <h1>Log Book</h1>
+            <div class="subtitle">Shift Handoff and Operational Notes</div>
+        </div>
+        <div class="header-actions">
+            <a href="/dnr" class="logout-btn">DNR List</a>
+            <a href="/maintenance" class="logout-btn">Maintenance</a>
+            <a href="/settings" class="logout-btn">Settings</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="log-book-actions">
+        <a href="#new-entry" class="btn-add">New Log Entry</a>
+    </div>
+
+    <div class="log-entry-form" id="new-entry">
+        <h2>New Log Entry</h2>
+        <form method="POST" action="/log-book/entries">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Author Name *</label>
+                <input type="text" name="author_name" required placeholder="Enter your name">
+            </div>
+            <div class="form-group">
+                <label>Note *</label>
+                <textarea name="note" required placeholder="Write the handoff note..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Add Entry</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="log-book-feed">
+        <h2>Recent Entries</h2>
+        {% if entries %}
+            {% for entry in entries %}
+            <div class="log-entry {% if entry.is_system_event %}log-entry-system{% endif %}">
+                <div class="log-entry-header">
+                    <div>
+                        <span class="log-entry-author">{{ entry.author_name }}</span>
+                        {% if entry.is_system_event %}
+                        <span class="log-entry-tag">System</span>
+                        {% endif %}
+                    </div>
+                    <div class="log-entry-time">{{ entry.created_at }}</div>
+                </div>
+                <div class="log-entry-note">{{ entry.note }}</div>
+
+                {% if entry.is_editable %}
+                <div class="log-entry-actions">
+                    <a class="btn btn-secondary" href="/log-book?edit={{ entry.id }}">Edit</a>
+                </div>
+                {% endif %}
+
+                {% if editable_id == entry.id and entry.is_editable %}
+                <form class="log-entry-edit" method="POST" action="/log-book/entries/{{ entry.id }}/edit">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label>Author Name *</label>
+                        <input type="text" name="author_name" required value="{{ entry.author_name }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Note *</label>
+                        <textarea name="note" required>{{ entry.note }}</textarea>
+                    </div>
+                    <div class="form-actions">
+                        <a class="btn btn-secondary" href="/log-book">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <h3>No log entries yet</h3>
+                <p>Start the log book with your first handoff note.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-content">
+        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
+    </div>
+</footer>
+
+</body>
+</html>

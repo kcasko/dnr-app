@@ -1,4 +1,5 @@
 """
+This script is for local development only. Do not run in production.
 Database initialization script for Restricted Guests Log (DNR System)
 Run this once to create/reset the database schema.
 """
@@ -13,6 +14,8 @@ def init_db():
     cursor = conn.cursor()
 
     # Drop existing tables if they exist (for clean reset)
+    cursor.execute("DROP TABLE IF EXISTS log_entries")
+    cursor.execute("DROP TABLE IF EXISTS maintenance_items")
     cursor.execute("DROP TABLE IF EXISTS photos")
     cursor.execute("DROP TABLE IF EXISTS timeline_entries")
     cursor.execute("DROP TABLE IF EXISTS password_attempts")
@@ -77,11 +80,45 @@ def init_db():
         )
     """)
 
+    # Maintenance items table
+    cursor.execute("""
+        CREATE TABLE maintenance_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
+            updated_at TIMESTAMP,
+            title TEXT NOT NULL,
+            description TEXT,
+            location TEXT,
+            priority TEXT CHECK(priority IN ('low','medium','high','urgent')) DEFAULT 'medium',
+            status TEXT CHECK(status IN ('open','in_progress','blocked','completed')) DEFAULT 'open',
+            completed_at TIMESTAMP
+        )
+    """)
+
+    # Log book entries table
+    cursor.execute("""
+        CREATE TABLE log_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
+            author_name TEXT NOT NULL,
+            note TEXT NOT NULL,
+            related_record_id INTEGER,
+            related_maintenance_id INTEGER,
+            is_system_event BOOLEAN DEFAULT 0,
+            FOREIGN KEY (related_record_id) REFERENCES records(id),
+            FOREIGN KEY (related_maintenance_id) REFERENCES maintenance_items(id)
+        )
+    """)
+
     # Create indexes
     cursor.execute("CREATE INDEX idx_records_guest_name ON records(guest_name)")
     cursor.execute("CREATE INDEX idx_records_status ON records(status)")
     cursor.execute("CREATE INDEX idx_timeline_record ON timeline_entries(record_id)")
     cursor.execute("CREATE INDEX idx_photos_record ON photos(record_id)")
+    cursor.execute("CREATE INDEX idx_log_entries_created_at ON log_entries(created_at)")
+    cursor.execute("CREATE INDEX idx_log_entries_record ON log_entries(related_record_id)")
+    cursor.execute("CREATE INDEX idx_log_entries_maintenance ON log_entries(related_maintenance_id)")
+    cursor.execute("CREATE INDEX idx_maintenance_status ON maintenance_items(status)")
 
     conn.commit()
     conn.close()

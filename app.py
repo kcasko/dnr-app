@@ -94,13 +94,15 @@ BAN_REASONS = [
     "Chargeback or payment dispute pending",
     "Local police involvement without arrest",
     "Welfare check initiated",
-    "Ruined linnen",
+    "Ruined linen",
     "Scammer",
     "Animals",
     "Drug use",
     "Former employee on bad terms",
     "Stole property"
 ]
+
+LOG_EDIT_WINDOW_MINUTES = 10
 
 
 def hash_password(password: str) -> str:
@@ -223,6 +225,77 @@ def login_required(f):
         session.modified = True
         return f(*args, **kwargs)
     return decorated_function
+
+
+def parse_db_timestamp(value: str) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        try:
+            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+
+
+def is_editable_log_entry(entry: dict) -> bool:
+    if entry.get("is_system_event"):
+        return False
+    created_at = parse_db_timestamp(entry.get("created_at"))
+    if not created_at:
+        return False
+    return datetime.now() - created_at <= timedelta(minutes=LOG_EDIT_WINDOW_MINUTES)
+
+
+def log_entry_summary(title: str, location: str | None) -> str:
+    if location:
+        return f"{location.strip()} {title.strip()}"
+    return title.strip()
+
+
+def local_timestamp() -> str:
+    return datetime.now().isoformat(sep=" ", timespec="seconds")
+
+
+def insert_log_entry(
+    note: str,
+    related_record_id=None,
+    related_maintenance_id=None,
+    is_system_event=False,
+    author_name=None,
+    created_at=None,
+):
+    if is_system_event:
+        author_name = "System"
+    if not author_name:
+        raise ValueError("author_name is required for log entries")
+    if not created_at:
+        created_at = local_timestamp()
+    conn = connect_db()
+    conn.execute("""
+        INSERT INTO log_entries (author_name, note, related_record_id, related_maintenance_id, is_system_event, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (author_name, note, related_record_id, related_maintenance_id, int(is_system_event), created_at))
+    conn.commit()
+    conn.close()
+
+
+def warn_if_missing_tables():
+    required_tables = {"log_entries", "maintenance_items"}
+    conn = connect_db()
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()
+    conn.close()
+    existing = {row["name"] for row in rows}
+    missing = sorted(required_tables - existing)
+    if missing:
+        missing_list = ", ".join(missing)
+        print("WARNING: Missing tables:", missing_list)
+        print("Run: python migrate_add_log_maintenance.py")
 
 
 def check_expired_bans():
@@ -368,7 +441,7 @@ def login():
         if username == LOGIN_USERNAME and verify_password(password, LOGIN_PASSWORD_HASH):
             session['logged_in'] = True
             session.permanent = True
-            return redirect(url_for('home'))
+            return redirect(url_for('log_book'))
         else:
             return render_template("login.html", error="Invalid username or password")
 
@@ -382,8 +455,30 @@ def logout():
 
 
 @app.get("/")
+@app.get("/log-book")
 @login_required
-def home():
+def log_book():
+    conn = connect_db()
+    entries = conn.execute("""
+        SELECT * FROM log_entries
+        ORDER BY created_at DESC, id DESC
+    """).fetchall()
+    conn.close()
+
+    edit_id = request.args.get("edit", "").strip()
+    editable_id = None
+    if edit_id.isdigit():
+        editable_id = int(edit_id)
+
+    for entry in entries:
+        entry["is_editable"] = is_editable_log_entry(entry)
+
+    return render_template("log_book.html", entries=entries, editable_id=editable_id)
+
+
+@app.get("/dnr")
+@login_required
+def dnr_list():
     check_expired_bans()
     return render_template("index.html", reasons=BAN_REASONS)
 
@@ -414,26 +509,54 @@ def get_records():
         params.append(f"%{search}%")
 
 
-    # Sorting logic
-    sort = request.args.get('sort', None)
-    dir_ = request.args.get('dir', None)
-    allowed_sorts = {
-        'name': 'LOWER(guest_name)',
-        'date': 'date_added',
-        'status': 'status',
-        'ban_type': 'ban_type'
-    }
-    allowed_dirs = {'asc', 'desc'}
-
-    if sort in allowed_sorts and dir_ in allowed_dirs:
-        order_by = f"{allowed_sorts[sort]} {dir_.upper()}"
-    else:
-        order_by = "date_added DESC"
-
-    sql += f" ORDER BY {order_by}"
+    sort = request.args.get("sort", "").strip()
+    dir_ = request.args.get("dir", "").strip().lower()
+    if dir_ not in {"asc", "desc"}:
+        dir_ = "asc"
+    if sort not in {"name", "last_name", "date", "status", "ban_type"}:
+        sort = "name"
+        dir_ = "asc"
 
     conn = connect_db()
     records = conn.execute(sql, params).fetchall()
+
+    def first_name_key(name: str) -> str:
+        parts = name.strip().split()
+        if not parts:
+            return ""
+        return parts[0].lower()
+
+    def date_key(value: str) -> str:
+        return value or ""
+
+    if sort == "name":
+        records.sort(
+            key=lambda r: (
+                first_name_key(r.get("guest_name", "")),
+                r.get("guest_name", "").lower(),
+            )
+        )
+    elif sort == "last_name":
+        def last_name_key(name: str) -> str:
+            parts = name.strip().split()
+            if not parts:
+                return ""
+            return parts[-1].lower()
+        records.sort(
+            key=lambda r: (
+                last_name_key(r.get("guest_name", "")),
+                r.get("guest_name", "").lower(),
+            )
+        )
+    elif sort == "date":
+        records.sort(key=lambda r: date_key(r.get("date_added", "")))
+    elif sort == "status":
+        records.sort(key=lambda r: (r.get("status", ""), r.get("guest_name", "").lower()))
+    elif sort == "ban_type":
+        records.sort(key=lambda r: (r.get("ban_type", ""), r.get("guest_name", "").lower()))
+
+    if dir_ == "desc":
+        records.reverse()
 
     # Parse reasons JSON for each record
     for record in records:
@@ -448,6 +571,161 @@ def get_records():
     conn.close()
 
     return jsonify(records)
+
+
+@app.post("/log-book/entries")
+@login_required
+@limiter.limit("10 per minute")
+def add_log_entry():
+    author_name = request.form.get("author_name", "").strip()[:100]
+    note = request.form.get("note", "").strip()[:2000]
+
+    if not author_name or not note:
+        return redirect(url_for("log_book"))
+
+    insert_log_entry(note, author_name=author_name, is_system_event=False)
+
+    return redirect(url_for("log_book"))
+
+
+@app.post("/log-book/entries/<int:entry_id>/edit")
+@login_required
+@limiter.limit("10 per minute")
+def edit_log_entry(entry_id):
+    conn = connect_db()
+    entry = conn.execute("""
+        SELECT * FROM log_entries WHERE id = ?
+    """, (entry_id,)).fetchone()
+
+    if not entry or entry.get("is_system_event"):
+        conn.close()
+        return redirect(url_for("log_book"))
+
+    if not is_editable_log_entry(entry):
+        conn.close()
+        return redirect(url_for("log_book"))
+
+    author_name = request.form.get("author_name", "").strip()[:100]
+    note = request.form.get("note", "").strip()[:2000]
+    if not author_name or not note:
+        conn.close()
+        return redirect(url_for("log_book", edit=entry_id))
+
+    conn.execute("""
+        UPDATE log_entries
+        SET author_name = ?, note = ?
+        WHERE id = ?
+    """, (author_name, note, entry_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("log_book"))
+
+
+@app.get("/maintenance")
+@login_required
+def maintenance_list():
+    status_filter = request.args.get("status", "").strip()
+
+    conn = connect_db()
+    if status_filter in {"open", "in_progress", "blocked", "completed"}:
+        items = conn.execute("""
+            SELECT * FROM maintenance_items
+            WHERE status = ?
+            ORDER BY created_at DESC, id DESC
+        """, (status_filter,)).fetchall()
+    elif status_filter == "all":
+        items = conn.execute("""
+            SELECT * FROM maintenance_items
+            ORDER BY created_at DESC, id DESC
+        """).fetchall()
+    else:
+        items = conn.execute("""
+            SELECT * FROM maintenance_items
+            WHERE status IN ('open', 'in_progress')
+            ORDER BY created_at DESC, id DESC
+        """).fetchall()
+        status_filter = "default"
+    conn.close()
+
+    return render_template("maintenance.html", items=items, status_filter=status_filter)
+
+
+@app.post("/maintenance")
+@login_required
+@limiter.limit("10 per minute")
+def add_maintenance_item():
+    title = request.form.get("title", "").strip()[:200]
+    description = request.form.get("description", "").strip()[:2000]
+    location = request.form.get("location", "").strip()[:200]
+    priority = request.form.get("priority", "medium").strip()
+
+    if not title:
+        return redirect(url_for("maintenance_list"))
+    if priority not in {"low", "medium", "high", "urgent"}:
+        priority = "medium"
+
+    now = local_timestamp()
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO maintenance_items (title, description, location, priority, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (title, description or None, location or None, priority, now, now))
+    maintenance_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    summary = log_entry_summary(title, location)
+    insert_log_entry(f"Maintenance reported: {summary}", related_maintenance_id=maintenance_id, is_system_event=True)
+
+    return redirect(url_for("maintenance_list"))
+
+
+@app.post("/maintenance/<int:item_id>/status")
+@login_required
+@limiter.limit("10 per minute")
+def update_maintenance_status(item_id):
+    new_status = request.form.get("status", "").strip()
+    if new_status not in {"open", "in_progress", "blocked", "completed"}:
+        return redirect(url_for("maintenance_list"))
+
+    conn = connect_db()
+    item = conn.execute("""
+        SELECT * FROM maintenance_items WHERE id = ?
+    """, (item_id,)).fetchone()
+
+    if not item:
+        conn.close()
+        return redirect(url_for("maintenance_list"))
+
+    if item.get("status") == new_status:
+        conn.close()
+        return redirect(url_for("maintenance_list"))
+
+    now = datetime.now().isoformat(sep=" ", timespec="seconds")
+    completed_at = now if new_status == "completed" else None
+    conn.execute("""
+        UPDATE maintenance_items
+        SET status = ?, updated_at = ?, completed_at = ?
+        WHERE id = ?
+    """, (new_status, now, completed_at, item_id))
+    conn.commit()
+    conn.close()
+
+    summary = log_entry_summary(item.get("title", ""), item.get("location"))
+    if new_status == "in_progress":
+        message = f"Maintenance started: {summary}"
+    elif new_status == "completed":
+        message = f"Maintenance completed: {summary}"
+    elif new_status == "blocked":
+        message = f"Maintenance blocked: {summary}"
+    else:
+        message = f"Maintenance updated ({new_status}): {summary}"
+
+    insert_log_entry(message, related_maintenance_id=item_id, is_system_event=True)
+
+    return redirect(url_for("maintenance_list"))
 
 
 @app.get("/api/records/<int:record_id>")
@@ -924,6 +1202,7 @@ if __name__ == "__main__":
         print(f"[DEV MODE] Database: {DB_PATH}")
         print(f"[DEV MODE] Upload folder: {UPLOAD_FOLDER}")
         print("[DEV MODE] Debug mode enabled - DO NOT USE IN PRODUCTION")
+        warn_if_missing_tables()
 
     # Only enable debug mode in development
     app.run(debug=not is_production, host='127.0.0.1')
