@@ -43,8 +43,8 @@
         </div>
 
         <div class="filter-group">
-            <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="active">Active</button>
+            <button class="filter-btn" data-filter="all">All</button>
+            <button class="filter-btn active" data-filter="active">Active</button>
             <button class="filter-btn" data-filter="temporary">Temporary</button>
             <button class="filter-btn" data-filter="permanent">Permanent</button>
             <button class="filter-btn" data-filter="expired">Expired</button>
@@ -196,7 +196,7 @@
 
 <script>
 // State
-let currentFilter = { status: '', ban_type: '' };
+let currentFilter = { status: 'active', ban_type: '' };
 let currentSearch = '';
 let currentRecordId = null;
 let csrfToken = null;
