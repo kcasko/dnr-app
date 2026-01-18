@@ -61,7 +61,7 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label>Word File *</label>
-                <input type="file" name="checklist_file" accept=".docx" required>
+                <input type="file" name="checklist_file" accept=".docx" required title="Upload DOCX checklist file">
                 <small class="form-hint">Each paragraph becomes a checklist item.</small>
             </div>
             <div class="form-actions">
@@ -93,11 +93,7 @@
                 <h2>{{ template.name }}</h2>
                 {% if template.description %}<p>{{ template.description }}</p>{% endif %}
             </div>
-            <ul class="checklist-items">
-                {% for item in items_by_template.get(template.id, []) %}
-                <li>{{ item.item_text }}</li>
-                {% endfor %}
-            </ul>
+            <ul class="checklist-items">{%- for item in items_by_template.get(template.id, []) -%}<li>{{ item.item_text }}</li>{%- endfor -%}</ul>
             <div class="entry-actions">
                 <form method="POST" action="/cleaning-checklists/{{ template.id }}/delete">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -125,4 +121,3 @@
 
 </body>
 </html>
-

@@ -31,6 +31,7 @@ except ImportError:
     HAS_DOCX = False
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect, url_for
+from markupsafe import Markup, escape
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -466,7 +467,8 @@ def setup():
                 errors.append("Manager password must contain uppercase, lowercase, and numbers")
 
         if errors:
-            return render_template("setup.html", errors=errors)
+            errors_html = Markup("".join(f"<li>{escape(error)}</li>" for error in errors))
+            return render_template("setup.html", errors=errors, errors_html=errors_html)
 
         # Create credentials
         password_hash = hash_password(password)
@@ -1060,10 +1062,19 @@ def cleaning_checklists_page():
     for item in items:
         items_by_template.setdefault(item["template_id"], []).append(item)
 
+    items_html_by_template = {}
+    for template_id, template_items in items_by_template.items():
+        items_html = "".join(
+            f"<li>{escape(entry.get('item_text', ''))}</li>"
+            for entry in template_items
+        )
+        items_html_by_template[template_id] = Markup(items_html)
+
     return render_template(
         "cleaning_checklists.html",
         templates=templates,
         items_by_template=items_by_template,
+        items_html_by_template=items_html_by_template,
         error=request.args.get("error", "").strip(),
     )
 

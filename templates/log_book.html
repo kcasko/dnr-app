@@ -74,7 +74,7 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group">
                         <label>Note *</label>
-                        <textarea name="note" required>{{ entry.note }}</textarea>
+                        <textarea name="note" required placeholder="Edit the handoff note...">{{ entry.note }}</textarea>
                     </div>
                     <div class="form-actions">
                         <a class="btn btn-secondary" href="/log-book">Cancel</a>

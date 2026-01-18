@@ -15,6 +15,12 @@
             padding: 20px;
         }
 
+        .setup-description {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+        }
+
         .setup-container {
             background: white;
             border-radius: 12px;
@@ -170,11 +176,7 @@
 
         {% if errors %}
         <div class="error-message">
-            <ul>
-            {% for error in errors %}
-                <li>{{ error }}</li>
-            {% endfor %}
-            </ul>
+            <ul>{{- errors_html -}}</ul>
         </div>
         {% endif %}
 
@@ -182,7 +184,7 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="section-title">Login Credentials</div>
-            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">
+            <p class="setup-description">
                 These credentials will be used to access the system.
             </p>
 
@@ -211,7 +213,7 @@
             </div>
 
             <div class="section-title">Manager Password</div>
-            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">
+            <p class="setup-description">
                 This separate password is required to lift bans. Keep it secure and share only with authorized managers.
             </p>
 

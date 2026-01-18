@@ -52,7 +52,7 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label>Word File *</label>
-                <input type="file" name="guide_file" accept=".docx" required>
+                <input type="file" name="guide_file" accept=".docx" required title="Select a DOCX file to import">
                 <small class="form-hint">Imports the document into readable text.</small>
             </div>
             <div class="form-actions">

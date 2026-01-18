@@ -55,8 +55,8 @@
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>Priority</label>
-                    <select name="priority">
+                    <label for="priority-select">Priority</label>
+                    <select id="priority-select" name="priority">
                         <option value="low">Low</option>
                         <option value="medium" selected>Medium</option>
                         <option value="high">High</option>
@@ -111,17 +111,17 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label>Title *</label>
-                            <input type="text" name="title" required value="{{ item.title }}">
+                            <input type="text" name="title" required value="{{ item.title }}" placeholder="AC not cooling">
                         </div>
                         <div class="form-group">
                             <label>Location</label>
-                            <input type="text" name="location" value="{{ item.location }}">
+                            <input type="text" name="location" value="{{ item.location }}" placeholder="Room 214" title="Location">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Priority</label>
-                            <select name="priority">
+                            <label for="priority-{{ item.id }}">Priority</label>
+                            <select id="priority-{{ item.id }}" name="priority">
                                 <option value="low" {% if item.priority == 'low' %}selected{% endif %}>Low</option>
                                 <option value="medium" {% if item.priority == 'medium' %}selected{% endif %}>Medium</option>
                                 <option value="high" {% if item.priority == 'high' %}selected{% endif %}>High</option>
@@ -131,7 +131,7 @@
                     </div>
                     <div class="form-group">
                         <label>Description</label>
-                        <textarea name="description">{{ item.description }}</textarea>
+                        <textarea name="description" placeholder="Add any helpful details..." title="Description">{{ item.description }}</textarea>
                     </div>
                     <div class="form-actions">
                         <a class="btn btn-secondary" href="/maintenance">Cancel</a>
