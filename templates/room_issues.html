@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Room Issues - DNR App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+        <div class="header-text">
+            <h1>Room Issues</h1>
+            <div class="subtitle">Out of Order and Use If Needed</div>
+        </div>
+                <div class="header-actions">
+            <a href="/overview" class="logout-btn">Overview</a>
+            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+            <a href="/log-book" class="logout-btn">Shift Notes</a>
+            <a href="/room-issues" class="logout-btn">Room Issues</a>
+            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+            <a href="/settings" class="logout-btn">Settings</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="room-issues-form">
+        <h2>Log Room Status</h2>
+        <form method="POST" action="/room-issues">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Room Number *</label>
+                    <input type="text" name="room_number" required placeholder="Room 214">
+                </div>
+                <div class="form-group">
+                    <label>Status *</label>
+                    <select name="status" required>
+                        <option value="out_of_order">Out of Order</option>
+                        <option value="use_if_needed">Use If Needed</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="note" placeholder="Brief context for the desk..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Add Room Issue</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="room-issues-list">
+        <h2>Current Room Issues</h2>
+        {% if issues %}
+            {% for issue in issues %}
+            <div class="room-issue-card {% if issue.state == 'resolved' %}resolved{% endif %}">
+                <div class="room-issue-header">
+                    <div>
+                        <div class="room-issue-room">Room {{ issue.room_number }}</div>
+                        <div class="room-issue-meta">Logged: {{ issue.created_at }}</div>
+                        {% if issue.resolved_at %}<div class="room-issue-meta">Resolved: {{ issue.resolved_at }}</div>{% endif %}
+                    </div>
+                    <div class="room-issue-status">
+                        <span class="status-badge {{ issue.status }}">{{ issue.status | replace('_', ' ') }}</span>
+                        <span class="status-badge {{ issue.state }}">{{ issue.state }}</span>
+                    </div>
+                </div>
+                {% if issue.note %}
+                <div class="room-issue-note">{{ issue.note }}</div>
+                {% endif %}
+                <div class="room-issue-actions">
+                    <form method="POST" action="/room-issues/{{ issue.id }}/status" class="room-issue-form-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <label class="visually-hidden" for="room-status-{{ issue.id }}">Update status</label>
+                        <select id="room-status-{{ issue.id }}" name="status">
+                            <option value="out_of_order" {% if issue.status == 'out_of_order' %}selected{% endif %}>Out of Order</option>
+                            <option value="use_if_needed" {% if issue.status == 'use_if_needed' %}selected{% endif %}>Use If Needed</option>
+                        </select>
+                        <button type="submit" class="btn btn-secondary">Update Status</button>
+                    </form>
+                    <form method="POST" action="/room-issues/{{ issue.id }}/state" class="room-issue-form-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        {% if issue.state == 'active' %}
+                        <input type="hidden" name="state" value="resolved">
+                        <button type="submit" class="btn btn-secondary">Mark Resolved</button>
+                        {% else %}
+                        <input type="hidden" name="state" value="active">
+                        <button type="submit" class="btn btn-secondary">Reopen</button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <h3>No room issues logged</h3>
+                <p>Use the form above to log a room status.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-content">
+        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
+    </div>
+</footer>
+
+</body>
+</html>
+

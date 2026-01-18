@@ -15,10 +15,13 @@
             <h1>System Settings</h1>
             <div class="subtitle">Manage Passwords and Credentials</div>
         </div>
-        <div class="header-actions">
-            <a href="/log-book" class="logout-btn">Log Book</a>
-            <a href="/dnr" class="logout-btn">DNR List</a>
-            <a href="/maintenance" class="logout-btn">Maintenance</a>
+                <div class="header-actions">
+            <a href="/overview" class="logout-btn">Overview</a>
+            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+            <a href="/log-book" class="logout-btn">Shift Notes</a>
+            <a href="/room-issues" class="logout-btn">Room Issues</a>
+            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+            <a href="/settings" class="logout-btn">Settings</a>
             <a href="/logout" class="logout-btn">Logout</a>
         </div>
     </div>
@@ -132,8 +135,57 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// Initialize CSRF token
-getCsrfToken();
+async function updateManagerPassword(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+
+    const newPassword = formData.get('new_manager_password');
+    const confirmPassword = formData.get('confirm_manager_password');
+    const currentPassword = formData.get('current_password');
+
+    if (newPassword !== confirmPassword) {
+        showToast('Manager passwords do not match', 'error');
+        return;
+    }
+
+    if (newPassword.length < 8) {
+        showToast('Manager password must be at least 8 characters', 'error');
+        return;
+    }
+
+    // Password strength check
+    const hasUpper = /[A-Z]/.test(newPassword);
+    const hasLower = /[a-z]/.test(newPassword);
+    const hasDigit = /[0-9]/.test(newPassword);
+    if (!hasUpper || !hasLower || !hasDigit) {
+        showToast('Manager password must contain uppercase, lowercase, and numbers', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/settings/manager-password', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({
+                new_manager_password: newPassword,
+                current_password: currentPassword
+            })
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+            showToast(result.error || 'Failed to update manager password', 'error');
+            return;
+        }
+
+        showToast('Manager password updated successfully!', 'success');
+        form.reset();
+    } catch (err) {
+        showToast('Failed to update manager password', 'error');
+    }
+}
 
 async function updateLoginCredentials(e) {
     e.preventDefault();
@@ -191,58 +243,10 @@ async function updateLoginCredentials(e) {
     }
 }
 
-async function updateManagerPassword(e) {
-    e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
-
-    const newPassword = formData.get('new_manager_password');
-    const confirmPassword = formData.get('confirm_manager_password');
-    const currentPassword = formData.get('current_password');
-
-    if (newPassword !== confirmPassword) {
-        showToast('Manager passwords do not match', 'error');
-        return;
-    }
-
-    if (newPassword.length < 8) {
-        showToast('Manager password must be at least 8 characters', 'error');
-        return;
-    }
-
-    // Password strength check
-    const hasUpper = /[A-Z]/.test(newPassword);
-    const hasLower = /[a-z]/.test(newPassword);
-    const hasDigit = /[0-9]/.test(newPassword);
-    if (!hasUpper || !hasLower || !hasDigit) {
-        showToast('Manager password must contain uppercase, lowercase, and numbers', 'error');
-        return;
-    }
-
-    try {
-        const res = await fetch('/api/settings/manager-password', {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify({
-                new_manager_password: newPassword,
-                current_password: currentPassword
-            })
-        });
-
-        const result = await res.json();
-
-        if (!res.ok) {
-            showToast(result.error || 'Failed to update manager password', 'error');
-            return;
-        }
-
-        showToast('Manager password updated successfully!', 'success');
-        form.reset();
-    } catch (err) {
-        showToast('Failed to update manager password', 'error');
-    }
-}
+// Initialize CSRF token
+getCsrfToken();
 </script>
 
 </body>
 </html>
+

@@ -24,6 +24,11 @@ try:
     HAS_MAGIC = True
 except ImportError:
     HAS_MAGIC = False
+try:
+    import docx
+    HAS_DOCX = True
+except ImportError:
+    HAS_DOCX = False
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect, url_for
 from flask_wtf.csrf import CSRFProtect, generate_csrf
@@ -103,6 +108,8 @@ BAN_REASONS = [
 ]
 
 LOG_EDIT_WINDOW_MINUTES = 10
+MAINTENANCE_EDIT_WINDOW_MINUTES = 10
+IN_HOUSE_MESSAGE_EXPIRY_DAYS = 14
 
 
 def hash_password(password: str) -> str:
@@ -196,6 +203,18 @@ def validate_file_type(file_stream) -> str | None:
         return None
 
 
+def parse_docx_paragraphs(file_stream) -> list[str]:
+    if not HAS_DOCX:
+        raise RuntimeError("python-docx is not installed")
+    document = docx.Document(file_stream)
+    paragraphs = []
+    for paragraph in document.paragraphs:
+        text = paragraph.text.strip()
+        if text:
+            paragraphs.append(text)
+    return paragraphs
+
+
 def dict_factory(cursor, row):
     return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
 
@@ -247,7 +266,16 @@ def is_editable_log_entry(entry: dict) -> bool:
     created_at = parse_db_timestamp(entry.get("created_at"))
     if not created_at:
         return False
+    # UX: Shift notes lock shortly after creation to protect handoff history.
     return datetime.now() - created_at <= timedelta(minutes=LOG_EDIT_WINDOW_MINUTES)
+
+
+def is_editable_maintenance_item(item: dict) -> bool:
+    created_at = parse_db_timestamp(item.get("created_at"))
+    if not created_at:
+        return False
+    # UX: Maintenance details can only be adjusted shortly after logging.
+    return datetime.now() - created_at <= timedelta(minutes=MAINTENANCE_EDIT_WINDOW_MINUTES)
 
 
 def log_entry_summary(title: str, location: str | None) -> str:
@@ -258,6 +286,18 @@ def log_entry_summary(title: str, location: str | None) -> str:
 
 def local_timestamp() -> str:
     return datetime.now().isoformat(sep=" ", timespec="seconds")
+
+
+def future_timestamp(days: int) -> str:
+    return (datetime.now() + timedelta(days=days)).isoformat(sep=" ", timespec="seconds")
+
+
+def normalize_datetime_input(value: str) -> str | None:
+    if not value:
+        return None
+    if "T" in value and len(value) == 16:
+        return value.replace("T", " ") + ":00"
+    return value
 
 
 def insert_log_entry(
@@ -284,7 +324,18 @@ def insert_log_entry(
 
 
 def warn_if_missing_tables():
-    required_tables = {"log_entries", "maintenance_items"}
+    required_tables = {
+        "log_entries",
+        "maintenance_items",
+        "room_issues",
+        "staff_announcements",
+        "important_numbers",
+        "how_to_guides",
+        "food_local_spots",
+        "checklist_templates",
+        "checklist_items",
+        "in_house_messages",
+    }
     conn = connect_db()
     rows = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table'"
@@ -381,7 +432,6 @@ def setup():
         confirm_password = request.form.get("confirm_password", "")
         manager_password = request.form.get("manager_password", "")
         confirm_manager = request.form.get("confirm_manager_password", "")
-
         errors = []
 
         # Validate username
@@ -407,6 +457,13 @@ def setup():
             has_digit = any(c.isdigit() for c in password)
             if not (has_upper and has_lower and has_digit):
                 errors.append("Password must contain uppercase, lowercase, and numbers")
+
+        if manager_password and len(manager_password) >= 8:
+            has_upper = any(c.isupper() for c in manager_password)
+            has_lower = any(c.islower() for c in manager_password)
+            has_digit = any(c.isdigit() for c in manager_password)
+            if not (has_upper and has_lower and has_digit):
+                errors.append("Manager password must contain uppercase, lowercase, and numbers")
 
         if errors:
             return render_template("setup.html", errors=errors)
@@ -441,7 +498,7 @@ def login():
         if username == LOGIN_USERNAME and verify_password(password, LOGIN_PASSWORD_HASH):
             session['logged_in'] = True
             session.permanent = True
-            return redirect(url_for('log_book'))
+            return redirect(url_for('overview'))
         else:
             return render_template("login.html", error="Invalid username or password")
 
@@ -450,11 +507,58 @@ def login():
 
 @app.get("/logout")
 def logout():
-    session.clear()  # Clear entire session
+    session.clear()  # Clear session data
     return redirect(url_for('login'))
 
 
 @app.get("/")
+@app.get("/overview")
+@login_required
+def overview():
+    conn = connect_db()
+    active_dnr_count = conn.execute("""
+        SELECT COUNT(*) AS count FROM records WHERE status = 'active'
+    """).fetchone()["count"]
+    room_out_of_order_count = conn.execute("""
+        SELECT COUNT(*) AS count FROM room_issues
+        WHERE state = 'active' AND status = 'out_of_order'
+    """).fetchone()["count"]
+    room_use_if_needed_count = conn.execute("""
+        SELECT COUNT(*) AS count FROM room_issues
+        WHERE state = 'active' AND status = 'use_if_needed'
+    """).fetchone()["count"]
+    open_maintenance_count = conn.execute("""
+        SELECT COUNT(*) AS count FROM maintenance_items
+        WHERE status IN ('open', 'in_progress', 'blocked')
+    """).fetchone()["count"]
+    recent_notes = conn.execute("""
+        SELECT * FROM log_entries
+        WHERE is_system_event = 0
+        ORDER BY created_at DESC, id DESC
+        LIMIT 5
+    """).fetchall()
+    now = local_timestamp()
+    announcements = conn.execute("""
+        SELECT * FROM staff_announcements
+        WHERE is_active = 1
+        AND (starts_at IS NULL OR starts_at <= ?)
+        AND (ends_at IS NULL OR ends_at >= ?)
+        ORDER BY created_at DESC, id DESC
+    """, (now, now)).fetchall()
+    conn.close()
+
+    return render_template(
+        "overview.html",
+        active_dnr_count=active_dnr_count,
+        room_out_of_order_count=room_out_of_order_count,
+        room_use_if_needed_count=room_use_if_needed_count,
+        open_maintenance_count=open_maintenance_count,
+        recent_notes=recent_notes,
+        announcements=announcements,
+        last_updated=now,
+    )
+
+
 @app.get("/log-book")
 @login_required
 def log_book():
@@ -520,19 +624,12 @@ def get_records():
     conn = connect_db()
     records = conn.execute(sql, params).fetchall()
 
-    def first_name_key(name: str) -> str:
-        parts = name.strip().split()
-        if not parts:
-            return ""
-        return parts[0].lower()
-
     def date_key(value: str) -> str:
         return value or ""
 
     if sort == "name":
         records.sort(
             key=lambda r: (
-                first_name_key(r.get("guest_name", "")),
                 r.get("guest_name", "").lower(),
             )
         )
@@ -577,13 +674,12 @@ def get_records():
 @login_required
 @limiter.limit("10 per minute")
 def add_log_entry():
-    author_name = request.form.get("author_name", "").strip()[:100]
     note = request.form.get("note", "").strip()[:2000]
 
-    if not author_name or not note:
+    if not note:
         return redirect(url_for("log_book"))
 
-    insert_log_entry(note, author_name=author_name, is_system_event=False)
+    insert_log_entry(note, author_name="System", is_system_event=False)
 
     return redirect(url_for("log_book"))
 
@@ -605,17 +701,16 @@ def edit_log_entry(entry_id):
         conn.close()
         return redirect(url_for("log_book"))
 
-    author_name = request.form.get("author_name", "").strip()[:100]
     note = request.form.get("note", "").strip()[:2000]
-    if not author_name or not note:
+    if not note:
         conn.close()
         return redirect(url_for("log_book", edit=entry_id))
 
     conn.execute("""
         UPDATE log_entries
-        SET author_name = ?, note = ?
+        SET note = ?
         WHERE id = ?
-    """, (author_name, note, entry_id))
+    """, (note, entry_id))
     conn.commit()
     conn.close()
 
@@ -646,9 +741,17 @@ def maintenance_list():
             ORDER BY created_at DESC, id DESC
         """).fetchall()
         status_filter = "default"
+    edit_id = request.args.get("edit", "").strip()
+    editable_id = None
+    if edit_id.isdigit():
+        editable_id = int(edit_id)
+
+    for item in items:
+        item["is_editable"] = is_editable_maintenance_item(item)
+
     conn.close()
 
-    return render_template("maintenance.html", items=items, status_filter=status_filter)
+    return render_template("maintenance.html", items=items, status_filter=status_filter, editable_id=editable_id)
 
 
 @app.post("/maintenance")
@@ -678,6 +781,42 @@ def add_maintenance_item():
 
     summary = log_entry_summary(title, location)
     insert_log_entry(f"Maintenance reported: {summary}", related_maintenance_id=maintenance_id, is_system_event=True)
+
+    return redirect(url_for("maintenance_list"))
+
+
+@app.post("/maintenance/<int:item_id>/edit")
+@login_required
+@limiter.limit("10 per minute")
+def edit_maintenance_item(item_id):
+    conn = connect_db()
+    item = conn.execute("""
+        SELECT * FROM maintenance_items WHERE id = ?
+    """, (item_id,)).fetchone()
+
+    if not item or not is_editable_maintenance_item(item):
+        conn.close()
+        return redirect(url_for("maintenance_list"))
+
+    title = request.form.get("title", "").strip()[:200]
+    description = request.form.get("description", "").strip()[:2000]
+    location = request.form.get("location", "").strip()[:200]
+    priority = request.form.get("priority", "medium").strip()
+
+    if not title:
+        conn.close()
+        return redirect(url_for("maintenance_list", edit=item_id))
+    if priority not in {"low", "medium", "high", "urgent"}:
+        priority = "medium"
+
+    now = local_timestamp()
+    conn.execute("""
+        UPDATE maintenance_items
+        SET title = ?, description = ?, location = ?, priority = ?, updated_at = ?
+        WHERE id = ?
+    """, (title, description or None, location or None, priority, now, item_id))
+    conn.commit()
+    conn.close()
 
     return redirect(url_for("maintenance_list"))
 
@@ -726,6 +865,302 @@ def update_maintenance_status(item_id):
     insert_log_entry(message, related_maintenance_id=item_id, is_system_event=True)
 
     return redirect(url_for("maintenance_list"))
+
+
+@app.get("/room-issues")
+@login_required
+def room_issues_list():
+    conn = connect_db()
+    issues = conn.execute("""
+        SELECT * FROM room_issues
+        ORDER BY state ASC, created_at DESC, id DESC
+    """).fetchall()
+    conn.close()
+
+    return render_template("room_issues.html", issues=issues)
+
+
+@app.post("/room-issues")
+@login_required
+@limiter.limit("10 per minute")
+def add_room_issue():
+    room_number = request.form.get("room_number", "").strip()[:20]
+    status = request.form.get("status", "").strip()
+    note = request.form.get("note", "").strip()[:1000]
+
+    if not room_number:
+        return redirect(url_for("room_issues_list"))
+    if status not in {"out_of_order", "use_if_needed"}:
+        return redirect(url_for("room_issues_list"))
+
+    now = local_timestamp()
+    conn = connect_db()
+    conn.execute("""
+        INSERT INTO room_issues (room_number, status, note, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (room_number, status, note or None, now, now))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("room_issues_list"))
+
+
+@app.post("/room-issues/<int:issue_id>/status")
+@login_required
+@limiter.limit("10 per minute")
+def update_room_issue_status(issue_id):
+    status = request.form.get("status", "").strip()
+    if status not in {"out_of_order", "use_if_needed"}:
+        return redirect(url_for("room_issues_list"))
+
+    now = local_timestamp()
+    conn = connect_db()
+    conn.execute("""
+        UPDATE room_issues
+        SET status = ?, updated_at = ?
+        WHERE id = ?
+    """, (status, now, issue_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("room_issues_list"))
+
+
+@app.post("/room-issues/<int:issue_id>/state")
+@login_required
+@limiter.limit("10 per minute")
+def update_room_issue_state(issue_id):
+    state = request.form.get("state", "").strip()
+    if state not in {"active", "resolved"}:
+        return redirect(url_for("room_issues_list"))
+
+    now = local_timestamp()
+    resolved_at = now if state == "resolved" else None
+    conn = connect_db()
+    conn.execute("""
+        UPDATE room_issues
+        SET state = ?, resolved_at = ?, updated_at = ?
+        WHERE id = ?
+    """, (state, resolved_at, now, issue_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("room_issues_list"))
+
+
+@app.get("/staff-announcements")
+@login_required
+def staff_announcements_list():
+    conn = connect_db()
+    announcements = conn.execute("""
+        SELECT * FROM staff_announcements
+        ORDER BY created_at DESC, id DESC
+    """).fetchall()
+    conn.close()
+
+    return render_template(
+        "staff_announcements.html",
+        announcements=announcements,
+        error=request.args.get("error", "").strip(),
+    )
+
+
+@app.post("/staff-announcements")
+@login_required
+@limiter.limit("10 per minute")
+def add_staff_announcement():
+    message = request.form.get("message", "").strip()[:2000]
+    starts_at = normalize_datetime_input(request.form.get("starts_at", "").strip())
+    ends_at = normalize_datetime_input(request.form.get("ends_at", "").strip())
+
+    if not message:
+        return redirect(url_for("staff_announcements_list"))
+
+    conn = connect_db()
+    conn.execute("""
+        INSERT INTO staff_announcements (message, starts_at, ends_at, is_active)
+        VALUES (?, ?, ?, 1)
+    """, (message, starts_at, ends_at))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("staff_announcements_list"))
+
+
+@app.post("/staff-announcements/<int:announcement_id>/toggle")
+@login_required
+@limiter.limit("10 per minute")
+def toggle_staff_announcement(announcement_id):
+    is_active = request.form.get("is_active", "").strip()
+    if is_active not in {"0", "1"}:
+        return redirect(url_for("staff_announcements_list"))
+
+    conn = connect_db()
+    conn.execute("""
+        UPDATE staff_announcements
+        SET is_active = ?
+        WHERE id = ?
+    """, (int(is_active), announcement_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("staff_announcements_list"))
+
+
+@app.post("/staff-announcements/<int:announcement_id>/delete")
+@login_required
+@limiter.limit("5 per minute")
+def delete_staff_announcement(announcement_id):
+    password = request.form.get("manager_password", "").strip()
+
+    if not verify_password(password, MANAGER_PASSWORD_HASH):
+        return redirect(url_for("staff_announcements_list", error="manager"))
+
+    conn = connect_db()
+    conn.execute("DELETE FROM staff_announcements WHERE id = ?", (announcement_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("staff_announcements_list"))
+
+
+@app.get("/food-local-spots")
+@login_required
+def food_local_spots_page():
+    conn = connect_db()
+    spots = conn.execute("""
+        SELECT * FROM food_local_spots
+        ORDER BY name ASC, id DESC
+    """).fetchall()
+    conn.close()
+
+    return render_template(
+        "food_local_spots.html",
+        spots=spots,
+        error=request.args.get("error", "").strip(),
+    )
+
+
+@app.get("/cleaning-checklists")
+@login_required
+def cleaning_checklists_page():
+    conn = connect_db()
+    templates = conn.execute("""
+        SELECT * FROM checklist_templates
+        WHERE is_active = 1
+        ORDER BY id ASC
+    """).fetchall()
+    items = conn.execute("""
+        SELECT * FROM checklist_items
+        ORDER BY template_id ASC, position ASC, id ASC
+    """).fetchall()
+    conn.close()
+
+    items_by_template = {}
+    for item in items:
+        items_by_template.setdefault(item["template_id"], []).append(item)
+
+    return render_template(
+        "cleaning_checklists.html",
+        templates=templates,
+        items_by_template=items_by_template,
+        error=request.args.get("error", "").strip(),
+    )
+
+
+@app.get("/in-house-messages")
+@login_required
+def in_house_messages_page():
+    recipient = request.args.get("recipient", "").strip()[:100]
+    show_expired = request.args.get("show_expired", "").strip() == "1"
+    error = request.args.get("error", "").strip()
+    now = local_timestamp()
+
+    conn = connect_db()
+    if recipient:
+        if show_expired:
+            messages = conn.execute("""
+                SELECT * FROM in_house_messages
+                WHERE recipient_name = ?
+                ORDER BY created_at DESC, id DESC
+            """, (recipient,)).fetchall()
+        else:
+            messages = conn.execute("""
+                SELECT * FROM in_house_messages
+                WHERE recipient_name = ?
+                AND (expires_at IS NULL OR expires_at > ?)
+                ORDER BY created_at DESC, id DESC
+            """, (recipient, now)).fetchall()
+    else:
+        messages = []
+    conn.close()
+
+    return render_template(
+        "in_house_messages.html",
+        recipient=recipient,
+        messages=messages,
+        show_expired=show_expired,
+        error=error,
+    )
+
+
+@app.post("/in-house-messages")
+@login_required
+@limiter.limit("10 per minute")
+def add_in_house_message():
+    recipient = request.form.get("recipient_name", "").strip()[:100]
+    body = request.form.get("message_body", "").strip()[:2000]
+
+    if not recipient or not body:
+        return redirect(url_for("in_house_messages_page", recipient=recipient))
+
+    now = local_timestamp()
+    expires_at = future_timestamp(IN_HOUSE_MESSAGE_EXPIRY_DAYS)
+    conn = connect_db()
+    conn.execute("""
+        INSERT INTO in_house_messages
+        (recipient_name, message_body, author_name, created_at, is_read, expires_at)
+        VALUES (?, ?, 'System', ?, 0, ?)
+    """, (recipient, body, now, expires_at))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("in_house_messages_page", recipient=recipient))
+
+
+@app.post("/in-house-messages/<int:message_id>/read")
+@login_required
+@limiter.limit("10 per minute")
+def mark_in_house_message_read(message_id):
+    recipient = request.form.get("recipient", "").strip()[:100]
+    conn = connect_db()
+    conn.execute("""
+        UPDATE in_house_messages
+        SET is_read = 1, read_at = ?
+        WHERE id = ?
+    """, (local_timestamp(), message_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("in_house_messages_page", recipient=recipient))
+
+
+@app.post("/in-house-messages/<int:message_id>/delete")
+@login_required
+@limiter.limit("5 per minute")
+def delete_in_house_message(message_id):
+    recipient = request.form.get("recipient", "").strip()[:100]
+    password = request.form.get("manager_password", "").strip()
+
+    if not verify_password(password, MANAGER_PASSWORD_HASH):
+        return redirect(url_for("in_house_messages_page", recipient=recipient, error="manager"))
+
+    conn = connect_db()
+    conn.execute("DELETE FROM in_house_messages WHERE id = ?", (message_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("in_house_messages_page", recipient=recipient))
 
 
 @app.get("/api/records/<int:record_id>")
@@ -974,7 +1409,7 @@ def lift_ban(record_id):
     conn = connect_db()
 
     record = conn.execute(
-        "SELECT status, ban_type FROM records WHERE id = ?", (record_id,)
+        "SELECT status, ban_type, guest_name FROM records WHERE id = ?", (record_id,)
     ).fetchone()
 
     if not record:
@@ -1042,10 +1477,16 @@ def lift_ban(record_id):
     conn.execute("""
         INSERT INTO timeline_entries (record_id, entry_date, staff_initials, note, is_system)
         VALUES (?, ?, ?, ?, 1)
-    """, (record_id, today, initials, f"Ban lifted. Type: {lift_type_display}. Reason: {lift_reason}"))
+    """, (record_id, today, "System", f"Ban lifted. Type: {lift_type_display}. Reason: {lift_reason}"))
 
     conn.commit()
     conn.close()
+
+    insert_log_entry(
+        f"DNR removed for {record.get('guest_name', 'Unknown')}. Type: {lift_type_display}.",
+        related_record_id=record_id,
+        is_system_event=True,
+    )
 
     return jsonify({"message": "Ban lifted successfully"}), 200
 
@@ -1098,6 +1539,317 @@ def settings_page():
     return render_template("settings.html")
 
 
+@app.get("/important-numbers")
+@login_required
+def important_numbers_page():
+    conn = connect_db()
+    numbers = conn.execute("""
+        SELECT * FROM important_numbers
+        ORDER BY label ASC, id DESC
+    """).fetchall()
+    conn.close()
+
+    return render_template(
+        "important_numbers.html",
+        numbers=numbers,
+        error=request.args.get("error", "").strip(),
+    )
+
+
+@app.get("/how-to-guides")
+@login_required
+def how_to_guides_page():
+    conn = connect_db()
+    guides = conn.execute("""
+        SELECT * FROM how_to_guides
+        ORDER BY title ASC, id DESC
+    """).fetchall()
+    conn.close()
+
+    return render_template(
+        "how_to_guides.html",
+        guides=guides,
+        error=request.args.get("error", "").strip(),
+    )
+
+
+@app.post("/important-numbers")
+@login_required
+@limiter.limit("10 per minute")
+def add_important_number():
+    label = request.form.get("label", "").strip()[:200]
+    phone = request.form.get("phone", "").strip()[:50]
+    notes = request.form.get("notes", "").strip()[:1000]
+
+    if not label or not phone:
+        return redirect(url_for("important_numbers_page"))
+
+    conn = connect_db()
+    conn.execute("""
+        INSERT INTO important_numbers (label, phone, notes, created_at)
+        VALUES (?, ?, ?, ?)
+    """, (label, phone, notes or None, local_timestamp()))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("important_numbers_page"))
+
+
+@app.post("/important-numbers/<int:number_id>/delete")
+@login_required
+@limiter.limit("5 per minute")
+def delete_important_number(number_id):
+    password = request.form.get("manager_password", "").strip()
+    if not verify_password(password, MANAGER_PASSWORD_HASH):
+        return redirect(url_for("important_numbers_page", error="manager"))
+
+    conn = connect_db()
+    conn.execute("DELETE FROM important_numbers WHERE id = ?", (number_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("important_numbers_page"))
+
+
+@app.post("/how-to-guides")
+@login_required
+@limiter.limit("10 per minute")
+def add_how_to_guide():
+    title = request.form.get("title", "").strip()[:200]
+    body = request.form.get("body", "").strip()[:4000]
+
+    if not title or not body:
+        return redirect(url_for("how_to_guides_page"))
+
+    conn = connect_db()
+    conn.execute("""
+        INSERT INTO how_to_guides (title, body, created_at)
+        VALUES (?, ?, ?)
+    """, (title, body, local_timestamp()))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("how_to_guides_page"))
+
+
+@app.post("/how-to-guides/import")
+@login_required
+@limiter.limit("5 per minute")
+def import_how_to_guide():
+    if not HAS_DOCX:
+        return redirect(url_for("how_to_guides_page", error="docx"))
+
+    file = request.files.get("guide_file")
+    if not file or not file.filename.lower().endswith(".docx"):
+        return redirect(url_for("how_to_guides_page", error="file"))
+
+    try:
+        paragraphs = parse_docx_paragraphs(file)
+    except Exception:
+        return redirect(url_for("how_to_guides_page", error="parse"))
+
+    if not paragraphs:
+        return redirect(url_for("how_to_guides_page", error="empty"))
+
+    title = os.path.splitext(file.filename)[0].strip()[:200]
+    body = "\n\n".join(paragraphs)[:4000]
+
+    conn = connect_db()
+    conn.execute("""
+        INSERT INTO how_to_guides (title, body, created_at)
+        VALUES (?, ?, ?)
+    """, (title, body, local_timestamp()))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("how_to_guides_page"))
+
+
+@app.post("/how-to-guides/<int:guide_id>/delete")
+@login_required
+@limiter.limit("5 per minute")
+def delete_how_to_guide(guide_id):
+    password = request.form.get("manager_password", "").strip()
+    if not verify_password(password, MANAGER_PASSWORD_HASH):
+        return redirect(url_for("how_to_guides_page", error="manager"))
+
+    conn = connect_db()
+    conn.execute("DELETE FROM how_to_guides WHERE id = ?", (guide_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("how_to_guides_page"))
+
+
+@app.post("/food-local-spots")
+@login_required
+@limiter.limit("10 per minute")
+def add_food_local_spot():
+    name = request.form.get("name", "").strip()[:200]
+    address = request.form.get("address", "").strip()[:200]
+    phone = request.form.get("phone", "").strip()[:50]
+    notes = request.form.get("notes", "").strip()[:1000]
+
+    if not name:
+        return redirect(url_for("food_local_spots_page"))
+
+    conn = connect_db()
+    conn.execute("""
+        INSERT INTO food_local_spots (name, address, phone, notes, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (name, address or None, phone or None, notes or None, local_timestamp()))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("food_local_spots_page"))
+
+
+@app.post("/food-local-spots/<int:spot_id>/delete")
+@login_required
+@limiter.limit("5 per minute")
+def delete_food_local_spot(spot_id):
+    password = request.form.get("manager_password", "").strip()
+    if not verify_password(password, MANAGER_PASSWORD_HASH):
+        return redirect(url_for("food_local_spots_page", error="manager"))
+
+    conn = connect_db()
+    conn.execute("DELETE FROM food_local_spots WHERE id = ?", (spot_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("food_local_spots_page"))
+
+
+@app.post("/cleaning-checklists")
+@login_required
+@limiter.limit("5 per minute")
+def add_cleaning_checklist():
+    name = request.form.get("name", "").strip()[:200]
+    description = request.form.get("description", "").strip()[:500]
+    items_raw = request.form.get("items", "")
+    items = [line.strip() for line in items_raw.splitlines() if line.strip()]
+
+    if not name or not items:
+        return redirect(url_for("cleaning_checklists_page"))
+
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO checklist_templates (name, description, is_active)
+        VALUES (?, ?, 1)
+    """, (name, description or None))
+    template_id = cursor.lastrowid
+
+    rows = []
+    for idx, item in enumerate(items, start=1):
+        rows.append((template_id, idx, item[:500]))
+
+    cursor.executemany("""
+        INSERT INTO checklist_items (template_id, position, item_text)
+        VALUES (?, ?, ?)
+    """, rows)
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("cleaning_checklists_page"))
+
+
+@app.post("/cleaning-checklists/import")
+@login_required
+@limiter.limit("5 per minute")
+def import_cleaning_checklist():
+    if not HAS_DOCX:
+        return redirect(url_for("cleaning_checklists_page", error="docx"))
+
+    file = request.files.get("checklist_file")
+    if not file or not file.filename.lower().endswith(".docx"):
+        return redirect(url_for("cleaning_checklists_page", error="file"))
+
+    try:
+        paragraphs = parse_docx_paragraphs(file)
+    except Exception:
+        return redirect(url_for("cleaning_checklists_page", error="parse"))
+
+    if not paragraphs:
+        return redirect(url_for("cleaning_checklists_page", error="empty"))
+
+    title = os.path.splitext(file.filename)[0].strip()[:200]
+    items = [p[:500] for p in paragraphs]
+
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO checklist_templates (name, description, is_active)
+        VALUES (?, NULL, 1)
+    """, (title,))
+    template_id = cursor.lastrowid
+    rows = []
+    for idx, item in enumerate(items, start=1):
+        rows.append((template_id, idx, item))
+    cursor.executemany("""
+        INSERT INTO checklist_items (template_id, position, item_text)
+        VALUES (?, ?, ?)
+    """, rows)
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("cleaning_checklists_page"))
+
+
+@app.post("/cleaning-checklists/<int:template_id>/delete")
+@login_required
+@limiter.limit("5 per minute")
+def delete_cleaning_checklist(template_id):
+    password = request.form.get("manager_password", "").strip()
+    if not verify_password(password, MANAGER_PASSWORD_HASH):
+        return redirect(url_for("cleaning_checklists_page", error="manager"))
+
+    conn = connect_db()
+    conn.execute("DELETE FROM checklist_items WHERE template_id = ?", (template_id,))
+    conn.execute("DELETE FROM checklist_templates WHERE id = ?", (template_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("cleaning_checklists_page"))
+
+
+@app.post("/api/settings/manager-password")
+@login_required
+@limiter.limit("5 per minute")
+def update_manager_password():
+    """Update manager password for lifting bans."""
+    global MANAGER_PASSWORD_HASH, CREDENTIALS
+
+    data = request.json
+    new_manager_password = data.get('new_manager_password', '').strip()
+    current_password = data.get('current_password', '').strip()
+
+    # Validate current login password using bcrypt
+    if not verify_password(current_password, LOGIN_PASSWORD_HASH):
+        return jsonify({"error": "Current password is incorrect"}), 401
+
+    # Validation
+    if not new_manager_password or len(new_manager_password) < 8:
+        return jsonify({"error": "Manager password must be at least 8 characters"}), 400
+
+    # Password strength check
+    has_upper = any(c.isupper() for c in new_manager_password)
+    has_lower = any(c.islower() for c in new_manager_password)
+    has_digit = any(c.isdigit() for c in new_manager_password)
+    if not (has_upper and has_lower and has_digit):
+        return jsonify({"error": "Manager password must contain uppercase, lowercase, and numbers"}), 400
+
+    # Update manager password with bcrypt
+    new_manager_password_hash = hash_password(new_manager_password)
+    save_credentials(LOGIN_USERNAME, LOGIN_PASSWORD_HASH, new_manager_password_hash)
+
+    # Reload credentials
+    CREDENTIALS = load_credentials()
+    MANAGER_PASSWORD_HASH = CREDENTIALS['manager_password_hash']
+
+    return jsonify({"message": "Manager password updated successfully"}), 200
+
+
 @app.post("/api/settings/login")
 @login_required
 @limiter.limit("5 per minute")
@@ -1140,43 +1892,6 @@ def update_login_credentials():
     session.clear()
 
     return jsonify({"message": "Login credentials updated successfully"}), 200
-
-
-@app.post("/api/settings/manager-password")
-@login_required
-@limiter.limit("5 per minute")
-def update_manager_password():
-    """Update manager password for lifting bans."""
-    global MANAGER_PASSWORD_HASH, CREDENTIALS
-
-    data = request.json
-    new_manager_password = data.get('new_manager_password', '').strip()
-    current_password = data.get('current_password', '').strip()
-
-    # Validate current login password using bcrypt
-    if not verify_password(current_password, LOGIN_PASSWORD_HASH):
-        return jsonify({"error": "Current password is incorrect"}), 401
-
-    # Validation
-    if not new_manager_password or len(new_manager_password) < 8:
-        return jsonify({"error": "Manager password must be at least 8 characters"}), 400
-
-    # Password strength check
-    has_upper = any(c.isupper() for c in new_manager_password)
-    has_lower = any(c.islower() for c in new_manager_password)
-    has_digit = any(c.isdigit() for c in new_manager_password)
-    if not (has_upper and has_lower and has_digit):
-        return jsonify({"error": "Manager password must contain uppercase, lowercase, and numbers"}), 400
-
-    # Update manager password with bcrypt
-    new_manager_password_hash = hash_password(new_manager_password)
-    save_credentials(LOGIN_USERNAME, LOGIN_PASSWORD_HASH, new_manager_password_hash)
-
-    # Reload credentials
-    CREDENTIALS = load_credentials()
-    MANAGER_PASSWORD_HASH = CREDENTIALS['manager_password_hash']
-
-    return jsonify({"message": "Manager password updated successfully"}), 200
 
 
 # Error handlers

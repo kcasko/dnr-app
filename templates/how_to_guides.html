@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>How-To Guides - DNR App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+        <div class="header-text">
+            <h1>How-To Guides</h1>
+            <div class="subtitle">Front desk playbooks and checklists</div>
+        </div>
+                <div class="header-actions">
+            <a href="/overview" class="logout-btn">Overview</a>
+            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+            <a href="/log-book" class="logout-btn">Shift Notes</a>
+            <a href="/room-issues" class="logout-btn">Room Issues</a>
+            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+            <a href="/settings" class="logout-btn">Settings</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="reference-form">
+        <h2>Add How-To Guide</h2>
+        <form method="POST" action="/how-to-guides">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" name="title" required placeholder="Handling late checkout">
+            </div>
+            <div class="form-group">
+                <label>Guide *</label>
+                <textarea name="body" required placeholder="Step-by-step notes..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Add Guide</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="reference-form">
+        <h2>Import Guide (DOCX)</h2>
+        <form method="POST" action="/how-to-guides/import" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Word File *</label>
+                <input type="file" name="guide_file" accept=".docx" required>
+                <small class="form-hint">Imports the document into readable text.</small>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-secondary">Import Guide</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="reference-list">
+        <h2>Guide Library</h2>
+        {% if error == 'manager' %}
+        <div class="inline-error">Manager password is required to delete a guide.</div>
+        {% endif %}
+        {% if error == 'docx' %}
+        <div class="inline-error">DOCX import is unavailable. Install python-docx.</div>
+        {% endif %}
+        {% if error == 'file' %}
+        <div class="inline-error">Please upload a .docx file.</div>
+        {% endif %}
+        {% if error == 'parse' %}
+        <div class="inline-error">Unable to read that document. Please try a different file.</div>
+        {% endif %}
+        {% if error == 'empty' %}
+        <div class="inline-error">The document contained no readable text.</div>
+        {% endif %}
+        {% if guides %}
+            {% for guide in guides %}
+            <div class="entry-card">
+                <div class="entry-title">{{ guide.title }}</div>
+                <div class="entry-body">{{ guide.body }}</div>
+                <div class="entry-actions">
+                    <form method="POST" action="/how-to-guides/{{ guide.id }}/delete">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="password" name="manager_password" placeholder="Manager password" required>
+                        <button type="submit" class="btn btn-secondary">Delete</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <h3>No guides available</h3>
+                <p>Add or update guide materials in your reference folder.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-content">
+        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
+    </div>
+</footer>
+
+</body>
+</html>
+

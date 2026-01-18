@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cleaning Checklists - DNR App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+        <div class="header-text">
+            <h1>Cleaning Checklists</h1>
+            <div class="subtitle">Reference guides for housekeeping consistency</div>
+        </div>
+                <div class="header-actions">
+            <a href="/overview" class="logout-btn">Overview</a>
+            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+            <a href="/log-book" class="logout-btn">Shift Notes</a>
+            <a href="/room-issues" class="logout-btn">Room Issues</a>
+            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+            <a href="/settings" class="logout-btn">Settings</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="checklist-note">
+        These checklists are reference-only to keep cleaning standards consistent.
+    </div>
+
+    <div class="reference-form">
+        <h2>Add Checklist Template</h2>
+        <form method="POST" action="/cleaning-checklists">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" name="name" required placeholder="Deep Clean Turnover">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" name="description" placeholder="Optional summary for the checklist">
+            </div>
+            <div class="form-group">
+                <label>Checklist Items *</label>
+                <textarea name="items" required placeholder="One item per line"></textarea>
+                <small class="form-hint">Add one checklist item per line.</small>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Add Checklist</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="reference-form">
+        <h2>Import Checklist (DOCX)</h2>
+        <form method="POST" action="/cleaning-checklists/import" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Word File *</label>
+                <input type="file" name="checklist_file" accept=".docx" required>
+                <small class="form-hint">Each paragraph becomes a checklist item.</small>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-secondary">Import Checklist</button>
+            </div>
+        </form>
+    </div>
+
+    {% if error == 'manager' %}
+    <div class="inline-error">Manager password is required to delete a checklist.</div>
+    {% endif %}
+    {% if error == 'docx' %}
+    <div class="inline-error">DOCX import is unavailable. Install python-docx.</div>
+    {% endif %}
+    {% if error == 'file' %}
+    <div class="inline-error">Please upload a .docx file.</div>
+    {% endif %}
+    {% if error == 'parse' %}
+    <div class="inline-error">Unable to read that document. Please try a different file.</div>
+    {% endif %}
+    {% if error == 'empty' %}
+    <div class="inline-error">The document contained no readable text.</div>
+    {% endif %}
+
+    {% if templates %}
+        {% for template in templates %}
+        <div class="checklist-card">
+            <div class="checklist-header">
+                <h2>{{ template.name }}</h2>
+                {% if template.description %}<p>{{ template.description }}</p>{% endif %}
+            </div>
+            <ul class="checklist-items">
+                {% for item in items_by_template.get(template.id, []) %}
+                <li>{{ item.item_text }}</li>
+                {% endfor %}
+            </ul>
+            <div class="entry-actions">
+                <form method="POST" action="/cleaning-checklists/{{ template.id }}/delete">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="password" name="manager_password" placeholder="Manager password" required>
+                    <button type="submit" class="btn btn-secondary">Delete Checklist</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <h3>No checklists available</h3>
+            <p>Add checklist templates to keep standards consistent.</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-content">
+        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
+    </div>
+</footer>
+
+</body>
+</html>
+

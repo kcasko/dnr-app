@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Maintenance - Restricted Guests Log</title>
+    <title>Maintenance Issues - DNR App</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -12,12 +12,15 @@
     <div class="header-content">
         <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
         <div class="header-text">
-            <h1>Maintenance List</h1>
+            <h1>Maintenance Issues</h1>
             <div class="subtitle">Open Issues and Status Tracking</div>
         </div>
-        <div class="header-actions">
-            <a href="/log-book" class="logout-btn">Log Book</a>
-            <a href="/dnr" class="logout-btn">DNR List</a>
+                <div class="header-actions">
+            <a href="/overview" class="logout-btn">Overview</a>
+            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+            <a href="/log-book" class="logout-btn">Shift Notes</a>
+            <a href="/room-issues" class="logout-btn">Room Issues</a>
+            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
             <a href="/settings" class="logout-btn">Settings</a>
             <a href="/logout" class="logout-btn">Logout</a>
         </div>
@@ -64,6 +67,7 @@
             <div class="form-group">
                 <label>Description</label>
                 <textarea name="description" placeholder="Add any helpful details..."></textarea>
+                <small class="form-hint">Details can be adjusted briefly after submission.</small>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Add Maintenance Item</button>
@@ -96,6 +100,45 @@
                     {% if item.updated_at %}<span>Updated: {{ item.updated_at }}</span>{% endif %}
                     {% if item.completed_at %}<span>Completed: {{ item.completed_at }}</span>{% endif %}
                 </div>
+                {% if item.is_editable %}
+                <div class="maintenance-edit-actions">
+                    <a class="btn btn-secondary" href="/maintenance?edit={{ item.id }}">Edit Details</a>
+                </div>
+                {% endif %}
+                {% if editable_id == item.id and item.is_editable %}
+                <form class="maintenance-edit-form" method="POST" action="/maintenance/{{ item.id }}/edit">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Title *</label>
+                            <input type="text" name="title" required value="{{ item.title }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Location</label>
+                            <input type="text" name="location" value="{{ item.location }}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Priority</label>
+                            <select name="priority">
+                                <option value="low" {% if item.priority == 'low' %}selected{% endif %}>Low</option>
+                                <option value="medium" {% if item.priority == 'medium' %}selected{% endif %}>Medium</option>
+                                <option value="high" {% if item.priority == 'high' %}selected{% endif %}>High</option>
+                                <option value="urgent" {% if item.priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea name="description">{{ item.description }}</textarea>
+                    </div>
+                    <div class="form-actions">
+                        <a class="btn btn-secondary" href="/maintenance">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+                {% endif %}
                 <form class="maintenance-status-form" method="POST" action="/maintenance/{{ item.id }}/status">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <label class="visually-hidden" for="status-{{ item.id }}">Update status</label>
@@ -128,3 +171,4 @@
 
 </body>
 </html>
+

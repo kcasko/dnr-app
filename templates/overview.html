@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Overview - DNR App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+        <div class="header-text">
+            <h1>Overview</h1>
+            <div class="subtitle">Operational Snapshot</div>
+        </div>
+                <div class="header-actions">
+            <a href="/overview" class="logout-btn">Overview</a>
+            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+            <a href="/log-book" class="logout-btn">Shift Notes</a>
+            <a href="/room-issues" class="logout-btn">Room Issues</a>
+            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+            <a href="/settings" class="logout-btn">Settings</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="overview-section">
+        <div class="overview-header">
+            <h2>Operational Alerts</h2>
+            <div class="overview-meta">
+                <!-- UX: Overview is read-only; refresh is manual only. -->
+                <div class="last-updated">Last updated: {{ last_updated }}</div>
+                <form method="GET" action="/overview">
+                    <button type="submit" class="btn btn-secondary">Refresh Overview</button>
+                </form>
+            </div>
+        </div>
+        <div class="alert-cards">
+            <div class="alert-card">
+                <div class="alert-label">Active DNR entries</div>
+                <div class="alert-count">{{ active_dnr_count }}</div>
+            </div>
+            <div class="alert-card alert-critical">
+                <div class="alert-label">Rooms Out of Order</div>
+                <div class="alert-count">{{ room_out_of_order_count }}</div>
+            </div>
+            <div class="alert-card alert-warning">
+                <div class="alert-label">Rooms Use If Needed</div>
+                <div class="alert-count">{{ room_use_if_needed_count }}</div>
+            </div>
+            <div class="alert-card">
+                <div class="alert-label">Open Maintenance Issues</div>
+                <div class="alert-count">{{ open_maintenance_count }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overview-section">
+        <h2>What Just Happened</h2>
+        <div class="overview-scroll">
+            {% if recent_notes %}
+                {% for note in recent_notes %}
+                <div class="overview-note">
+                    <div class="overview-note-time">{{ note.created_at }}</div>
+                    <div class="overview-note-text">{{ note.note | truncate(140, True) }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state compact">
+                    <h3>No shift notes yet</h3>
+                    <p>Shift notes will appear here as they are added.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if announcements %}
+    <div class="overview-section">
+        <h2>Active Notices</h2>
+        <div class="notice-list">
+            {% for announcement in announcements %}
+            <div class="notice-card">
+                <div class="notice-text">{{ announcement.message }}</div>
+                <div class="notice-meta">Posted {{ announcement.created_at }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="overview-section">
+        <h2>Quick Actions</h2>
+        <div class="quick-actions">
+            <a class="quick-action" href="/important-numbers">Important Numbers</a>
+            <a class="quick-action" href="/how-to-guides">How-To Guides</a>
+            <a class="quick-action" href="/food-local-spots">Food &amp; Local Spots</a>
+            <a class="quick-action" href="/cleaning-checklists">Cleaning Checklists</a>
+            <a class="quick-action" href="/staff-announcements">Staff Announcements</a>
+            <a class="quick-action" href="/in-house-messages">In-House Messages</a>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-content">
+        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
+    </div>
+</footer>
+
+</body>
+</html>
+

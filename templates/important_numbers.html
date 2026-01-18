@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Important Numbers - DNR App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+        <div class="header-text">
+            <h1>Important Numbers</h1>
+            <div class="subtitle">Key contacts for front desk operations</div>
+        </div>
+                <div class="header-actions">
+            <a href="/overview" class="logout-btn">Overview</a>
+            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+            <a href="/log-book" class="logout-btn">Shift Notes</a>
+            <a href="/room-issues" class="logout-btn">Room Issues</a>
+            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+            <a href="/settings" class="logout-btn">Settings</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="reference-form">
+        <h2>Add Important Number</h2>
+        <form method="POST" action="/important-numbers">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Label *</label>
+                    <input type="text" name="label" required placeholder="Police non-emergency">
+                </div>
+                <div class="form-group">
+                    <label>Phone *</label>
+                    <input type="text" name="phone" required placeholder="555-555-5555">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" placeholder="Optional details..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Add Number</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="reference-list">
+        <h2>Contact List</h2>
+        {% if error == 'manager' %}
+        <div class="inline-error">Manager password is required to delete a number.</div>
+        {% endif %}
+        {% if numbers %}
+            {% for item in numbers %}
+            <div class="entry-card">
+                <div class="entry-title">{{ item.label }}</div>
+                <div class="entry-body">{{ item.phone }}</div>
+                {% if item.notes %}<div class="entry-notes">{{ item.notes }}</div>{% endif %}
+                <div class="entry-actions">
+                    <form method="POST" action="/important-numbers/{{ item.id }}/delete">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="password" name="manager_password" placeholder="Manager password" required>
+                        <button type="submit" class="btn btn-secondary">Delete</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <h3>No numbers listed</h3>
+                <p>Add or update contact numbers in your reference materials.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-content">
+        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
+    </div>
+</footer>
+
+</body>
+</html>
+

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Log Book - Restricted Guests Log</title>
+    <title>Shift Notes - DNR App</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -12,12 +12,15 @@
     <div class="header-content">
         <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
         <div class="header-text">
-            <h1>Log Book</h1>
+            <h1>Shift Notes</h1>
             <div class="subtitle">Shift Handoff and Operational Notes</div>
         </div>
-        <div class="header-actions">
-            <a href="/dnr" class="logout-btn">DNR List</a>
-            <a href="/maintenance" class="logout-btn">Maintenance</a>
+                <div class="header-actions">
+            <a href="/overview" class="logout-btn">Overview</a>
+            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+            <a href="/log-book" class="logout-btn">Shift Notes</a>
+            <a href="/room-issues" class="logout-btn">Room Issues</a>
+            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
             <a href="/settings" class="logout-btn">Settings</a>
             <a href="/logout" class="logout-btn">Logout</a>
         </div>
@@ -34,12 +37,9 @@
         <form method="POST" action="/log-book/entries">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
-                <label>Author Name *</label>
-                <input type="text" name="author_name" required placeholder="Enter your name">
-            </div>
-            <div class="form-group">
                 <label>Note *</label>
                 <textarea name="note" required placeholder="Write the handoff note..."></textarea>
+                <small class="form-hint">Entries are logged as System and lock shortly after creation.</small>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Add Entry</button>
@@ -73,10 +73,6 @@
                 <form class="log-entry-edit" method="POST" action="/log-book/entries/{{ entry.id }}/edit">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group">
-                        <label>Author Name *</label>
-                        <input type="text" name="author_name" required value="{{ entry.author_name }}">
-                    </div>
-                    <div class="form-group">
                         <label>Note *</label>
                         <textarea name="note" required>{{ entry.note }}</textarea>
                     </div>
@@ -107,3 +103,4 @@
 
 </body>
 </html>
+

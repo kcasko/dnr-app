@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Restricted Guests Log</title>
+    <title>Do Not Rent List - DNR App</title>
     <link rel="stylesheet" href="/static/styles.css">
     <style>
         .visually-hidden {
@@ -21,12 +21,15 @@
     <div class="header-content">
         <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
         <div class="header-text">
-            <h1>Restricted Guests Log</h1>
-            <div class="subtitle">Do Not Rent System - Internal Use Only</div>
+            <h1>Do Not Rent List</h1>
+            <div class="subtitle">Internal Use Only</div>
         </div>
-        <div class="header-actions">
-            <a href="/log-book" class="logout-btn">Log Book</a>
-            <a href="/maintenance" class="logout-btn">Maintenance</a>
+                <div class="header-actions">
+            <a href="/overview" class="logout-btn">Overview</a>
+            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+            <a href="/log-book" class="logout-btn">Shift Notes</a>
+            <a href="/room-issues" class="logout-btn">Room Issues</a>
+            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
             <a href="/settings" class="logout-btn">Settings</a>
             <a href="/logout" class="logout-btn">Logout</a>
         </div>
@@ -806,3 +809,4 @@ document.addEventListener('DOMContentLoaded', function() {
 
 </body>
 </html>
+
