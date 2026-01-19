@@ -1,7 +1,7 @@
 import sqlite3
 
 DB_PATH = "dnr.db"
-CURRENT_SCHEMA_VERSION = 6
+CURRENT_SCHEMA_VERSION = 7
 
 
 def ensure_schema_version_table(conn):
@@ -224,6 +224,41 @@ def migration_6(conn):
     conn.commit()
 
 
+def migration_7(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS housekeeping_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            room_number TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            frequency TEXT NOT NULL DEFAULT 'every_other_day' CHECK(frequency = 'every_other_day'),
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
+            updated_at TIMESTAMP,
+            archived_at TIMESTAMP
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS housekeeping_request_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            housekeeping_request_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
+            note TEXT NOT NULL,
+            is_system_event INTEGER DEFAULT 1,
+            FOREIGN KEY (housekeeping_request_id) REFERENCES housekeeping_requests(id)
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_housekeeping_requests_room ON housekeeping_requests(room_number)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_housekeeping_requests_archived ON housekeeping_requests(archived_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_housekeeping_requests_dates ON housekeeping_requests(start_date, end_date)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_housekeeping_events_request ON housekeeping_request_events(housekeeping_request_id)")
+    conn.commit()
+
+
 def run_migrations(conn, current_version: int):
     if current_version > CURRENT_SCHEMA_VERSION:
         raise RuntimeError("schema_version is newer than this codebase")
@@ -234,6 +269,7 @@ def run_migrations(conn, current_version: int):
         4: migration_4,
         5: migration_5,
         6: migration_6,
+        7: migration_7,
     }
 
     version = current_version

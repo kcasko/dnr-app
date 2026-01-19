@@ -15,6 +15,7 @@ import sqlite3
 import uuid
 import json
 import secrets
+import re
 from datetime import date, datetime, timedelta
 from functools import wraps
 
@@ -301,6 +302,30 @@ def normalize_datetime_input(value: str) -> str | None:
     return value
 
 
+def parse_date_input(value: str) -> date | None:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def housekeeping_due_today(start_date: date, end_date: date, today: date) -> bool:
+    if not start_date or not end_date:
+        return False
+    if today < start_date or today > end_date:
+        return False
+    return (today - start_date).days % 2 == 0
+
+
+def room_sort_key(room_number: str) -> tuple[int, str]:
+    value = (room_number or "").strip()
+    match = re.search(r"\d+", value)
+    number = int(match.group(0)) if match else 999999
+    return (number, value.lower())
+
+
 def insert_log_entry(
     note: str,
     related_record_id=None,
@@ -324,6 +349,17 @@ def insert_log_entry(
     conn.close()
 
 
+def insert_housekeeping_event(request_id: int, note: str):
+    now = local_timestamp()
+    conn = connect_db()
+    conn.execute("""
+        INSERT INTO housekeeping_request_events (housekeeping_request_id, note, is_system_event, created_at)
+        VALUES (?, ?, 1, ?)
+    """, (request_id, note, now))
+    conn.commit()
+    conn.close()
+
+
 def warn_if_missing_tables():
     required_tables = {
         "log_entries",
@@ -336,6 +372,8 @@ def warn_if_missing_tables():
         "checklist_templates",
         "checklist_items",
         "in_house_messages",
+        "housekeeping_requests",
+        "housekeeping_request_events",
     }
     conn = connect_db()
     rows = conn.execute(
@@ -716,6 +754,20 @@ def edit_log_entry(entry_id):
     conn.commit()
     conn.close()
 
+
+def archive_expired_housekeeping_requests(today: date):
+    today_str = today.isoformat()
+    now = local_timestamp()
+    conn = connect_db()
+    conn.execute("""
+        UPDATE housekeeping_requests
+        SET archived_at = ?, updated_at = ?
+        WHERE archived_at IS NULL
+        AND end_date < ?
+    """, (now, now, today_str))
+    conn.commit()
+    conn.close()
+
     return redirect(url_for("log_book"))
 
 
@@ -948,6 +1000,123 @@ def update_room_issue_state(issue_id):
     conn.close()
 
     return redirect(url_for("room_issues_list"))
+
+
+@app.get("/housekeeping-requests")
+@login_required
+def housekeeping_requests():
+    today = date.today()
+    archive_expired_housekeeping_requests(today)
+    today_str = today.isoformat()
+
+    conn = connect_db()
+    candidates = conn.execute("""
+        SELECT * FROM housekeeping_requests
+        WHERE archived_at IS NULL
+        AND start_date <= ?
+        AND end_date >= ?
+        ORDER BY start_date ASC, id DESC
+    """, (today_str, today_str)).fetchall()
+    conn.close()
+
+    due_today = []
+    for item in candidates:
+        start_date = parse_date_input(item.get("start_date", ""))
+        end_date = parse_date_input(item.get("end_date", ""))
+        if housekeeping_due_today(start_date, end_date, today):
+            due_today.append(item)
+
+    due_today.sort(key=lambda item: room_sort_key(item.get("room_number", "")))
+
+    edit_id = request.args.get("edit", "").strip()
+    editable_id = int(edit_id) if edit_id.isdigit() else None
+
+    return render_template(
+        "housekeeping_requests.html",
+        requests=due_today,
+        print_rooms=[item.get("room_number", "") for item in due_today],
+        editable_id=editable_id,
+        today=today_str,
+        error=request.args.get("error", "").strip(),
+    )
+
+
+@app.post("/housekeeping-requests")
+@login_required
+@limiter.limit("10 per minute")
+def add_housekeeping_request():
+    room_number = request.form.get("room_number", "").strip()[:20]
+    start_raw = request.form.get("start_date", "").strip()
+    end_raw = request.form.get("end_date", "").strip()
+    notes = request.form.get("notes", "").strip()[:1000]
+
+    start_date = parse_date_input(start_raw)
+    end_date = parse_date_input(end_raw)
+
+    if not room_number or not start_date or not end_date:
+        return redirect(url_for("housekeeping_requests", error="missing"))
+    if start_date > end_date:
+        return redirect(url_for("housekeeping_requests", error="date_order"))
+
+    now = local_timestamp()
+    conn = connect_db()
+    conn.execute("""
+        INSERT INTO housekeeping_requests (room_number, start_date, end_date, frequency, notes, created_at, updated_at)
+        VALUES (?, ?, ?, 'every_other_day', ?, ?, ?)
+    """, (room_number, start_date.isoformat(), end_date.isoformat(), notes or None, now, now))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("housekeeping_requests"))
+
+
+@app.post("/housekeeping-requests/<int:request_id>/edit")
+@login_required
+@limiter.limit("10 per minute")
+def edit_housekeeping_request(request_id):
+    start_raw = request.form.get("start_date", "").strip()
+    end_raw = request.form.get("end_date", "").strip()
+    notes = request.form.get("notes", "").strip()[:1000]
+
+    start_date = parse_date_input(start_raw)
+    end_date = parse_date_input(end_raw)
+
+    if not start_date or not end_date:
+        return redirect(url_for("housekeeping_requests", edit=request_id, error="missing"))
+    if start_date > end_date:
+        return redirect(url_for("housekeeping_requests", edit=request_id, error="date_order"))
+
+    conn = connect_db()
+    existing = conn.execute("""
+        SELECT * FROM housekeeping_requests WHERE id = ?
+    """, (request_id,)).fetchone()
+
+    if not existing or existing.get("archived_at"):
+        conn.close()
+        return redirect(url_for("housekeeping_requests"))
+
+    now = local_timestamp()
+    archived_at = now if date.today() > end_date else None
+    conn.execute("""
+        UPDATE housekeeping_requests
+        SET start_date = ?, end_date = ?, notes = ?, updated_at = ?, archived_at = ?
+        WHERE id = ?
+    """, (start_date.isoformat(), end_date.isoformat(), notes or None, now, archived_at, request_id))
+    conn.commit()
+    conn.close()
+
+    change_bits = []
+    if existing.get("start_date") != start_date.isoformat():
+        change_bits.append(f"start {existing.get('start_date')} -> {start_date.isoformat()}")
+    if existing.get("end_date") != end_date.isoformat():
+        change_bits.append(f"end {existing.get('end_date')} -> {end_date.isoformat()}")
+    if (existing.get("notes") or "") != (notes or ""):
+        change_bits.append("notes updated")
+    if change_bits:
+        note = f"Housekeeping request updated for room {existing.get('room_number')}: {', '.join(change_bits)}"
+        insert_housekeeping_event(request_id, note)
+
+    return redirect(url_for("housekeeping_requests"))
 
 
 @app.get("/staff-announcements")

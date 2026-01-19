@@ -1,0 +1,150 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Housekeeping Requests - DNR App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header class="no-print">
+    <div class="header-content">
+        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+        <div class="header-text">
+            <h1>Housekeeping Requests</h1>
+            <div class="subtitle">Every-other-day stayover cleaning schedule</div>
+        </div>
+        <div class="header-actions">
+            <a href="/overview" class="logout-btn">Overview</a>
+            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+            <a href="/log-book" class="logout-btn">Shift Notes</a>
+            <a href="/room-issues" class="logout-btn">Room Issues</a>
+            <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
+            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+            <a href="/settings" class="logout-btn">Settings</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+</header>
+
+<div class="container no-print">
+    <div class="housekeeping-actions">
+        <div class="housekeeping-intro">
+            <h2>Due Today</h2>
+            <div class="subtitle">Requests only appear when the schedule is due.</div>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="window.print()">Print Today's Requests</button>
+    </div>
+
+    {% if error == 'missing' %}
+    <div class="inline-error">Room number, start date, and end date are required.</div>
+    {% elif error == 'date_order' %}
+    <div class="inline-error">Start date must be on or before the end date.</div>
+    {% endif %}
+
+    <div class="housekeeping-form">
+        <h2>Add Housekeeping Request</h2>
+        <form method="POST" action="/housekeeping-requests">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Room Number *</label>
+                    <input type="text" name="room_number" required placeholder="Room 214">
+                </div>
+                <div class="form-group">
+                    <label>Frequency</label>
+                    <input type="text" value="Every other day" disabled>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Start Date *</label>
+                    <input type="date" name="start_date" required>
+                </div>
+                <div class="form-group">
+                    <label>End Date *</label>
+                    <input type="date" name="end_date" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Notes (Optional)</label>
+                <textarea name="notes" placeholder="Short optional note..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Add Request</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="maintenance-list">
+        <h2>Housekeeping Requests Due Today</h2>
+        {% if requests %}
+            {% for item in requests %}
+            <div class="housekeeping-card">
+                <div class="housekeeping-card-header">
+                    <div class="housekeeping-room">Room {{ item.room_number }}</div>
+                    <div class="housekeeping-meta">Every other day</div>
+                </div>
+                <div class="housekeeping-dates">{{ item.start_date }} to {{ item.end_date }}</div>
+                {% if item.notes %}
+                <div class="housekeeping-notes">{{ item.notes }}</div>
+                {% endif %}
+                <div class="housekeeping-card-actions">
+                    <a class="btn btn-secondary" href="/housekeeping-requests?edit={{ item.id }}">Edit</a>
+                </div>
+                {% if editable_id == item.id %}
+                <form class="housekeeping-edit-form" method="POST" action="/housekeeping-requests/{{ item.id }}/edit">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Date *</label>
+                            <input type="date" name="start_date" required value="{{ item.start_date }}">
+                        </div>
+                        <div class="form-group">
+                            <label>End Date *</label>
+                            <input type="date" name="end_date" required value="{{ item.end_date }}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes (Optional)</label>
+                        <textarea name="notes" placeholder="Short optional note..." title="Notes">{{ item.notes }}</textarea>
+                    </div>
+                    <div class="form-actions">
+                        <a class="btn btn-secondary" href="/housekeeping-requests">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <h3>No housekeeping requests due today</h3>
+                <p>Requests only appear on their scheduled days.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="print-only">
+    <div class="print-header">Housekeeping Requests - Today</div>
+    {% if print_rooms %}
+        {% for room in print_rooms %}
+        <div class="print-room">{{ room }}</div>
+        {% endfor %}
+    {% else %}
+        <div class="print-empty">No housekeeping requests are due today.</div>
+    {% endif %}
+</div>
+
+<footer class="footer no-print">
+    <div class="footer-content">
+        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
+    </div>
+</footer>
+
+</body>
+</html>
+

@@ -26,6 +26,8 @@ def init_db():
     cursor.execute("DROP TABLE IF EXISTS checklist_items")
     cursor.execute("DROP TABLE IF EXISTS checklist_templates")
     cursor.execute("DROP TABLE IF EXISTS in_house_messages")
+    cursor.execute("DROP TABLE IF EXISTS housekeeping_request_events")
+    cursor.execute("DROP TABLE IF EXISTS housekeeping_requests")
     cursor.execute("DROP TABLE IF EXISTS important_numbers")
     cursor.execute("DROP TABLE IF EXISTS how_to_guides")
     cursor.execute("DROP TABLE IF EXISTS food_local_spots")
@@ -212,6 +214,32 @@ def init_db():
         )
     """)
 
+    # Housekeeping requests
+    cursor.execute("""
+        CREATE TABLE housekeeping_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            room_number TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            frequency TEXT NOT NULL DEFAULT 'every_other_day' CHECK(frequency = 'every_other_day'),
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
+            updated_at TIMESTAMP,
+            archived_at TIMESTAMP
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE housekeeping_request_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            housekeeping_request_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
+            note TEXT NOT NULL,
+            is_system_event INTEGER DEFAULT 1,
+            FOREIGN KEY (housekeeping_request_id) REFERENCES housekeeping_requests(id)
+        )
+    """)
+
     # Seed default cleaning checklists
     templates = [
         ("Standard Room Cleaning", "Full clean for checkout rooms."),
@@ -265,6 +293,10 @@ def init_db():
     cursor.execute("CREATE INDEX idx_checklist_items_template ON checklist_items(template_id)")
     cursor.execute("CREATE INDEX idx_in_house_messages_recipient ON in_house_messages(recipient_name)")
     cursor.execute("CREATE INDEX idx_in_house_messages_expires ON in_house_messages(expires_at)")
+    cursor.execute("CREATE INDEX idx_housekeeping_requests_room ON housekeeping_requests(room_number)")
+    cursor.execute("CREATE INDEX idx_housekeeping_requests_archived ON housekeeping_requests(archived_at)")
+    cursor.execute("CREATE INDEX idx_housekeeping_requests_dates ON housekeeping_requests(start_date, end_date)")
+    cursor.execute("CREATE INDEX idx_housekeeping_events_request ON housekeeping_request_events(housekeeping_request_id)")
     cursor.execute("CREATE INDEX idx_important_numbers_label ON important_numbers(label)")
     cursor.execute("CREATE INDEX idx_how_to_guides_title ON how_to_guides(title)")
     cursor.execute("CREATE INDEX idx_food_local_spots_name ON food_local_spots(name)")
