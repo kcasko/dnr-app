@@ -18,6 +18,9 @@ import secrets
 import re
 from datetime import date, datetime, timedelta
 from functools import wraps
+from zoneinfo import ZoneInfo
+
+TIMEZONE = ZoneInfo("America/New_York")
 
 import bcrypt
 try:
@@ -394,11 +397,11 @@ def log_entry_summary(title: str, location: str | None) -> str:
 
 
 def local_timestamp() -> str:
-    return datetime.now().isoformat(sep=" ", timespec="seconds")
+    return datetime.now(TIMEZONE).isoformat(sep=" ", timespec="seconds")
 
 
 def future_timestamp(days: int) -> str:
-    return (datetime.now() + timedelta(days=days)).isoformat(sep=" ", timespec="seconds")
+    return (datetime.now(TIMEZONE) + timedelta(days=days)).isoformat(sep=" ", timespec="seconds")
 
 
 def normalize_datetime_input(value: str) -> str | None:
