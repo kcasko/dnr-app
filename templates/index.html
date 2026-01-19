@@ -17,6 +17,8 @@
 </head>
 <body>
 
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
 <header>
     <div class="header-content">
         <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
@@ -37,7 +39,7 @@
     </div>
 </header>
 
-<div class="container">
+<div class="container" id="main-content">
     <div class="toolbar">
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="Search by guest name...">
@@ -321,10 +323,23 @@ async function loadRecords() {
         const records = await res.json();
 
         if (records.length === 0) {
+            let hint = '';
+            if (currentSearch) {
+                hint = 'No guests match "' + escapeHtml(currentSearch) + '".';
+            } else if (currentFilter.status) {
+                hint = 'No ' + currentFilter.status + ' records found.';
+            } else if (currentFilter.ban_type) {
+                hint = 'No ' + currentFilter.ban_type + ' bans found.';
+            } else {
+                hint = 'The list is empty.';
+            }
+            let suggestion = currentSearch || currentFilter.status || currentFilter.ban_type
+                ? ' Try clearing your search or selecting a different filter.'
+                : '';
             listEl.innerHTML = `
                 <div class="empty-state">
                     <h3>No records found</h3>
-                    <p>Try adjusting your filters or search term.</p>
+                    <p>${hint}${suggestion}</p>
                 </div>
             `;
             return;
@@ -701,6 +716,12 @@ async function deletePhoto(photoId, event) {
 
 async function submitLiftForm(e, recordId) {
     e.preventDefault();
+
+    // Confirmation dialog for destructive action
+    if (!confirm('Are you sure you want to lift this ban? This action cannot be undone.')) {
+        return;
+    }
+
     const form = e.target;
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());

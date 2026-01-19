@@ -37,13 +37,12 @@ header {
 }
 
 .header-content {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 16px;
+    column-gap: 16px;
     max-width: 1200px;
     margin: 0 auto;
-    justify-content: space-between;
-    flex-wrap: nowrap;
 }
 
 .header-logo {
@@ -64,18 +63,12 @@ header h1 {
     font-size: 22px;
     font-weight: 600;
     letter-spacing: 0.5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 header .subtitle {
     font-size: 12px;
     opacity: 0.8;
     margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .logout-btn {
@@ -187,7 +180,7 @@ header .subtitle {
     font-size: 13px;
     cursor: pointer;
     transition: all 0.2s;
-    color: var(--text-muted);
+    color: #595969; /* Darker than --text-muted for WCAG AA contrast */
 }
 
 .filter-btn:hover {
@@ -228,7 +221,7 @@ header .subtitle {
     font-size: 13px;
     cursor: pointer;
     transition: all 0.2s;
-    color: var(--text-muted);
+    color: #595969; /* Darker than --text-muted for WCAG AA contrast */
 }
 
 .sort-dir-btn:hover {
@@ -450,6 +443,14 @@ header .subtitle {
     font-size: 12px;
     margin-top: 4px;
     display: block;
+}
+
+.char-counter {
+    color: var(--text-muted);
+    font-size: 11px;
+    margin-top: 4px;
+    display: block;
+    text-align: right;
 }
 
 .form-row {
@@ -1689,6 +1690,24 @@ header .subtitle {
     overflow: hidden;
     clip: rect(1px, 1px, 1px, 1px);
     white-space: nowrap;
+}
+
+/* Skip navigation link for accessibility */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary-purple);
+    color: #fff;
+    padding: 8px 16px;
+    z-index: 9999;
+    text-decoration: none;
+    font-weight: 500;
+    border-radius: 0 0 4px 0;
+}
+
+.skip-link:focus {
+    top: 0;
 }
 
 /* Responsive */

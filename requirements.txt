@@ -14,3 +14,5 @@ python-dotenv==1.0.1
 # Use python-magic on Linux/PythonAnywhere, python-magic-bin on Windows
 python-magic==0.4.27
 python-docx==1.1.2
+PyPDF2==3.0.1
+pdfplumber==0.11.4

@@ -30,6 +30,17 @@ try:
     HAS_DOCX = True
 except ImportError:
     HAS_DOCX = False
+try:
+    import pdfplumber
+    HAS_PDF = True
+    HAS_PDF_LAYOUT = True
+except ImportError:
+    HAS_PDF_LAYOUT = False
+    try:
+        from PyPDF2 import PdfReader
+        HAS_PDF = True
+    except ImportError:
+        HAS_PDF = False
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect, url_for
 from markupsafe import Markup, escape
@@ -113,6 +124,45 @@ LOG_EDIT_WINDOW_MINUTES = 10
 MAINTENANCE_EDIT_WINDOW_MINUTES = 10
 IN_HOUSE_MESSAGE_EXPIRY_DAYS = 14
 
+# Account lockout settings
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_DURATION_MINUTES = 15
+
+# In-memory login attempt tracking (simple approach for single-instance use)
+_login_attempts = {}  # {username: {'count': int, 'locked_until': datetime or None}}
+
+
+def is_account_locked(username: str) -> bool:
+    """Check if an account is currently locked due to failed login attempts."""
+    if username not in _login_attempts:
+        return False
+    attempt_info = _login_attempts[username]
+    if attempt_info.get('locked_until'):
+        if datetime.now() < attempt_info['locked_until']:
+            return True
+        # Lockout expired, reset
+        _login_attempts[username] = {'count': 0, 'locked_until': None}
+    return False
+
+
+def record_failed_login(username: str):
+    """Record a failed login attempt and lock account if threshold reached."""
+    if username not in _login_attempts:
+        _login_attempts[username] = {'count': 0, 'locked_until': None}
+
+    _login_attempts[username]['count'] += 1
+    count = _login_attempts[username]['count']
+
+    if count >= MAX_LOGIN_ATTEMPTS:
+        _login_attempts[username]['locked_until'] = datetime.now() + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+        print(f"Account locked: {username} (too many failed attempts)")
+
+
+def reset_login_attempts(username: str):
+    """Reset login attempts after successful login."""
+    if username in _login_attempts:
+        _login_attempts[username] = {'count': 0, 'locked_until': None}
+
 
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt with automatic salt generation."""
@@ -135,18 +185,29 @@ def load_credentials():
                 creds = json.load(f)
                 # Validate required fields exist
                 if all(k in creds for k in ['username', 'password_hash', 'manager_password_hash']):
+                    # Ensure session_version exists (for backwards compatibility)
+                    if 'session_version' not in creds:
+                        creds['session_version'] = 1
                     return creds
         except (json.JSONDecodeError, IOError):
             pass
     return None
 
 
-def save_credentials(username: str, password_hash: str, manager_password_hash: str):
+def save_credentials(username: str, password_hash: str, manager_password_hash: str, increment_session: bool = False):
     """Save credentials to file securely."""
+    existing = load_credentials()
+    session_version = 1
+    if existing:
+        session_version = existing.get('session_version', 1)
+        if increment_session:
+            session_version += 1
+
     creds = {
         'username': username,
         'password_hash': password_hash,
         'manager_password_hash': manager_password_hash,
+        'session_version': session_version,
         'created_at': datetime.now().isoformat()
     }
     with open(CREDENTIALS_FILE, 'w') as f:
@@ -155,7 +216,11 @@ def save_credentials(username: str, password_hash: str, manager_password_hash: s
     try:
         os.chmod(CREDENTIALS_FILE, 0o600)
     except (OSError, AttributeError):
-        pass  # Windows or permission issues
+        import platform
+        if platform.system() == 'Windows':
+            print("WARNING: File permissions cannot be enforced on Windows. Credentials file may be readable by other users.")
+        else:
+            print("WARNING: Could not set restrictive file permissions on credentials file.")
 
 
 def is_setup_required() -> bool:
@@ -184,11 +249,11 @@ def validate_file_type(file_stream) -> str | None:
     """
     Validate file type using magic bytes (file signature).
     Returns the detected MIME type if valid, None otherwise.
-    Falls back to extension check if python-magic is not available.
+    Rejects uploads if python-magic is not available for security.
     """
     if not HAS_MAGIC:
-        # Fallback: just return a valid type (extension already checked)
-        return 'image/jpeg'
+        # Security: reject uploads if magic validation is unavailable
+        return None
 
     try:
         # Read first 2048 bytes for magic detection
@@ -217,6 +282,37 @@ def parse_docx_paragraphs(file_stream) -> list[str]:
     return paragraphs
 
 
+def parse_pdf_text(file_stream) -> str:
+    if not HAS_PDF:
+        raise RuntimeError("PDF support is not installed")
+    if HAS_PDF_LAYOUT:
+        with pdfplumber.open(file_stream) as pdf:
+            pages = []
+            for page in pdf.pages:
+                try:
+                    text = page.extract_text(x_tolerance=1, y_tolerance=1, layout=True) or ""
+                except TypeError:
+                    text = page.extract_text() or ""
+                pages.append(text.rstrip())
+        return "\n".join(pages).strip()
+    reader = PdfReader(file_stream)
+    pages = []
+    for page in reader.pages:
+        text = page.extract_text() or ""
+        pages.append(text.rstrip())
+    return "\n".join(pages).strip()
+
+
+def parse_pdf_lines(file_stream) -> list[str]:
+    text = parse_pdf_text(file_stream)
+    lines = []
+    for line in text.splitlines():
+        cleaned = line.rstrip()
+        if cleaned:
+            lines.append(cleaned)
+    return lines
+
+
 def dict_factory(cursor, row):
     return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
 
@@ -241,6 +337,17 @@ def login_required(f):
             if request.path.startswith("/api/"):
                 return jsonify({"error": "Unauthorized"}), 401
             return redirect(url_for('login'))
+
+        # Check if session is still valid (password may have changed)
+        creds = load_credentials()
+        if creds:
+            current_version = creds.get('session_version', 1)
+            session_version = session.get('session_version', 0)
+            if session_version < current_version:
+                session.clear()
+                if request.path.startswith("/api/"):
+                    return jsonify({"error": "Session expired. Please log in again."}), 401
+                return redirect(url_for('login'))
 
         # Refresh session on activity
         session.modified = True
@@ -535,11 +642,22 @@ def login():
         username = request.form.get("username", "")
         password = request.form.get("password", "")
 
+        # Check if account is locked (use a consistent key for lockout)
+        lockout_key = username.lower() if username else "_anonymous_"
+        if is_account_locked(lockout_key):
+            # Return same error as invalid credentials to avoid revealing lockout status
+            return render_template("login.html", error="Invalid username or password")
+
         if username == LOGIN_USERNAME and verify_password(password, LOGIN_PASSWORD_HASH):
+            reset_login_attempts(lockout_key)
             session['logged_in'] = True
             session.permanent = True
+            # Store session version to detect password changes
+            creds = load_credentials()
+            session['session_version'] = creds.get('session_version', 1) if creds else 1
             return redirect(url_for('overview'))
         else:
+            record_failed_login(lockout_key)
             return render_template("login.html", error="Invalid username or password")
 
     return render_template("login.html")
@@ -1539,6 +1657,8 @@ def upload_photo(record_id):
     detected_mime = validate_file_type(file.stream)
     if not detected_mime:
         conn.close()
+        if not HAS_MAGIC:
+            return jsonify({"error": "Photo uploads are temporarily unavailable. Please contact support."}), 503
         return jsonify({"error": "Invalid file content. File does not match declared type."}), 400
 
     # Generate unique filename with correct extension based on MIME type
@@ -1816,23 +1936,38 @@ def add_how_to_guide():
 @login_required
 @limiter.limit("5 per minute")
 def import_how_to_guide():
-    if not HAS_DOCX:
-        return redirect(url_for("how_to_guides_page", error="docx"))
-
     file = request.files.get("guide_file")
-    if not file or not file.filename.lower().endswith(".docx"):
+    if not file:
         return redirect(url_for("how_to_guides_page", error="file"))
 
-    try:
-        paragraphs = parse_docx_paragraphs(file)
-    except Exception:
-        return redirect(url_for("how_to_guides_page", error="parse"))
-
-    if not paragraphs:
-        return redirect(url_for("how_to_guides_page", error="empty"))
+    filename = file.filename.lower()
+    if filename.endswith(".docx"):
+        if not HAS_DOCX:
+            return redirect(url_for("how_to_guides_page", error="docx"))
+        try:
+            paragraphs = parse_docx_paragraphs(file)
+        except Exception:
+            return redirect(url_for("how_to_guides_page", error="parse"))
+    elif filename.endswith(".pdf"):
+        if not HAS_PDF:
+            return redirect(url_for("how_to_guides_page", error="pdf"))
+        try:
+            pdf_text = parse_pdf_text(file)
+        except Exception:
+            return redirect(url_for("how_to_guides_page", error="parse"))
+    else:
+        return redirect(url_for("how_to_guides_page", error="file"))
 
     title = os.path.splitext(file.filename)[0].strip()[:200]
-    body = "\n\n".join(paragraphs)[:4000]
+    if filename.endswith(".pdf"):
+        body = (pdf_text or "").strip()[:4000]
+    else:
+        if not paragraphs:
+            return redirect(url_for("how_to_guides_page", error="empty"))
+        body = "\n\n".join(paragraphs)[:4000]
+
+    if not body:
+        return redirect(url_for("how_to_guides_page", error="empty"))
 
     conn = connect_db()
     conn.execute("""
@@ -1938,17 +2073,27 @@ def add_cleaning_checklist():
 @login_required
 @limiter.limit("5 per minute")
 def import_cleaning_checklist():
-    if not HAS_DOCX:
-        return redirect(url_for("cleaning_checklists_page", error="docx"))
-
     file = request.files.get("checklist_file")
-    if not file or not file.filename.lower().endswith(".docx"):
+    if not file:
         return redirect(url_for("cleaning_checklists_page", error="file"))
 
-    try:
-        paragraphs = parse_docx_paragraphs(file)
-    except Exception:
-        return redirect(url_for("cleaning_checklists_page", error="parse"))
+    filename = file.filename.lower()
+    if filename.endswith(".docx"):
+        if not HAS_DOCX:
+            return redirect(url_for("cleaning_checklists_page", error="docx"))
+        try:
+            paragraphs = parse_docx_paragraphs(file)
+        except Exception:
+            return redirect(url_for("cleaning_checklists_page", error="parse"))
+    elif filename.endswith(".pdf"):
+        if not HAS_PDF:
+            return redirect(url_for("cleaning_checklists_page", error="pdf"))
+        try:
+            paragraphs = parse_pdf_lines(file)
+        except Exception:
+            return redirect(url_for("cleaning_checklists_page", error="parse"))
+    else:
+        return redirect(url_for("cleaning_checklists_page", error="file"))
 
     if not paragraphs:
         return redirect(url_for("cleaning_checklists_page", error="empty"))
@@ -2002,6 +2147,7 @@ def update_manager_password():
 
     data = request.json
     new_manager_password = data.get('new_manager_password', '').strip()
+    confirm_manager_password = data.get('confirm_manager_password', '').strip()
     current_password = data.get('current_password', '').strip()
 
     # Validate current login password using bcrypt
@@ -2011,6 +2157,10 @@ def update_manager_password():
     # Validation
     if not new_manager_password or len(new_manager_password) < 8:
         return jsonify({"error": "Manager password must be at least 8 characters"}), 400
+
+    # Server-side password confirmation check
+    if new_manager_password != confirm_manager_password:
+        return jsonify({"error": "Manager passwords do not match"}), 400
 
     # Password strength check
     has_upper = any(c.isupper() for c in new_manager_password)
@@ -2040,6 +2190,7 @@ def update_login_credentials():
     data = request.json
     new_username = data.get('username', '').strip()[:50]
     new_password = data.get('password', '').strip()
+    confirm_password = data.get('confirm_password', '').strip()
     current_password = data.get('current_password', '').strip()
 
     # Validate current password using bcrypt
@@ -2052,6 +2203,10 @@ def update_login_credentials():
     if not new_password or len(new_password) < 8:
         return jsonify({"error": "Password must be at least 8 characters"}), 400
 
+    # Server-side password confirmation check
+    if new_password != confirm_password:
+        return jsonify({"error": "Passwords do not match"}), 400
+
     # Password strength check
     has_upper = any(c.isupper() for c in new_password)
     has_lower = any(c.islower() for c in new_password)
@@ -2059,16 +2214,16 @@ def update_login_credentials():
     if not (has_upper and has_lower and has_digit):
         return jsonify({"error": "Password must contain uppercase, lowercase, and numbers"}), 400
 
-    # Update credentials with bcrypt
+    # Update credentials with bcrypt and increment session version to invalidate all sessions
     new_password_hash = hash_password(new_password)
-    save_credentials(new_username, new_password_hash, MANAGER_PASSWORD_HASH)
+    save_credentials(new_username, new_password_hash, MANAGER_PASSWORD_HASH, increment_session=True)
 
     # Reload credentials
     CREDENTIALS = load_credentials()
     LOGIN_USERNAME = CREDENTIALS['username']
     LOGIN_PASSWORD_HASH = CREDENTIALS['password_hash']
 
-    # Invalidate current session
+    # Clear current session (other sessions will be invalidated by version check)
     session.clear()
 
     return jsonify({"message": "Login credentials updated successfully"}), 200

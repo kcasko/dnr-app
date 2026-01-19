@@ -8,6 +8,8 @@
 </head>
 <body>
 
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
 <header>
     <div class="header-content">
         <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
@@ -28,7 +30,7 @@
     </div>
 </header>
 
-<div class="container">
+<div class="container" id="main-content">
     <div class="settings-page">
         <div class="settings-card">
             <h2>Change Login Credentials</h2>
@@ -170,6 +172,7 @@ async function updateManagerPassword(e) {
             headers: getHeaders(),
             body: JSON.stringify({
                 new_manager_password: newPassword,
+                confirm_manager_password: confirmPassword,
                 current_password: currentPassword
             })
         });
@@ -224,6 +227,7 @@ async function updateLoginCredentials(e) {
             body: JSON.stringify({
                 username: username,
                 password: password,
+                confirm_password: confirmPassword,
                 current_password: currentPassword
             })
         });

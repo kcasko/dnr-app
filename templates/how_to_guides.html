@@ -8,6 +8,8 @@
 </head>
 <body>
 
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
 <header>
     <div class="header-content">
         <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
@@ -28,7 +30,7 @@
     </div>
 </header>
 
-<div class="container">
+<div class="container" id="main-content">
     <div class="reference-form">
         <h2>Add How-To Guide</h2>
         <form method="POST" action="/how-to-guides">
@@ -48,13 +50,13 @@
     </div>
 
     <div class="reference-form">
-        <h2>Import Guide (DOCX)</h2>
+        <h2>Import Guide (DOCX or PDF)</h2>
         <form method="POST" action="/how-to-guides/import" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
-                <label>Word File *</label>
-                <input type="file" name="guide_file" accept=".docx" required title="Select a DOCX file to import">
-                <small class="form-hint">Imports the document into readable text.</small>
+                <label>Document File *</label>
+                <input type="file" name="guide_file" accept=".docx,.pdf" required title="Select a DOCX or PDF file to import">
+                <small class="form-hint">DOCX and PDF files are both supported.</small>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-secondary">Import Guide</button>
@@ -65,19 +67,21 @@
     <div class="reference-list">
         <h2>Guide Library</h2>
         {% if error == 'manager' %}
-        <div class="inline-error">Manager password is required to delete a guide.</div>
+        <div class="inline-error">Incorrect manager password. Please verify and try again.</div>
         {% endif %}
         {% if error == 'docx' %}
-        <div class="inline-error">DOCX import is unavailable. Install python-docx.</div>
+        <div class="inline-error">DOCX import is not available. The python-docx library needs to be installed.</div>
+        {% elif error == 'pdf' %}
+        <div class="inline-error">PDF import is not available. The pdfplumber or PyPDF2 library needs to be installed.</div>
         {% endif %}
         {% if error == 'file' %}
-        <div class="inline-error">Please upload a .docx file.</div>
+        <div class="inline-error">Invalid file type. Please select a .docx or .pdf file.</div>
         {% endif %}
         {% if error == 'parse' %}
-        <div class="inline-error">Unable to read that document. Please try a different file.</div>
+        <div class="inline-error">Could not read the document. The file may be corrupted or password-protected. Please try a different file.</div>
         {% endif %}
         {% if error == 'empty' %}
-        <div class="inline-error">The document contained no readable text.</div>
+        <div class="inline-error">The document appears to be empty or contains no readable text.</div>
         {% endif %}
         {% if guides %}
             {% for guide in guides %}

@@ -57,12 +57,13 @@
     </div>
 
     <div class="reference-form">
-        <h2>Import Checklist (DOCX)</h2>
+        <h2>Import Checklist (DOCX or PDF)</h2>
         <form method="POST" action="/cleaning-checklists/import" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label>Word File *</label>
-                <input type="file" name="checklist_file" accept=".docx" required title="Upload DOCX checklist file">
+                <input type="file" name="checklist_file" accept=".docx,.pdf" required title="Upload DOCX or PDF checklist file">
+                <small class="form-hint">DOCX and PDF files are both supported.</small>
                 <small class="form-hint">Each paragraph becomes a checklist item.</small>
             </div>
             <div class="form-actions">
@@ -76,9 +77,11 @@
     {% endif %}
     {% if error == 'docx' %}
     <div class="inline-error">DOCX import is unavailable. Install python-docx.</div>
+    {% elif error == 'pdf' %}
+    <div class="inline-error">PDF import is unavailable. Install pdfplumber or PyPDF2.</div>
     {% endif %}
     {% if error == 'file' %}
-    <div class="inline-error">Please upload a .docx file.</div>
+    <div class="inline-error">Please upload a .docx or .pdf file.</div>
     {% endif %}
     {% if error == 'parse' %}
     <div class="inline-error">Unable to read that document. Please try a different file.</div>
