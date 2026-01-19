@@ -54,8 +54,8 @@ header {
 }
 
 .header-text {
-    flex: 1;
     min-width: 0;
+    overflow: hidden;
 }
 
 header h1 {
@@ -63,6 +63,9 @@ header h1 {
     font-size: 22px;
     font-weight: 600;
     letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 header .subtitle {
@@ -96,6 +99,7 @@ header .subtitle {
     display: flex;
     gap: 12px;
     flex-wrap: nowrap;
+    flex-shrink: 0;
 }
 
 /* Action row wrapping */
@@ -1501,7 +1505,7 @@ header .subtitle {
     font-size: 13px;
 }
 
-/* Staff Announcements */
+/* Staff Notices */
 .announcement-form {
     background: var(--bg-white);
     border-radius: 8px;

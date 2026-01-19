@@ -134,7 +134,7 @@ def init_db():
         )
     """)
 
-    # Staff announcements table
+    # Staff notices table
     cursor.execute("""
         CREATE TABLE staff_announcements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

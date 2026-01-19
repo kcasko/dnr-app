@@ -723,6 +723,7 @@ def log_book():
     conn = connect_db()
     entries = conn.execute("""
         SELECT * FROM log_entries
+        WHERE is_system_event = 0
         ORDER BY created_at DESC, id DESC
     """).fetchall()
     conn.close()
