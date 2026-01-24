@@ -1778,6 +1778,52 @@ header .subtitle {
     display: none;
 }
 
+/* Two-column layout for Quick Actions */
+.quick-action-layout {
+    display: grid;
+    grid-template-columns: 60fr 40fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.quick-action-primary {
+    min-width: 0;
+}
+
+.quick-action-secondary {
+    min-width: 0;
+}
+
+@media (max-width: 768px) {
+    .quick-action-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .quick-action-layout .quick-action-primary {
+        order: 2;
+    }
+
+    .quick-action-layout .quick-action-secondary {
+        order: 1;
+    }
+}
+
+/* Housekeeping request specific styles */
+.guest-name-label {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.recalculate-options {
+    margin-top: 0.5rem;
+}
+
+.frequency-description {
+    margin: 0.5rem 0;
+    color: #666;
+    font-size: 0.9em;
+}
+
 @media print {
     body {
         background: #fff;

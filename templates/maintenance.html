@@ -40,125 +40,131 @@
         </div>
     </div>
 
-    <div class="maintenance-form">
-        <h2>Report Maintenance Issue</h2>
-        <form method="POST" action="/maintenance">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Title *</label>
-                    <input type="text" name="title" required placeholder="AC not cooling">
-                </div>
-                <div class="form-group">
-                    <label>Location</label>
-                    <input type="text" name="location" placeholder="Room 214">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="priority-select">Priority</label>
-                    <select id="priority-select" name="priority">
-                        <option value="low">Low</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="high">High</option>
-                        <option value="urgent">Urgent</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Description</label>
-                <textarea name="description" placeholder="Add any helpful details..."></textarea>
-                <small class="form-hint">Details can be adjusted briefly after submission.</small>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Add Maintenance Item</button>
-            </div>
-        </form>
-    </div>
-
-    <div class="maintenance-list">
-        <h2>Maintenance Items</h2>
-        {% if items %}
-            {% for item in items %}
-            <div class="maintenance-card">
-                <div class="maintenance-card-header">
-                    <div>
-                        <div class="maintenance-title">{{ item.title }}</div>
-                        {% if item.location %}
-                        <div class="maintenance-location">{{ item.location }}</div>
+    <div class="quick-action-layout">
+        <div class="quick-action-primary">
+            <div class="maintenance-list">
+                <h2>Maintenance Items</h2>
+                {% if items %}
+                    {% for item in items %}
+                    <div class="maintenance-card">
+                        <div class="maintenance-card-header">
+                            <div>
+                                <div class="maintenance-title">{{ item.title }}</div>
+                                {% if item.location %}
+                                <div class="maintenance-location">{{ item.location }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="maintenance-meta">
+                                <span class="status-badge {{ item.status }}">{{ item.status }}</span>
+                                <span class="maintenance-priority priority-{{ item.priority }}">{{ item.priority }}</span>
+                            </div>
+                        </div>
+                        {% if item.description %}
+                        <div class="maintenance-description">{{ item.description }}</div>
                         {% endif %}
+                        <div class="maintenance-dates">
+                            <span>Created: {{ item.created_at }}</span>
+                            {% if item.updated_at %}<span>Updated: {{ item.updated_at }}</span>{% endif %}
+                            {% if item.completed_at %}<span>Completed: {{ item.completed_at }}</span>{% endif %}
+                        </div>
+                        {% if item.is_editable %}
+                        <div class="maintenance-edit-actions">
+                            <a class="btn btn-secondary" href="/maintenance?edit={{ item.id }}">Edit Details</a>
+                        </div>
+                        {% endif %}
+                        {% if editable_id == item.id and item.is_editable %}
+                        <form class="maintenance-edit-form" method="POST" action="/maintenance/{{ item.id }}/edit">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Title *</label>
+                                    <input type="text" name="title" required value="{{ item.title }}" placeholder="AC not cooling">
+                                </div>
+                                <div class="form-group">
+                                    <label>Location</label>
+                                    <input type="text" name="location" value="{{ item.location }}" placeholder="Room 214" title="Location">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="priority-{{ item.id }}">Priority</label>
+                                    <select id="priority-{{ item.id }}" name="priority">
+                                        <option value="low" {% if item.priority == 'low' %}selected{% endif %}>Low</option>
+                                        <option value="medium" {% if item.priority == 'medium' %}selected{% endif %}>Medium</option>
+                                        <option value="high" {% if item.priority == 'high' %}selected{% endif %}>High</option>
+                                        <option value="urgent" {% if item.priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Description</label>
+                                <textarea name="description" placeholder="Add any helpful details..." title="Description">{{ item.description }}</textarea>
+                            </div>
+                            <div class="form-actions">
+                                <a class="btn btn-secondary" href="/maintenance">Cancel</a>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </form>
+                        {% endif %}
+                        <form class="maintenance-status-form" method="POST" action="/maintenance/{{ item.id }}/status">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <label class="visually-hidden" for="status-{{ item.id }}">Update status</label>
+                            <select id="status-{{ item.id }}" name="status">
+                                <option value="open" {% if item.status == 'open' %}selected{% endif %}>Open</option>
+                                <option value="in_progress" {% if item.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                                <option value="blocked" {% if item.status == 'blocked' %}selected{% endif %}>Blocked</option>
+                                <option value="completed" {% if item.status == 'completed' %}selected{% endif %}>Completed</option>
+                            </select>
+                            <button type="submit" class="btn btn-secondary">Update Status</button>
+                        </form>
                     </div>
-                    <div class="maintenance-meta">
-                        <span class="status-badge {{ item.status }}">{{ item.status }}</span>
-                        <span class="maintenance-priority priority-{{ item.priority }}">{{ item.priority }}</span>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No maintenance items</h3>
+                        <p>Use the form on the right to report the first issue.</p>
                     </div>
-                </div>
-                {% if item.description %}
-                <div class="maintenance-description">{{ item.description }}</div>
                 {% endif %}
-                <div class="maintenance-dates">
-                    <span>Created: {{ item.created_at }}</span>
-                    {% if item.updated_at %}<span>Updated: {{ item.updated_at }}</span>{% endif %}
-                    {% if item.completed_at %}<span>Completed: {{ item.completed_at }}</span>{% endif %}
-                </div>
-                {% if item.is_editable %}
-                <div class="maintenance-edit-actions">
-                    <a class="btn btn-secondary" href="/maintenance?edit={{ item.id }}">Edit Details</a>
-                </div>
-                {% endif %}
-                {% if editable_id == item.id and item.is_editable %}
-                <form class="maintenance-edit-form" method="POST" action="/maintenance/{{ item.id }}/edit">
+            </div>
+        </div>
+
+        <div class="quick-action-secondary">
+            <div class="maintenance-form">
+                <h2>Report Maintenance Issue</h2>
+                <form method="POST" action="/maintenance">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-row">
                         <div class="form-group">
                             <label>Title *</label>
-                            <input type="text" name="title" required value="{{ item.title }}" placeholder="AC not cooling">
+                            <input type="text" name="title" required placeholder="AC not cooling">
                         </div>
                         <div class="form-group">
                             <label>Location</label>
-                            <input type="text" name="location" value="{{ item.location }}" placeholder="Room 214" title="Location">
+                            <input type="text" name="location" placeholder="Room 214">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="priority-{{ item.id }}">Priority</label>
-                            <select id="priority-{{ item.id }}" name="priority">
-                                <option value="low" {% if item.priority == 'low' %}selected{% endif %}>Low</option>
-                                <option value="medium" {% if item.priority == 'medium' %}selected{% endif %}>Medium</option>
-                                <option value="high" {% if item.priority == 'high' %}selected{% endif %}>High</option>
-                                <option value="urgent" {% if item.priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                            <label for="priority-select">Priority</label>
+                            <select id="priority-select" name="priority">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                                <option value="urgent">Urgent</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-group">
                         <label>Description</label>
-                        <textarea name="description" placeholder="Add any helpful details..." title="Description">{{ item.description }}</textarea>
+                        <textarea name="description" placeholder="Add any helpful details..."></textarea>
+                        <small class="form-hint">Details can be adjusted briefly after submission.</small>
                     </div>
                     <div class="form-actions">
-                        <a class="btn btn-secondary" href="/maintenance">Cancel</a>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="submit" class="btn btn-primary">Add Maintenance Item</button>
                     </div>
                 </form>
-                {% endif %}
-                <form class="maintenance-status-form" method="POST" action="/maintenance/{{ item.id }}/status">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <label class="visually-hidden" for="status-{{ item.id }}">Update status</label>
-                    <select id="status-{{ item.id }}" name="status">
-                        <option value="open" {% if item.status == 'open' %}selected{% endif %}>Open</option>
-                        <option value="in_progress" {% if item.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                        <option value="blocked" {% if item.status == 'blocked' %}selected{% endif %}>Blocked</option>
-                        <option value="completed" {% if item.status == 'completed' %}selected{% endif %}>Completed</option>
-                    </select>
-                    <button type="submit" class="btn btn-secondary">Update Status</button>
-                </form>
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <h3>No maintenance items</h3>
-                <p>Use the form above to report the first issue.</p>
-            </div>
-        {% endif %}
+        </div>
     </div>
 </div>
 

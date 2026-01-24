@@ -88,6 +88,7 @@
             margin: 0;
         }
         .recalculate-prompt {
+            display: none;
             background: #fff3cd;
             border: 1px solid #ffc107;
             border-radius: 4px;
@@ -106,6 +107,15 @@
         }
         .print-list-item:last-child {
             border-bottom: none;
+        }
+        .print-rooms-container {
+            margin-top: 2rem;
+        }
+        .print-guest-name {
+            color: #666;
+        }
+        .print-frequency {
+            color: #666;
         }
     </style>
 </head>
@@ -150,162 +160,168 @@
     <div class="inline-error">Invalid frequency value. Please enter a number between 1 and 30.</div>
     {% endif %}
 
-    <div class="housekeeping-form">
-        <h2>Add Housekeeping Request</h2>
-        <form method="POST" action="/housekeeping-requests" id="housekeeping-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Room Number *</label>
-                    <input type="text" name="room_number" required placeholder="Room 214">
-                </div>
-                <div class="form-group">
-                    <label>Guest Name/Initials (Optional)</label>
-                    <input type="text" name="guest_name" placeholder="J. Smith or JS">
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Start Date (First Full Day) *</label>
-                    <input type="date" name="start_date" required id="start-date">
-                </div>
-                <div class="form-group">
-                    <label>Checkout Date *</label>
-                    <input type="date" name="end_date" required id="end-date">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Housekeeping Frequency *</label>
-                <p style="margin: 0.5rem 0; color: #666; font-size: 0.9em;">
-                    Default: No Housekeeping. Select a frequency below only if housekeeping is requested.
-                </p>
-                <div class="frequency-modes">
-                    <label class="frequency-mode selected" data-frequency="none">
-                        <input type="radio" name="frequency" value="none" checked>
-                        <div>
-                            <h4>No Housekeeping</h4>
-                            <p>Default state - no service scheduled</p>
+    <div class="quick-action-layout">
+        <div class="quick-action-primary">
+            <div class="maintenance-list">
+                <h2>Housekeeping Requests Due Today</h2>
+                {% if requests %}
+                    {% for item in requests %}
+                    <div class="housekeeping-card">
+                        <div class="housekeeping-card-header">
+                            <div class="housekeeping-room">
+                                Room {{ item.room_number }}
+                                {% if item.guest_name %}
+                                <span class="guest-name-label"> - {{ item.guest_name }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="housekeeping-meta">{{ item.frequency_label }}</div>
                         </div>
-                    </label>
-                    <label class="frequency-mode" data-frequency="every_3rd_day">
-                        <input type="radio" name="frequency" value="every_3rd_day">
-                        <div>
-                            <h4>Every 3rd Day</h4>
-                            <p>Preset schedule starting from first full day</p>
+                        <div class="housekeeping-dates">{{ item.start_date }} to {{ item.end_date }}</div>
+                        {% if item.notes %}
+                        <div class="housekeeping-notes">{{ item.notes }}</div>
+                        {% endif %}
+                        <div class="housekeeping-card-actions">
+                            <a class="btn btn-secondary" href="/housekeeping-requests?edit={{ item.id }}">Edit</a>
                         </div>
-                    </label>
-                    <label class="frequency-mode" data-frequency="daily">
-                        <input type="radio" name="frequency" value="daily">
-                        <div>
-                            <h4>Daily Housekeeping</h4>
-                            <p>Service every day excluding checkout</p>
-                        </div>
-                    </label>
-                    <label class="frequency-mode" data-frequency="custom">
-                        <input type="radio" name="frequency" value="custom">
-                        <div>
-                            <h4>Custom Frequency</h4>
-                            <p>Set a custom interval</p>
-                        </div>
-                    </label>
-                </div>
+                        {% if editable_id == item.id %}
+                        <form class="housekeeping-edit-form" method="POST" action="/housekeeping-requests/{{ item.id }}/edit">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                <div class="custom-frequency-input" id="custom-frequency-input">
-                    <label>Every X Days</label>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <input type="number" name="frequency_days" min="1" max="30" placeholder="Enter number of days" id="frequency-days">
-                        </div>
-                        <div class="form-group">
-                            <button type="button" class="btn btn-secondary" id="preview-dates-btn">Preview Dates</button>
-                        </div>
-                    </div>
-                </div>
+                            <div id="recalculate-prompt-{{ item.id }}" class="recalculate-prompt">
+                                <h4>Dates Changed</h4>
+                                <p>Recalculate housekeeping dates based on original preference ({{ item.frequency_label }})?</p>
+                                <div class="recalculate-options">
+                                    <label><input type="radio" name="recalculate" value="yes" checked> Yes (Recommended)</label><br>
+                                    <label><input type="radio" name="recalculate" value="no"> No, keep existing dates</label>
+                                </div>
+                            </div>
 
-                <div class="service-dates-preview" id="service-dates-preview">
-                    <h4>Service Dates Preview</h4>
-                    <div id="preview-content"></div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Notes (Optional)</label>
-                <textarea name="notes" placeholder="Optional notes..." maxlength="1000" class="char-counter-textarea" data-maxlength="1000"></textarea>
-                <small class="char-counter">0 / 1000</small>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Add Request</button>
-            </div>
-        </form>
-    </div>
-
-    <div class="maintenance-list">
-        <h2>Housekeeping Requests Due Today</h2>
-        {% if requests %}
-            {% for item in requests %}
-            <div class="housekeeping-card">
-                <div class="housekeeping-card-header">
-                    <div class="housekeeping-room">
-                        Room {{ item.room_number }}
-                        {% if item.guest_name %}
-                        <span style="font-size: 0.9em; color: #666;"> - {{ item.guest_name }}</span>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="edit-start-date-{{ item.id }}">Start Date *</label>
+                                    <input type="date" name="start_date" required value="{{ item.start_date }}" class="edit-start-date" data-original="{{ item.start_date }}" id="edit-start-date-{{ item.id }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="edit-end-date-{{ item.id }}">Checkout Date *</label>
+                                    <input type="date" name="end_date" required value="{{ item.end_date }}" class="edit-end-date" data-original="{{ item.end_date }}" id="edit-end-date-{{ item.id }}">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Notes (Optional)</label>
+                                <textarea name="notes" placeholder="Optional notes..." maxlength="1000" class="char-counter-textarea" data-maxlength="1000">{{ item.notes }}</textarea>
+                                <small class="char-counter">{{ (item.notes | length) if item.notes else 0 }} / 1000</small>
+                            </div>
+                            <div class="form-actions">
+                                <a class="btn btn-secondary" href="/housekeeping-requests">Cancel</a>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </form>
                         {% endif %}
                     </div>
-                    <div class="housekeeping-meta">{{ item.frequency_label }}</div>
-                </div>
-                <div class="housekeeping-dates">{{ item.start_date }} to {{ item.end_date }}</div>
-                {% if item.notes %}
-                <div class="housekeeping-notes">{{ item.notes }}</div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No housekeeping requests due today</h3>
+                        <p>Requests only appear on their scheduled days.</p>
+                    </div>
                 {% endif %}
-                <div class="housekeeping-card-actions">
-                    <a class="btn btn-secondary" href="/housekeeping-requests?edit={{ item.id }}">Edit</a>
-                </div>
-                {% if editable_id == item.id %}
-                <form class="housekeeping-edit-form" method="POST" action="/housekeeping-requests/{{ item.id }}/edit">
+            </div>
+        </div>
+
+        <div class="quick-action-secondary">
+            <div class="housekeeping-form">
+                <h2>Add Housekeeping Request</h2>
+                <form method="POST" action="/housekeeping-requests" id="housekeeping-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                    <div id="recalculate-prompt-{{ item.id }}" class="recalculate-prompt" style="display: none;">
-                        <h4>Dates Changed</h4>
-                        <p>Recalculate housekeeping dates based on original preference ({{ item.frequency_label }})?</p>
-                        <div style="margin-top: 0.5rem;">
-                            <label><input type="radio" name="recalculate" value="yes" checked> Yes (Recommended)</label><br>
-                            <label><input type="radio" name="recalculate" value="no"> No, keep existing dates</label>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="room-number">Room Number *</label>
+                            <input type="text" name="room_number" required placeholder="Room 214" id="room-number">
+                        </div>
+                        <div class="form-group">
+                            <label for="guest-name">Guest Name/Initials (Optional)</label>
+                            <input type="text" name="guest_name" placeholder="J. Smith or JS" id="guest-name">
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Start Date *</label>
-                            <input type="date" name="start_date" required value="{{ item.start_date }}" class="edit-start-date" data-original="{{ item.start_date }}">
+                            <label for="start-date">Start Date (First Full Day) *</label>
+                            <input type="date" name="start_date" required id="start-date">
                         </div>
                         <div class="form-group">
-                            <label>Checkout Date *</label>
-                            <input type="date" name="end_date" required value="{{ item.end_date }}" class="edit-end-date" data-original="{{ item.end_date }}">
+                            <label for="end-date">Checkout Date *</label>
+                            <input type="date" name="end_date" required id="end-date">
                         </div>
                     </div>
+
                     <div class="form-group">
-                        <label>Notes (Optional)</label>
-                        <textarea name="notes" placeholder="Optional notes..." maxlength="1000" class="char-counter-textarea" data-maxlength="1000">{{ item.notes }}</textarea>
-                        <small class="char-counter">{{ (item.notes | length) if item.notes else 0 }} / 1000</small>
+                        <label>Housekeeping Frequency *</label>
+                        <p class="frequency-description">
+                            Default: No Housekeeping. Select a frequency below only if housekeeping is requested.
+                        </p>
+                        <div class="frequency-modes">
+                            <label class="frequency-mode selected" data-frequency="none">
+                                <input type="radio" name="frequency" value="none" checked>
+                                <div>
+                                    <h4>No Housekeeping</h4>
+                                    <p>Default state - no service scheduled</p>
+                                </div>
+                            </label>
+                            <label class="frequency-mode" data-frequency="every_3rd_day">
+                                <input type="radio" name="frequency" value="every_3rd_day">
+                                <div>
+                                    <h4>Every 3rd Day</h4>
+                                    <p>Preset schedule starting from first full day</p>
+                                </div>
+                            </label>
+                            <label class="frequency-mode" data-frequency="daily">
+                                <input type="radio" name="frequency" value="daily">
+                                <div>
+                                    <h4>Daily Housekeeping</h4>
+                                    <p>Service every day excluding checkout</p>
+                                </div>
+                            </label>
+                            <label class="frequency-mode" data-frequency="custom">
+                                <input type="radio" name="frequency" value="custom">
+                                <div>
+                                    <h4>Custom Frequency</h4>
+                                    <p>Set a custom interval</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="custom-frequency-input" id="custom-frequency-input">
+                            <label>Every X Days</label>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <input type="number" name="frequency_days" min="1" max="30" placeholder="Enter number of days" id="frequency-days">
+                                </div>
+                                <div class="form-group">
+                                    <button type="button" class="btn btn-secondary" id="preview-dates-btn">Preview Dates</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="service-dates-preview" id="service-dates-preview">
+                            <h4>Service Dates Preview</h4>
+                            <div id="preview-content"></div>
+                        </div>
                     </div>
+
+                    <div class="form-group">
+                        <label for="request-notes">Notes (Optional)</label>
+                        <textarea name="notes" placeholder="Optional notes..." maxlength="1000" class="char-counter-textarea" data-maxlength="1000" id="request-notes"></textarea>
+                        <small class="char-counter">0 / 1000</small>
+                    </div>
+
                     <div class="form-actions">
-                        <a class="btn btn-secondary" href="/housekeeping-requests">Cancel</a>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="submit" class="btn btn-primary">Add Request</button>
                     </div>
                 </form>
-                {% endif %}
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <h3>No housekeeping requests due today</h3>
-                <p>Requests only appear on their scheduled days.</p>
-            </div>
-        {% endif %}
+        </div>
     </div>
 </div>
 
@@ -314,16 +330,16 @@
         <h1>Housekeeping Requests - {{ today }}</h1>
     </div>
     {% if print_rooms %}
-        <div style="margin-top: 2rem;">
+        <div class="print-rooms-container">
             {% for item in print_rooms %}
             <div class="print-list-item">
                 <div>
                     <strong>Room {{ item.room }}</strong>
                     {% if item.guest %}
-                    <span style="color: #666;"> - {{ item.guest }}</span>
+                    <span class="print-guest-name"> - {{ item.guest }}</span>
                     {% endif %}
                 </div>
-                <div style="color: #666;">{{ item.frequency }}</div>
+                <div class="print-frequency">{{ item.frequency }}</div>
             </div>
             {% endfor %}
         </div>

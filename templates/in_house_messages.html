@@ -29,79 +29,85 @@
 </header>
 
 <div class="container">
-    <div class="messages-form">
-        <h2>Leave a Message</h2>
-        <form method="POST" action="/in-house-messages">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Recipient *</label>
-                    <input type="text" name="recipient_name" required placeholder="Name" value="{{ recipient }}">
+    <div class="quick-action-layout">
+        <div class="quick-action-primary">
+            <div class="messages-list">
+                <div class="messages-header">
+                    <h2>Messages</h2>
+                    <form class="messages-filter" method="GET" action="/in-house-messages">
+                        <div class="form-group">
+                            <label class="visually-hidden" for="recipient-select">Recipient</label>
+                            <input id="recipient-select" type="text" name="recipient" placeholder="Filter by recipient" value="{{ recipient }}">
+                        </div>
+                        <div class="form-group checkbox-inline">
+                            <label>
+                                <input type="checkbox" name="show_archived" value="1" {% if show_archived %}checked{% endif %}>
+                                Show archived
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-secondary">View</button>
+                    </form>
                 </div>
-            </div>
-            <div class="form-group">
-                <label>Message *</label>
-                <textarea name="message_body" required placeholder="Leave a brief message..."></textarea>
-                <small class="form-hint">Messages auto-expire after 7 days and are archived automatically.</small>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Save Message</button>
-            </div>
-        </form>
-    </div>
 
-    <div class="messages-list">
-        <div class="messages-header">
-            <h2>Messages</h2>
-            <form class="messages-filter" method="GET" action="/in-house-messages">
-                <div class="form-group">
-                    <label class="visually-hidden" for="recipient-select">Recipient</label>
-                    <input id="recipient-select" type="text" name="recipient" placeholder="Filter by recipient" value="{{ recipient }}">
-                </div>
-                <div class="form-group checkbox-inline">
-                    <label>
-                        <input type="checkbox" name="show_archived" value="1" {% if show_archived %}checked{% endif %}>
-                        Show archived
-                    </label>
-                </div>
-                <button type="submit" class="btn btn-secondary">View</button>
-            </form>
+                {% if recipient %}
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="message-card {% if message.archived %}archived{% endif %}">
+                            <div class="message-meta">
+                                <span>{{ message.created_at }}</span>
+                                {% if message.archived %}
+                                    <span class="archived-badge">Archived</span>
+                                {% endif %}
+                            </div>
+                            <div class="message-body">{{ message.message_body }}</div>
+                            {% if not message.archived %}
+                            <div class="message-actions">
+                                <form method="POST" action="/in-house-messages/{{ message.id }}/archive">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="recipient" value="{{ recipient }}">
+                                    <button type="submit" class="btn btn-secondary">Archive</button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <h3>No messages for this recipient</h3>
+                            <p>Leave a message using the form on the right.</p>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>Select a recipient</h3>
+                        <p>Enter a name to view their messages.</p>
+                    </div>
+                {% endif %}
+            </div>
         </div>
 
-        {% if recipient %}
-            {% if messages %}
-                {% for message in messages %}
-                <div class="message-card {% if message.archived %}archived{% endif %}">
-                    <div class="message-meta">
-                        <span>{{ message.created_at }}</span>
-                        {% if message.archived %}
-                            <span class="archived-badge">Archived</span>
-                        {% endif %}
+        <div class="quick-action-secondary">
+            <div class="messages-form">
+                <h2>Leave a Message</h2>
+                <form method="POST" action="/in-house-messages">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Recipient *</label>
+                            <input type="text" name="recipient_name" required placeholder="Name" value="{{ recipient }}">
+                        </div>
                     </div>
-                    <div class="message-body">{{ message.message_body }}</div>
-                    {% if not message.archived %}
-                    <div class="message-actions">
-                        <form method="POST" action="/in-house-messages/{{ message.id }}/archive">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="recipient" value="{{ recipient }}">
-                            <button type="submit" class="btn btn-secondary">Archive</button>
-                        </form>
+                    <div class="form-group">
+                        <label>Message *</label>
+                        <textarea name="message_body" required placeholder="Leave a brief message..."></textarea>
+                        <small class="form-hint">Messages auto-expire after 7 days and are archived automatically.</small>
                     </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="empty-state">
-                    <h3>No messages for this recipient</h3>
-                    <p>Leave a message above to start the list.</p>
-                </div>
-            {% endif %}
-        {% else %}
-            <div class="empty-state">
-                <h3>Select a recipient</h3>
-                <p>Enter a name to view their messages.</p>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Message</button>
+                    </div>
+                </form>
             </div>
-        {% endif %}
+        </div>
     </div>
 </div>
 
