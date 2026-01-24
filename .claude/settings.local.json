@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude mcp list:*)",
+      "Bash(claude mcp add playwright npx -y @anthropic/mcp-server-playwright)",
+      "Bash(claude mcp add:*)",
+      "Bash(npx:*)",
+      "Bash(npm search:*)",
+      "Bash(claude mcp remove:*)",
+      "Bash(\".venv/Scripts/pytest.exe\" tests/test_ui_components.py -v --headed)"
+    ]
+  }
+}
