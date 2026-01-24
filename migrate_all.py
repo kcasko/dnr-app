@@ -1,5 +1,5 @@
 """
-DNR App – Unified Migration Script
+DNR App – Unified Migration Script (Corrected)
 Safe to run multiple times.
 """
 
@@ -80,23 +80,24 @@ def migrate_schema_version(cursor):
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS schema_version (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
             version INTEGER NOT NULL,
             applied_at TEXT NOT NULL
         )
     """)
 
-    cursor.execute("SELECT version FROM schema_version WHERE id = 1")
-    row = cursor.fetchone()
+    cursor.execute("SELECT COUNT(*) FROM schema_version")
+    count = cursor.fetchone()[0]
 
-    if row is None:
+    if count == 0:
         cursor.execute("""
-            INSERT INTO schema_version (id, version, applied_at)
-            VALUES (1, 1, ?)
-        """, (datetime.now(timezone.utc).isoformat(),))
-        print("✓ schema version initialized")
+            INSERT INTO schema_version (version, applied_at)
+            VALUES (?, ?)
+        """, (1, datetime.now(timezone.utc).isoformat()))
+        print("✓ schema version initialized to 1")
     else:
-        print(f"✓ schema version already set ({row[0]})")
+        cursor.execute("SELECT version FROM schema_version LIMIT 1")
+        version = cursor.fetchone()[0]
+        print(f"✓ schema version already present ({version})")
 
 
 def main():
