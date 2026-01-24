@@ -1208,8 +1208,8 @@ def add_housekeeping_request():
     room_number = request.form.get("room_number", "").strip()[:20]
     start_raw = request.form.get("start_date", "").strip()
     end_raw = request.form.get("end_date", "").strip()
-    frequency = request.form.get("frequency", "every_3rd_day").strip()
-    custom_days_raw = request.form.get("custom_days", "").strip()
+    frequency = request.form.get("frequency", "no_housekeeping").strip()
+    custom_frequency_text = request.form.get("custom_frequency", "").strip()[:100]
     notes = request.form.get("notes", "").strip()[:1000]
 
     start_date = parse_date_input(start_raw)
@@ -1220,14 +1220,26 @@ def add_housekeeping_request():
     if start_date > end_date:
         return redirect(url_for("housekeeping_requests", error="date_order"))
 
-    # Determine frequency_days based on selection
-    if frequency == "daily":
-        frequency_days = 1
-    elif frequency == "custom" and custom_days_raw.isdigit():
-        frequency_days = max(1, min(int(custom_days_raw), 30))  # Limit 1-30 days
+    # Determine frequency_days and frequency label based on clarified selection
+    if frequency == "no_housekeeping":
+        frequency_days = 3  # No housekeeping means every 3rd day
+        frequency = "no_housekeeping"
+    elif frequency == "want_housekeeping":
+        # Default to daily unless custom frequency is provided
+        if custom_frequency_text:
+            import re
+            match = re.search(r"(\d+)", custom_frequency_text)
+            if match:
+                frequency_days = max(1, min(int(match.group(1)), 30))
+            else:
+                frequency_days = 1
+            frequency = f"custom: {custom_frequency_text}"
+        else:
+            frequency_days = 1
+            frequency = "daily"
     else:
-        frequency = "every_3rd_day"
         frequency_days = 3
+        frequency = "no_housekeeping"
 
     now = local_timestamp()
     conn = connect_db()

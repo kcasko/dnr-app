@@ -56,7 +56,11 @@
                 </div>
                 <div class="form-group">
                     <label>Frequency</label>
-                    <input type="text" value="Every other day" disabled placeholder="Every other day" title="Frequency is every other day">
+                    <div class="frequency-options">
+                        <label><input type="radio" name="frequency" value="no_housekeeping" checked> No housekeeping <span style="font-size:0.9em; color:#888;">(every 3rd day)</span></label><br>
+                        <label><input type="radio" name="frequency" value="want_housekeeping"> Want housekeeping</label>
+                        <input type="text" name="custom_frequency" placeholder="Custom frequency (e.g. every 2 days)" style="margin-left:1.5em; margin-top:0.5em; display:none;" id="custom-frequency-input">
+                    </div>
                 </div>
             </div>
             <div class="form-row">
@@ -79,6 +83,21 @@
             </div>
         </form>
     </div>
+
+    <script>
+    // Show/hide custom frequency input only for 'want_housekeeping'
+    document.querySelectorAll('input[name="frequency"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            var customInput = document.getElementById('custom-frequency-input');
+            if (this.value === 'want_housekeeping') {
+                customInput.style.display = 'inline-block';
+            } else {
+                customInput.style.display = 'none';
+                customInput.value = '';
+            }
+        });
+    });
+    </script>
 
     <div class="maintenance-list">
         <h2>Housekeeping Requests Due Today</h2>
