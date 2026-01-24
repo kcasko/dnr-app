@@ -1,10 +1,113 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Housekeeping Requests - DNR App</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .frequency-modes {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .frequency-mode {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .frequency-mode:hover {
+            border-color: #0066cc;
+            background: #f8f9fa;
+        }
+        .frequency-mode input[type="radio"] {
+            margin-right: 0.5rem;
+        }
+        .frequency-mode.selected {
+            border-color: #0066cc;
+            background: #e6f2ff;
+        }
+        .frequency-mode h4 {
+            margin: 0 0 0.5rem 0;
+            color: #333;
+        }
+        .frequency-mode p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .custom-frequency-input {
+            display: none;
+            margin-top: 1rem;
+        }
+        .custom-frequency-input.visible {
+            display: block;
+        }
+        .service-dates-preview {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .service-dates-preview.visible {
+            display: block;
+        }
+        .service-dates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .service-date-item {
+            padding: 0.5rem;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .service-date-item.inactive {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+        .service-date-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+        .service-date-toggle input[type="checkbox"] {
+            margin: 0;
+        }
+        .recalculate-prompt {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .recalculate-prompt h4 {
+            margin: 0 0 0.5rem 0;
+            color: #856404;
+        }
+        .print-list-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem;
+            border-bottom: 1px solid #ddd;
+        }
+        .print-list-item:last-child {
+            border-bottom: none;
+        }
+    </style>
 </head>
 <body>
 
@@ -15,7 +118,7 @@
         <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
         <div class="header-text">
             <h1>Housekeeping Requests</h1>
-            <div class="subtitle">Every-other-day stayover cleaning schedule</div>
+            <div class="subtitle">Stayover cleaning schedule</div>
         </div>
         <div class="header-actions">
             <a href="/overview" class="logout-btn">Overview</a>
@@ -34,7 +137,7 @@
     <div class="housekeeping-actions">
         <div class="housekeeping-intro">
             <h2>Due Today</h2>
-            <div class="subtitle">Requests only appear when the schedule is due.</div>
+            <div class="subtitle">Requests only appear when scheduled for today.</div>
         </div>
         <button type="button" class="btn btn-secondary" onclick="window.print()">Print Today's Requests</button>
     </div>
@@ -43,61 +146,102 @@
     <div class="inline-error">Please fill in all required fields: room number, start date, and end date.</div>
     {% elif error == 'date_order' %}
     <div class="inline-error">The start date must be on or before the end date. Please check your dates.</div>
+    {% elif error == 'invalid_frequency' %}
+    <div class="inline-error">Invalid frequency value. Please enter a number between 1 and 30.</div>
     {% endif %}
 
     <div class="housekeeping-form">
         <h2>Add Housekeeping Request</h2>
-        <form method="POST" action="/housekeeping-requests">
+        <form method="POST" action="/housekeeping-requests" id="housekeeping-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
             <div class="form-row">
                 <div class="form-group">
                     <label>Room Number *</label>
                     <input type="text" name="room_number" required placeholder="Room 214">
                 </div>
                 <div class="form-group">
-                    <label>Frequency</label>
-                    <div class="frequency-options">
-                        <label><input type="radio" name="frequency" value="no_housekeeping" checked> No housekeeping <span style="font-size:0.9em; color:#888;">(every 3rd day)</span></label><br>
-                        <label><input type="radio" name="frequency" value="want_housekeeping"> Want housekeeping</label>
-                        <input type="text" name="custom_frequency" placeholder="Custom frequency (e.g. every 2 days)" style="margin-left:1.5em; margin-top:0.5em; display:none;" id="custom-frequency-input">
-                    </div>
+                    <label>Guest Name/Initials (Optional)</label>
+                    <input type="text" name="guest_name" placeholder="J. Smith or JS">
                 </div>
             </div>
+
             <div class="form-row">
                 <div class="form-group">
-                    <label>Start Date *</label>
-                    <input type="date" name="start_date" required placeholder="YYYY-MM-DD" title="Start Date">
+                    <label>Start Date (First Full Day) *</label>
+                    <input type="date" name="start_date" required id="start-date">
                 </div>
                 <div class="form-group">
-                    <label>End Date *</label>
-                    <input type="date" name="end_date" required placeholder="YYYY-MM-DD" title="End Date">
+                    <label>Checkout Date *</label>
+                    <input type="date" name="end_date" required id="end-date">
                 </div>
             </div>
+
+            <div class="form-group">
+                <label>Housekeeping Frequency *</label>
+                <p style="margin: 0.5rem 0; color: #666; font-size: 0.9em;">
+                    Default: No Housekeeping. Select a frequency below only if housekeeping is requested.
+                </p>
+                <div class="frequency-modes">
+                    <label class="frequency-mode selected" data-frequency="none">
+                        <input type="radio" name="frequency" value="none" checked>
+                        <div>
+                            <h4>No Housekeeping</h4>
+                            <p>Default state - no service scheduled</p>
+                        </div>
+                    </label>
+                    <label class="frequency-mode" data-frequency="every_3rd_day">
+                        <input type="radio" name="frequency" value="every_3rd_day">
+                        <div>
+                            <h4>Every 3rd Day</h4>
+                            <p>Preset schedule starting from first full day</p>
+                        </div>
+                    </label>
+                    <label class="frequency-mode" data-frequency="daily">
+                        <input type="radio" name="frequency" value="daily">
+                        <div>
+                            <h4>Daily Housekeeping</h4>
+                            <p>Service every day excluding checkout</p>
+                        </div>
+                    </label>
+                    <label class="frequency-mode" data-frequency="custom">
+                        <input type="radio" name="frequency" value="custom">
+                        <div>
+                            <h4>Custom Frequency</h4>
+                            <p>Set a custom interval</p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="custom-frequency-input" id="custom-frequency-input">
+                    <label>Every X Days</label>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <input type="number" name="frequency_days" min="1" max="30" placeholder="Enter number of days" id="frequency-days">
+                        </div>
+                        <div class="form-group">
+                            <button type="button" class="btn btn-secondary" id="preview-dates-btn">Preview Dates</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="service-dates-preview" id="service-dates-preview">
+                    <h4>Service Dates Preview</h4>
+                    <div id="preview-content"></div>
+                </div>
+            </div>
+
             <div class="form-group">
                 <label>Notes (Optional)</label>
-                <textarea name="notes" placeholder="Short optional note..." maxlength="1000" class="char-counter-textarea" data-maxlength="1000"></textarea>
+                <textarea name="notes" placeholder="Optional notes..." maxlength="1000" class="char-counter-textarea" data-maxlength="1000"></textarea>
                 <small class="char-counter">0 / 1000</small>
             </div>
+
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Add Request</button>
             </div>
         </form>
     </div>
-
-    <script>
-    // Show/hide custom frequency input only for 'want_housekeeping'
-    document.querySelectorAll('input[name="frequency"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var customInput = document.getElementById('custom-frequency-input');
-            if (this.value === 'want_housekeeping') {
-                customInput.style.display = 'inline-block';
-            } else {
-                customInput.style.display = 'none';
-                customInput.value = '';
-            }
-        });
-    });
-    </script>
 
     <div class="maintenance-list">
         <h2>Housekeeping Requests Due Today</h2>
@@ -105,8 +249,13 @@
             {% for item in requests %}
             <div class="housekeeping-card">
                 <div class="housekeeping-card-header">
-                    <div class="housekeeping-room">Room {{ item.room_number }}</div>
-                    <div class="housekeeping-meta">Every other day</div>
+                    <div class="housekeeping-room">
+                        Room {{ item.room_number }}
+                        {% if item.guest_name %}
+                        <span style="font-size: 0.9em; color: #666;"> - {{ item.guest_name }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="housekeeping-meta">{{ item.frequency_label }}</div>
                 </div>
                 <div class="housekeeping-dates">{{ item.start_date }} to {{ item.end_date }}</div>
                 {% if item.notes %}
@@ -118,19 +267,29 @@
                 {% if editable_id == item.id %}
                 <form class="housekeeping-edit-form" method="POST" action="/housekeeping-requests/{{ item.id }}/edit">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div id="recalculate-prompt-{{ item.id }}" class="recalculate-prompt" style="display: none;">
+                        <h4>Dates Changed</h4>
+                        <p>Recalculate housekeeping dates based on original preference ({{ item.frequency_label }})?</p>
+                        <div style="margin-top: 0.5rem;">
+                            <label><input type="radio" name="recalculate" value="yes" checked> Yes (Recommended)</label><br>
+                            <label><input type="radio" name="recalculate" value="no"> No, keep existing dates</label>
+                        </div>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label>Start Date *</label>
-                            <input type="date" name="start_date" required value="{{ item.start_date }}" placeholder="YYYY-MM-DD" title="Start Date">
+                            <input type="date" name="start_date" required value="{{ item.start_date }}" class="edit-start-date" data-original="{{ item.start_date }}">
                         </div>
                         <div class="form-group">
-                            <label>End Date *</label>
-                            <input type="date" name="end_date" required value="{{ item.end_date }}" placeholder="YYYY-MM-DD" title="End Date">
+                            <label>Checkout Date *</label>
+                            <input type="date" name="end_date" required value="{{ item.end_date }}" class="edit-end-date" data-original="{{ item.end_date }}">
                         </div>
                     </div>
                     <div class="form-group">
                         <label>Notes (Optional)</label>
-                        <textarea name="notes" placeholder="Short optional note..." title="Notes" maxlength="1000" class="char-counter-textarea" data-maxlength="1000">{{ item.notes }}</textarea>
+                        <textarea name="notes" placeholder="Optional notes..." maxlength="1000" class="char-counter-textarea" data-maxlength="1000">{{ item.notes }}</textarea>
                         <small class="char-counter">{{ (item.notes | length) if item.notes else 0 }} / 1000</small>
                     </div>
                     <div class="form-actions">
@@ -151,11 +310,23 @@
 </div>
 
 <div class="print-only">
-    <div class="print-header">Housekeeping Requests - Today</div>
+    <div class="print-header">
+        <h1>Housekeeping Requests - {{ today }}</h1>
+    </div>
     {% if print_rooms %}
-        {% for room in print_rooms %}
-        <div class="print-room">{{ room }}</div>
-        {% endfor %}
+        <div style="margin-top: 2rem;">
+            {% for item in print_rooms %}
+            <div class="print-list-item">
+                <div>
+                    <strong>Room {{ item.room }}</strong>
+                    {% if item.guest %}
+                    <span style="color: #666;"> - {{ item.guest }}</span>
+                    {% endif %}
+                </div>
+                <div style="color: #666;">{{ item.frequency }}</div>
+            </div>
+            {% endfor %}
+        </div>
     {% else %}
         <div class="print-empty">No housekeeping requests are due today.</div>
     {% endif %}
@@ -181,8 +352,106 @@ document.querySelectorAll('.char-counter-textarea').forEach(function(textarea) {
         updateCounter();
     }
 });
+
+// Frequency mode selection
+document.querySelectorAll('.frequency-mode').forEach(function(mode) {
+    mode.addEventListener('click', function(e) {
+        if (e.target.tagName !== 'INPUT') {
+            var radio = this.querySelector('input[type="radio"]');
+            radio.checked = true;
+        }
+
+        // Update selected state
+        document.querySelectorAll('.frequency-mode').forEach(function(m) {
+            m.classList.remove('selected');
+        });
+        this.classList.add('selected');
+
+        // Show/hide custom frequency input
+        var frequency = this.getAttribute('data-frequency');
+        var customInput = document.getElementById('custom-frequency-input');
+        var preview = document.getElementById('service-dates-preview');
+
+        if (frequency === 'custom') {
+            customInput.classList.add('visible');
+        } else {
+            customInput.classList.remove('visible');
+            preview.classList.remove('visible');
+        }
+    });
+});
+
+// Preview service dates for custom frequency
+document.getElementById('preview-dates-btn').addEventListener('click', function() {
+    var startDate = document.getElementById('start-date').value;
+    var endDate = document.getElementById('end-date').value;
+    var frequencyDays = document.getElementById('frequency-days').value;
+
+    if (!startDate || !endDate || !frequencyDays) {
+        alert('Please fill in start date, end date, and frequency days');
+        return;
+    }
+
+    fetch('/api/preview-service-dates', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        },
+        body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate,
+            frequency: 'custom',
+            frequency_days: parseInt(frequencyDays)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        var previewDiv = document.getElementById('service-dates-preview');
+        var previewContent = document.getElementById('preview-content');
+
+        var html = '<p><strong>' + data.count + ' service date(s) will be generated:</strong></p>';
+        html += '<div class="service-dates-grid">';
+        data.service_dates.forEach(function(date) {
+            html += '<div class="service-date-item">' + date + '</div>';
+        });
+        html += '</div>';
+
+        previewContent.innerHTML = html;
+        previewDiv.classList.add('visible');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to preview dates');
+    });
+});
+
+// Show recalculate prompt when dates change in edit form
+document.querySelectorAll('.edit-start-date, .edit-end-date').forEach(function(input) {
+    input.addEventListener('change', function() {
+        var form = this.closest('form');
+        var promptId = form.action.match(/\/(\d+)\/edit/);
+        if (promptId) {
+            var startInput = form.querySelector('.edit-start-date');
+            var endInput = form.querySelector('.edit-end-date');
+            var originalStart = startInput.getAttribute('data-original');
+            var originalEnd = endInput.getAttribute('data-original');
+
+            var datesChanged = (startInput.value !== originalStart || endInput.value !== originalEnd);
+            var prompt = document.getElementById('recalculate-prompt-' + promptId[1]);
+
+            if (prompt) {
+                prompt.style.display = datesChanged ? 'block' : 'none';
+            }
+        }
+    });
+});
 </script>
 
 </body>
 </html>
-

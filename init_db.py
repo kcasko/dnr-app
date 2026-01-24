@@ -26,6 +26,7 @@ def init_db():
     cursor.execute("DROP TABLE IF EXISTS checklist_items")
     cursor.execute("DROP TABLE IF EXISTS checklist_templates")
     cursor.execute("DROP TABLE IF EXISTS in_house_messages")
+    cursor.execute("DROP TABLE IF EXISTS housekeeping_service_dates")
     cursor.execute("DROP TABLE IF EXISTS housekeeping_request_events")
     cursor.execute("DROP TABLE IF EXISTS housekeeping_requests")
     cursor.execute("DROP TABLE IF EXISTS important_numbers")
@@ -220,10 +221,11 @@ def init_db():
         CREATE TABLE housekeeping_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             room_number TEXT NOT NULL,
+            guest_name TEXT,
             start_date TEXT NOT NULL,
             end_date TEXT NOT NULL,
-            frequency TEXT NOT NULL DEFAULT 'every_3rd_day' CHECK(frequency IN ('every_3rd_day', 'daily', 'custom')),
-            frequency_days INTEGER DEFAULT 3,
+            frequency TEXT NOT NULL DEFAULT 'none' CHECK(frequency IN ('none', 'every_3rd_day', 'daily', 'custom')),
+            frequency_days INTEGER,
             notes TEXT,
             created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
             updated_at TIMESTAMP,
@@ -239,6 +241,18 @@ def init_db():
             note TEXT NOT NULL,
             is_system_event INTEGER DEFAULT 1,
             FOREIGN KEY (housekeeping_request_id) REFERENCES housekeeping_requests(id)
+        )
+    """)
+
+    # Housekeeping service dates (explicit dates, not calculated on-the-fly)
+    cursor.execute("""
+        CREATE TABLE housekeeping_service_dates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            housekeeping_request_id INTEGER NOT NULL,
+            service_date TEXT NOT NULL,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (housekeeping_request_id) REFERENCES housekeeping_requests(id) ON DELETE CASCADE
         )
     """)
 
@@ -299,6 +313,8 @@ def init_db():
     cursor.execute("CREATE INDEX idx_housekeeping_requests_archived ON housekeeping_requests(archived_at)")
     cursor.execute("CREATE INDEX idx_housekeeping_requests_dates ON housekeeping_requests(start_date, end_date)")
     cursor.execute("CREATE INDEX idx_housekeeping_events_request ON housekeeping_request_events(housekeeping_request_id)")
+    cursor.execute("CREATE INDEX idx_housekeeping_service_dates_request ON housekeeping_service_dates(housekeeping_request_id)")
+    cursor.execute("CREATE INDEX idx_housekeeping_service_dates_date ON housekeeping_service_dates(service_date, is_active)")
     cursor.execute("CREATE INDEX idx_important_numbers_label ON important_numbers(label)")
     cursor.execute("CREATE INDEX idx_how_to_guides_title ON how_to_guides(title)")
     cursor.execute("CREATE INDEX idx_food_local_spots_name ON food_local_spots(name)")

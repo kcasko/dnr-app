@@ -379,7 +379,9 @@ def is_editable_log_entry(entry: dict) -> bool:
     if not created_at:
         return False
     # UX: Shift notes lock shortly after creation to protect handoff history.
-    return datetime.now() - created_at <= timedelta(minutes=LOG_EDIT_WINDOW_MINUTES)
+    # Use timezone-aware datetime for comparison if created_at is timezone-aware
+    now = datetime.now(TIMEZONE) if created_at.tzinfo else datetime.now()
+    return now - created_at <= timedelta(minutes=LOG_EDIT_WINDOW_MINUTES)
 
 
 def is_editable_maintenance_item(item: dict) -> bool:
@@ -387,7 +389,9 @@ def is_editable_maintenance_item(item: dict) -> bool:
     if not created_at:
         return False
     # UX: Maintenance details can only be adjusted shortly after logging.
-    return datetime.now() - created_at <= timedelta(minutes=MAINTENANCE_EDIT_WINDOW_MINUTES)
+    # Use timezone-aware datetime for comparison if created_at is timezone-aware
+    now = datetime.now(TIMEZONE) if created_at.tzinfo else datetime.now()
+    return now - created_at <= timedelta(minutes=MAINTENANCE_EDIT_WINDOW_MINUTES)
 
 
 def log_entry_summary(title: str, location: str | None) -> str:
@@ -419,6 +423,56 @@ def parse_date_input(value: str) -> date | None:
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def generate_service_dates(start_date: date, end_date: date, frequency: str, frequency_days: int | None = None) -> list[str]:
+    """
+    Generate explicit service dates based on frequency mode.
+
+    Rules:
+    - Start from the first full day after check-in (start_date)
+    - Exclude checkout day (end_date)
+    - Auto-expire all dates at checkout
+
+    Args:
+        start_date: First full day of stay
+        end_date: Checkout date (excluded from service)
+        frequency: 'none', 'every_3rd_day', 'daily', or 'custom'
+        frequency_days: Required for 'custom', number of days between service
+
+    Returns:
+        List of service dates in ISO format (YYYY-MM-DD)
+    """
+    if not start_date or not end_date:
+        return []
+
+    if frequency == 'none':
+        return []
+
+    service_dates = []
+
+    if frequency == 'daily':
+        # Every day from start_date to end_date (excluding checkout)
+        current = start_date
+        while current < end_date:
+            service_dates.append(current.isoformat())
+            current += timedelta(days=1)
+
+    elif frequency == 'every_3rd_day':
+        # Every 3rd day starting from start_date
+        current = start_date
+        while current < end_date:
+            service_dates.append(current.isoformat())
+            current += timedelta(days=3)
+
+    elif frequency == 'custom' and frequency_days:
+        # Custom interval based on frequency_days
+        current = start_date
+        while current < end_date:
+            service_dates.append(current.isoformat())
+            current += timedelta(days=frequency_days)
+
+    return service_dates
 
 
 def housekeeping_due_today(start_date: date, end_date: date, today: date, frequency_days: int = 3) -> bool:
@@ -475,6 +529,38 @@ def insert_housekeeping_event(request_id: int, note: str):
     conn.close()
 
 
+def insert_service_dates(request_id: int, service_dates: list[str]):
+    """Insert service dates for a housekeeping request."""
+    if not service_dates:
+        return
+    conn = connect_db()
+    for service_date in service_dates:
+        conn.execute("""
+            INSERT INTO housekeeping_service_dates (housekeeping_request_id, service_date, is_active)
+            VALUES (?, ?, 1)
+        """, (request_id, service_date))
+    conn.commit()
+    conn.close()
+
+
+def get_frequency_label(frequency: str, frequency_days: int | None = None) -> str:
+    """Get human-readable frequency label for display."""
+    if frequency == 'none':
+        return 'No Housekeeping'
+    elif frequency == 'daily':
+        return 'Daily'
+    elif frequency == 'every_3rd_day':
+        return 'Every 3rd Day'
+    elif frequency == 'custom' and frequency_days:
+        if frequency_days == 1:
+            return 'Daily'
+        elif frequency_days == 2:
+            return 'Every Other Day'
+        else:
+            return f'Every {frequency_days} Days'
+    return 'Unknown'
+
+
 def warn_if_missing_tables():
     required_tables = {
         "log_entries",
@@ -489,6 +575,7 @@ def warn_if_missing_tables():
         "in_house_messages",
         "housekeeping_requests",
         "housekeeping_request_events",
+        "housekeeping_service_dates",
     }
     conn = connect_db()
     rows = conn.execute(
@@ -1168,23 +1255,25 @@ def housekeeping_requests():
     archive_expired_housekeeping_requests(today)
     today_str = today.isoformat()
 
+    # Query requests that have active service dates for today
     conn = connect_db()
-    candidates = conn.execute("""
-        SELECT * FROM housekeeping_requests
-        WHERE archived_at IS NULL
-        AND start_date <= ?
-        AND end_date >= ?
-        ORDER BY start_date ASC, id DESC
-    """, (today_str, today_str)).fetchall()
+    due_today_raw = conn.execute("""
+        SELECT DISTINCT hr.*
+        FROM housekeeping_requests hr
+        INNER JOIN housekeeping_service_dates hsd ON hr.id = hsd.housekeeping_request_id
+        WHERE hr.archived_at IS NULL
+        AND hsd.service_date = ?
+        AND hsd.is_active = 1
+        ORDER BY hr.id DESC
+    """, (today_str,)).fetchall()
     conn.close()
 
+    # Enrich with frequency labels
     due_today = []
-    for item in candidates:
-        start_date = parse_date_input(item.get("start_date", ""))
-        end_date = parse_date_input(item.get("end_date", ""))
-        frequency_days = item.get("frequency_days") or 3
-        if housekeeping_due_today(start_date, end_date, today, frequency_days):
-            due_today.append(item)
+    for item in due_today_raw:
+        item_dict = dict(item)
+        item_dict['frequency_label'] = get_frequency_label(item.get('frequency'), item.get('frequency_days'))
+        due_today.append(item_dict)
 
     due_today.sort(key=lambda item: room_sort_key(item.get("room_number", "")))
 
@@ -1194,7 +1283,7 @@ def housekeeping_requests():
     return render_template(
         "housekeeping_requests.html",
         requests=due_today,
-        print_rooms=[item.get("room_number", "") for item in due_today],
+        print_rooms=[{"room": item.get("room_number", ""), "guest": item.get("guest_name", ""), "frequency": item.get("frequency_label", "")} for item in due_today],
         editable_id=editable_id,
         today=today_str,
         error=request.args.get("error", "").strip(),
@@ -1206,10 +1295,11 @@ def housekeeping_requests():
 @limiter.limit("10 per minute")
 def add_housekeeping_request():
     room_number = request.form.get("room_number", "").strip()[:20]
+    guest_name = request.form.get("guest_name", "").strip()[:100]
     start_raw = request.form.get("start_date", "").strip()
     end_raw = request.form.get("end_date", "").strip()
-    frequency = request.form.get("frequency", "no_housekeeping").strip()
-    custom_frequency_text = request.form.get("custom_frequency", "").strip()[:100]
+    frequency = request.form.get("frequency", "none").strip()
+    frequency_days_raw = request.form.get("frequency_days", "").strip()
     notes = request.form.get("notes", "").strip()[:1000]
 
     start_date = parse_date_input(start_raw)
@@ -1220,35 +1310,33 @@ def add_housekeeping_request():
     if start_date > end_date:
         return redirect(url_for("housekeeping_requests", error="date_order"))
 
-    # Determine frequency_days and frequency label based on clarified selection
-    if frequency == "no_housekeeping":
-        frequency_days = 3  # No housekeeping means every 3rd day
-        frequency = "no_housekeeping"
-    elif frequency == "want_housekeeping":
-        # Default to daily unless custom frequency is provided
-        if custom_frequency_text:
-            import re
-            match = re.search(r"(\d+)", custom_frequency_text)
-            if match:
-                frequency_days = max(1, min(int(match.group(1)), 30))
-            else:
-                frequency_days = 1
-            frequency = f"custom: {custom_frequency_text}"
-        else:
-            frequency_days = 1
-            frequency = "daily"
-    else:
-        frequency_days = 3
-        frequency = "no_housekeeping"
+    # Parse frequency_days for custom frequency
+    frequency_days = None
+    if frequency == "custom":
+        try:
+            frequency_days = int(frequency_days_raw)
+            if frequency_days < 1 or frequency_days > 30:
+                return redirect(url_for("housekeeping_requests", error="invalid_frequency"))
+        except (ValueError, TypeError):
+            return redirect(url_for("housekeeping_requests", error="invalid_frequency"))
 
+    # Generate service dates based on frequency
+    service_dates = generate_service_dates(start_date, end_date, frequency, frequency_days)
+
+    # Insert the request
     now = local_timestamp()
     conn = connect_db()
-    conn.execute("""
-        INSERT INTO housekeeping_requests (room_number, start_date, end_date, frequency, frequency_days, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (room_number, start_date.isoformat(), end_date.isoformat(), frequency, frequency_days, notes or None, now, now))
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO housekeeping_requests (room_number, guest_name, start_date, end_date, frequency, frequency_days, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (room_number, guest_name or None, start_date.isoformat(), end_date.isoformat(), frequency, frequency_days, notes or None, now, now))
+    request_id = cursor.lastrowid
     conn.commit()
     conn.close()
+
+    # Insert service dates
+    insert_service_dates(request_id, service_dates)
 
     return redirect(url_for("housekeeping_requests"))
 
@@ -1260,6 +1348,7 @@ def edit_housekeeping_request(request_id):
     start_raw = request.form.get("start_date", "").strip()
     end_raw = request.form.get("end_date", "").strip()
     notes = request.form.get("notes", "").strip()[:1000]
+    recalculate = request.form.get("recalculate", "yes").strip()  # Default to yes
 
     start_date = parse_date_input(start_raw)
     end_date = parse_date_input(end_raw)
@@ -1278,6 +1367,13 @@ def edit_housekeeping_request(request_id):
         conn.close()
         return redirect(url_for("housekeeping_requests"))
 
+    # Check if dates changed
+    dates_changed = (
+        existing.get("start_date") != start_date.isoformat() or
+        existing.get("end_date") != end_date.isoformat()
+    )
+
+    # Update the request
     now = local_timestamp()
     archived_at = now if date.today() > end_date else None
     conn.execute("""
@@ -1286,8 +1382,32 @@ def edit_housekeeping_request(request_id):
         WHERE id = ?
     """, (start_date.isoformat(), end_date.isoformat(), notes or None, now, archived_at, request_id))
     conn.commit()
+
+    # Recalculate service dates if dates changed and user confirmed
+    if dates_changed and recalculate == "yes":
+        # Delete old service dates
+        conn.execute("""
+            DELETE FROM housekeeping_service_dates
+            WHERE housekeeping_request_id = ?
+        """, (request_id,))
+        conn.commit()
+
+        # Generate new service dates
+        frequency = existing.get("frequency")
+        frequency_days = existing.get("frequency_days")
+        service_dates = generate_service_dates(start_date, end_date, frequency, frequency_days)
+
+        # Insert new service dates
+        for service_date in service_dates:
+            conn.execute("""
+                INSERT INTO housekeeping_service_dates (housekeeping_request_id, service_date, is_active)
+                VALUES (?, ?, 1)
+            """, (request_id, service_date))
+        conn.commit()
+
     conn.close()
 
+    # Log the change
     change_bits = []
     if existing.get("start_date") != start_date.isoformat():
         change_bits.append(f"start {existing.get('start_date')} -> {start_date.isoformat()}")
@@ -1297,9 +1417,105 @@ def edit_housekeeping_request(request_id):
         change_bits.append("notes updated")
     if change_bits:
         note = f"Housekeeping request updated for room {existing.get('room_number')}: {', '.join(change_bits)}"
+        if dates_changed and recalculate == "yes":
+            note += " (service dates recalculated)"
         insert_housekeeping_event(request_id, note)
 
     return redirect(url_for("housekeeping_requests"))
+
+
+@app.post("/housekeeping-requests/<int:request_id>/toggle-date")
+@login_required
+@limiter.limit("20 per minute")
+def toggle_service_date(request_id):
+    """Toggle a specific service date on/off."""
+    service_date_str = request.form.get("service_date", "").strip()
+    is_active = request.form.get("is_active", "1").strip()
+
+    if not service_date_str:
+        return redirect(url_for("housekeeping_requests"))
+
+    try:
+        is_active_int = int(is_active)
+        if is_active_int not in {0, 1}:
+            return redirect(url_for("housekeeping_requests"))
+    except ValueError:
+        return redirect(url_for("housekeeping_requests"))
+
+    conn = connect_db()
+    conn.execute("""
+        UPDATE housekeeping_service_dates
+        SET is_active = ?
+        WHERE housekeeping_request_id = ? AND service_date = ?
+    """, (is_active_int, request_id, service_date_str))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("housekeeping_requests", edit=request_id))
+
+
+@app.get("/housekeeping-requests/<int:request_id>/preview")
+@login_required
+def preview_service_dates(request_id):
+    """Get service dates for a request (for preview and editing)."""
+    conn = connect_db()
+    request_data = conn.execute("""
+        SELECT * FROM housekeeping_requests WHERE id = ?
+    """, (request_id,)).fetchone()
+
+    if not request_data:
+        conn.close()
+        return jsonify({"error": "Request not found"}), 404
+
+    service_dates = conn.execute("""
+        SELECT service_date, is_active
+        FROM housekeeping_service_dates
+        WHERE housekeeping_request_id = ?
+        ORDER BY service_date ASC
+    """, (request_id,)).fetchall()
+    conn.close()
+
+    return jsonify({
+        "request": dict(request_data),
+        "service_dates": [{"date": sd["service_date"], "active": bool(sd["is_active"])} for sd in service_dates]
+    })
+
+
+@app.post("/api/preview-service-dates")
+@login_required
+@limiter.limit("20 per minute")
+def api_preview_service_dates():
+    """Preview service dates before saving (for custom frequency)."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid request"}), 400
+
+    start_raw = data.get("start_date", "").strip()
+    end_raw = data.get("end_date", "").strip()
+    frequency = data.get("frequency", "").strip()
+    frequency_days_raw = data.get("frequency_days")
+
+    start_date = parse_date_input(start_raw)
+    end_date = parse_date_input(end_raw)
+
+    if not start_date or not end_date:
+        return jsonify({"error": "Invalid dates"}), 400
+
+    frequency_days = None
+    if frequency == "custom":
+        try:
+            frequency_days = int(frequency_days_raw)
+            if frequency_days < 1 or frequency_days > 30:
+                return jsonify({"error": "Invalid frequency"}), 400
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid frequency"}), 400
+
+    service_dates = generate_service_dates(start_date, end_date, frequency, frequency_days)
+
+    return jsonify({
+        "service_dates": service_dates,
+        "count": len(service_dates)
+    })
 
 
 @app.get("/staff-announcements")
