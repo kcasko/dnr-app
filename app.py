@@ -1360,10 +1360,15 @@ def food_local_spots_page():
     """).fetchall()
     conn.close()
 
+    edit_id = None
+    edit_param = request.args.get("edit", "").strip()
+    if edit_param.isdigit():
+        edit_id = int(edit_param)
+
     return render_template(
         "food_local_spots.html",
         spots=spots,
-        error=request.args.get("error", "").strip(),
+        edit_id=edit_id,
     )
 
 
@@ -2056,14 +2061,34 @@ def add_food_local_spot():
     return redirect(url_for("food_local_spots_page"))
 
 
+@app.post("/food-local-spots/<int:spot_id>/edit")
+@login_required
+@limiter.limit("10 per minute")
+def edit_food_local_spot(spot_id):
+    name = request.form.get("name", "").strip()[:200]
+    address = request.form.get("address", "").strip()[:200]
+    phone = request.form.get("phone", "").strip()[:50]
+    notes = request.form.get("notes", "").strip()[:1000]
+
+    if not name:
+        return redirect(url_for("food_local_spots_page"))
+
+    conn = connect_db()
+    conn.execute("""
+        UPDATE food_local_spots
+        SET name = ?, address = ?, phone = ?, notes = ?
+        WHERE id = ?
+    """, (name, address or None, phone or None, notes or None, spot_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("food_local_spots_page"))
+
+
 @app.post("/food-local-spots/<int:spot_id>/delete")
 @login_required
 @limiter.limit("5 per minute")
 def delete_food_local_spot(spot_id):
-    password = request.form.get("manager_password", "").strip()
-    if not verify_password(password, MANAGER_PASSWORD_HASH):
-        return redirect(url_for("food_local_spots_page", error="manager"))
-
     conn = connect_db()
     conn.execute("DELETE FROM food_local_spots WHERE id = ?", (spot_id,))
     conn.commit()

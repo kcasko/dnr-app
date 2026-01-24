@@ -59,23 +59,46 @@
 
     <div class="reference-list">
         <h2>Recommendations</h2>
-        {% if error == 'manager' %}
-        <div class="inline-error">Manager password is required to delete a spot.</div>
-        {% endif %}
         {% if spots %}
             {% for spot in spots %}
             <div class="entry-card">
+                {% if edit_id == spot.id %}
+                <form method="POST" action="/food-local-spots/{{ spot.id }}/edit" class="edit-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label for="edit_name_{{ spot.id }}">Name *</label>
+                        <input type="text" id="edit_name_{{ spot.id }}" name="name" value="{{ spot.name }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_address_{{ spot.id }}">Address</label>
+                        <input type="text" id="edit_address_{{ spot.id }}" name="address" value="{{ spot.address or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_phone_{{ spot.id }}">Phone</label>
+                        <input type="text" id="edit_phone_{{ spot.id }}" name="phone" value="{{ spot.phone or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_notes_{{ spot.id }}">Notes</label>
+                        <textarea id="edit_notes_{{ spot.id }}" name="notes">{{ spot.notes or '' }}</textarea>
+                    </div>
+                    <div class="form-actions">
+                        <a href="/food-local-spots" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+                {% else %}
                 <div class="entry-title">{{ spot.name }}</div>
                 {% if spot.address %}<div class="entry-body">{{ spot.address }}</div>{% endif %}
                 {% if spot.phone %}<div class="entry-body">{{ spot.phone }}</div>{% endif %}
                 {% if spot.notes %}<div class="entry-notes">{{ spot.notes }}</div>{% endif %}
                 <div class="entry-actions">
-                    <form method="POST" action="/food-local-spots/{{ spot.id }}/delete">
+                    <a href="/food-local-spots?edit={{ spot.id }}" class="btn btn-secondary">Edit</a>
+                    <form method="POST" action="/food-local-spots/{{ spot.id }}/delete" class="inline-form">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="password" name="manager_password" placeholder="Manager password" required>
                         <button type="submit" class="btn btn-secondary">Delete</button>
                     </form>
                 </div>
+                {% endif %}
             </div>
             {% endfor %}
         {% else %}
