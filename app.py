@@ -443,6 +443,7 @@ def insert_log_entry(
     is_system_event=False,
     author_name=None,
     created_at=None,
+    shift_id=None,
 ):
     if is_system_event:
         author_name = "System"
@@ -452,9 +453,9 @@ def insert_log_entry(
         created_at = local_timestamp()
     conn = connect_db()
     conn.execute("""
-        INSERT INTO log_entries (author_name, note, related_record_id, related_maintenance_id, is_system_event, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (author_name, note, related_record_id, related_maintenance_id, int(is_system_event), created_at))
+        INSERT INTO log_entries (author_name, note, related_record_id, related_maintenance_id, is_system_event, created_at, shift_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (author_name, note, related_record_id, related_maintenance_id, int(is_system_event), created_at, shift_id))
     conn.commit()
     conn.close()
 
@@ -723,12 +724,38 @@ def overview():
 @app.get("/log-book")
 @login_required
 def log_book():
+    # Get filter parameters
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    shift_filter = request.args.get("shift", "").strip()
+
+    filters = {
+        "date_from": date_from,
+        "date_to": date_to,
+        "shift": shift_filter,
+        "has_filters": bool(date_from or date_to or shift_filter),
+    }
+
+    # Build query with filters
+    sql = "SELECT * FROM log_entries WHERE is_system_event = 0"
+    params = []
+
+    if date_from:
+        sql += " AND DATE(created_at) >= ?"
+        params.append(date_from)
+
+    if date_to:
+        sql += " AND DATE(created_at) <= ?"
+        params.append(date_to)
+
+    if shift_filter in ("1", "2", "3"):
+        sql += " AND shift_id = ?"
+        params.append(int(shift_filter))
+
+    sql += " ORDER BY created_at DESC, id DESC"
+
     conn = connect_db()
-    entries = conn.execute("""
-        SELECT * FROM log_entries
-        WHERE is_system_event = 0
-        ORDER BY created_at DESC, id DESC
-    """).fetchall()
+    entries = conn.execute(sql, params).fetchall()
     conn.close()
 
     edit_id = request.args.get("edit", "").strip()
@@ -739,7 +766,7 @@ def log_book():
     for entry in entries:
         entry["is_editable"] = is_editable_log_entry(entry)
 
-    return render_template("log_book.html", entries=entries, editable_id=editable_id)
+    return render_template("log_book.html", entries=entries, editable_id=editable_id, filters=filters)
 
 
 @app.get("/dnr")
@@ -837,11 +864,17 @@ def get_records():
 @limiter.limit("10 per minute")
 def add_log_entry():
     note = request.form.get("note", "").strip()[:2000]
+    staff_name = request.form.get("staff_name", "").strip()[:100]
+    shift_id_str = request.form.get("shift_id", "").strip()
 
-    if not note:
+    if not note or not staff_name:
         return redirect(url_for("log_book"))
 
-    insert_log_entry(note, author_name="System", is_system_event=False)
+    shift_id = None
+    if shift_id_str in ("1", "2", "3"):
+        shift_id = int(shift_id_str)
+
+    insert_log_entry(note, author_name=staff_name, is_system_event=False, shift_id=shift_id)
 
     return redirect(url_for("log_book"))
 
@@ -876,6 +909,8 @@ def edit_log_entry(entry_id):
     conn.commit()
     conn.close()
 
+    return redirect(url_for("log_book"))
+
 
 def archive_expired_housekeeping_requests(today: date):
     today_str = today.isoformat()
@@ -889,8 +924,6 @@ def archive_expired_housekeeping_requests(today: date):
     """, (now, now, today_str))
     conn.commit()
     conn.close()
-
-    return redirect(url_for("log_book"))
 
 
 @app.get("/maintenance")

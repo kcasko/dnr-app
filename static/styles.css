@@ -943,7 +943,8 @@ header .subtitle {
 }
 
 .log-entry-form,
-.maintenance-form {
+.maintenance-form,
+.filter-section {
     background: var(--bg-white);
     border-radius: 8px;
     padding: 24px;
@@ -951,7 +952,18 @@ header .subtitle {
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
+.filter-section .form-row {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+.filter-section .form-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+}
+
 .log-book-feed h2,
+.filter-section h2,
 .maintenance-form h2,
 .maintenance-list h2 {
     margin-top: 0;
@@ -989,6 +1001,11 @@ header .subtitle {
     border-radius: 12px;
     font-size: 11px;
     margin-left: 6px;
+}
+
+.log-entry-tag.shift-tag {
+    background: rgba(39, 119, 201, 0.15);
+    color: #0a4a7a;
 }
 
 .log-entry-time {

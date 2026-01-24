@@ -112,6 +112,7 @@ def init_db():
             created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
             author_name TEXT NOT NULL,
             note TEXT NOT NULL,
+            shift_id INTEGER CHECK(shift_id IN (1, 2, 3)),
             related_record_id INTEGER,
             related_maintenance_id INTEGER,
             is_system_event BOOLEAN DEFAULT 0,

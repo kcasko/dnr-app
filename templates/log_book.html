@@ -37,10 +37,25 @@
         <h2>New Log Entry</h2>
         <form method="POST" action="/log-book/entries">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="staff_name">Staff Name *</label>
+                    <input type="text" id="staff_name" name="staff_name" required placeholder="Your name" maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="shift_id">Shift *</label>
+                    <select id="shift_id" name="shift_id" required title="Select shift">
+                        <option value="">Select shift</option>
+                        <option value="1">First Shift (7am - 3pm)</option>
+                        <option value="2">Second Shift (3pm - 11pm)</option>
+                        <option value="3">Third Shift (11pm - 7am)</option>
+                    </select>
+                </div>
+            </div>
             <div class="form-group">
                 <label>Note *</label>
                 <textarea name="note" required placeholder="Write the handoff note..."></textarea>
-                <small class="form-hint">Entries are logged as System and lock shortly after creation.</small>
+                <small class="form-hint">Entries lock shortly after creation to protect handoff history.</small>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Add Entry</button>
@@ -48,14 +63,48 @@
         </form>
     </div>
 
+    <div class="filter-section">
+        <h2>Filter Entries</h2>
+        <form method="GET" action="/log-book" class="filter-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="date_from">From Date</label>
+                    <input type="date" id="date_from" name="date_from" value="{{ filters.date_from or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="date_to">To Date</label>
+                    <input type="date" id="date_to" name="date_to" value="{{ filters.date_to or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="filter_shift">Shift</label>
+                    <select id="filter_shift" name="shift" title="Filter by shift">
+                        <option value="">All Shifts</option>
+                        <option value="1" {% if filters.shift == '1' %}selected{% endif %}>First Shift</option>
+                        <option value="2" {% if filters.shift == '2' %}selected{% endif %}>Second Shift</option>
+                        <option value="3" {% if filters.shift == '3' %}selected{% endif %}>Third Shift</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-secondary">Apply Filters</button>
+                <a href="/log-book" class="btn btn-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+
     <div class="log-book-feed">
-        <h2>Recent Entries</h2>
+        <h2>{% if filters.has_filters %}Filtered Entries{% else %}Recent Entries{% endif %}</h2>
         {% if entries %}
             {% for entry in entries %}
             <div class="log-entry {% if entry.is_system_event %}log-entry-system{% endif %}">
                 <div class="log-entry-header">
                     <div>
                         <span class="log-entry-author">{{ entry.author_name }}</span>
+                        {% if entry.shift_id %}
+                        <span class="log-entry-tag shift-tag">
+                            {% if entry.shift_id == 1 %}First{% elif entry.shift_id == 2 %}Second{% elif entry.shift_id == 3 %}Third{% endif %} Shift
+                        </span>
+                        {% endif %}
                         {% if entry.is_system_event %}
                         <span class="log-entry-tag">System</span>
                         {% endif %}
