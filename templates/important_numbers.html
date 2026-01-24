@@ -29,56 +29,62 @@
 </header>
 
 <div class="container">
-    <div class="reference-form">
-        <h2>Add Important Number</h2>
-        <form method="POST" action="/important-numbers">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Label *</label>
-                    <input type="text" name="label" required placeholder="Police non-emergency">
-                </div>
-                <div class="form-group">
-                    <label>Phone *</label>
-                    <input type="text" name="phone" required placeholder="555-555-5555">
-                </div>
+    <div class="quick-action-layout">
+        <div class="quick-action-primary">
+            <div class="reference-list">
+                <h2>Contact List</h2>
+                {% if error == 'manager' %}
+                <div class="inline-error">Manager password is required to delete a number.</div>
+                {% endif %}
+                {% if numbers %}
+                    {% for item in numbers %}
+                    <div class="entry-card">
+                        <div class="entry-title">{{ item.label }}</div>
+                        <div class="entry-body">{{ item.phone }}</div>
+                        {% if item.notes %}<div class="entry-notes">{{ item.notes }}</div>{% endif %}
+                        <div class="entry-actions">
+                            <form method="POST" action="/important-numbers/{{ item.id }}/delete">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="password" name="manager_password" placeholder="Manager password" required>
+                                <button type="submit" class="btn btn-secondary">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No numbers listed</h3>
+                        <p>Use the form on the right to add contact numbers.</p>
+                    </div>
+                {% endif %}
             </div>
-            <div class="form-group">
-                <label>Notes</label>
-                <textarea name="notes" placeholder="Optional details..."></textarea>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Add Number</button>
-            </div>
-        </form>
-    </div>
+        </div>
 
-    <div class="reference-list">
-        <h2>Contact List</h2>
-        {% if error == 'manager' %}
-        <div class="inline-error">Manager password is required to delete a number.</div>
-        {% endif %}
-        {% if numbers %}
-            {% for item in numbers %}
-            <div class="entry-card">
-                <div class="entry-title">{{ item.label }}</div>
-                <div class="entry-body">{{ item.phone }}</div>
-                {% if item.notes %}<div class="entry-notes">{{ item.notes }}</div>{% endif %}
-                <div class="entry-actions">
-                    <form method="POST" action="/important-numbers/{{ item.id }}/delete">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="password" name="manager_password" placeholder="Manager password" required>
-                        <button type="submit" class="btn btn-secondary">Delete</button>
-                    </form>
-                </div>
+        <div class="quick-action-secondary">
+            <div class="reference-form">
+                <h2>Add Important Number</h2>
+                <form method="POST" action="/important-numbers">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Label *</label>
+                            <input type="text" name="label" required placeholder="Police non-emergency">
+                        </div>
+                        <div class="form-group">
+                            <label>Phone *</label>
+                            <input type="text" name="phone" required placeholder="555-555-5555">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea name="notes" placeholder="Optional details..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Add Number</button>
+                    </div>
+                </form>
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <h3>No numbers listed</h3>
-                <p>Add or update contact numbers in your reference materials.</p>
-            </div>
-        {% endif %}
+        </div>
     </div>
 </div>
 

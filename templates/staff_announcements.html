@@ -29,69 +29,75 @@
 </header>
 
 <div class="container">
-    <div class="announcement-form">
-        <h2>Post Announcement</h2>
-        <form method="POST" action="/staff-announcements">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="form-group">
-                <label>Announcement *</label>
-                <textarea name="message" required placeholder="Share an update for the desk..."></textarea>
+    <div class="quick-action-layout">
+        <div class="quick-action-primary">
+            <div class="announcement-list">
+                <h2>Announcement History</h2>
+                {% if error == 'manager' %}
+                <div class="inline-error">Manager password is required to delete an announcement.</div>
+                {% endif %}
+                {% if announcements %}
+                    {% for announcement in announcements %}
+                    <div class="announcement-card {% if announcement.is_active == 0 %}inactive{% endif %}">
+                        <div class="announcement-text">{{ announcement.message }}</div>
+                        <div class="announcement-meta">
+                            <span>Posted: {{ announcement.created_at }}</span>
+                            {% if announcement.starts_at %}<span>Starts: {{ announcement.starts_at }}</span>{% endif %}
+                            {% if announcement.ends_at %}<span>Ends: {{ announcement.ends_at }}</span>{% endif %}
+                        </div>
+                        <div class="announcement-actions">
+                            <form method="POST" action="/staff-announcements/{{ announcement.id }}/toggle">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                {% if announcement.is_active == 1 %}
+                                <input type="hidden" name="is_active" value="0">
+                                <button type="submit" class="btn btn-secondary">Archive</button>
+                                {% else %}
+                                <input type="hidden" name="is_active" value="1">
+                                <button type="submit" class="btn btn-secondary">Reactivate</button>
+                                {% endif %}
+                            </form>
+                            <form method="POST" action="/staff-announcements/{{ announcement.id }}/delete">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="password" name="manager_password" placeholder="Manager password" required>
+                                <button type="submit" class="btn btn-secondary">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No announcements yet</h3>
+                        <p>Use the form on the right to post a notice.</p>
+                    </div>
+                {% endif %}
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Start Date (optional)</label>
-                    <input type="datetime-local" name="starts_at" placeholder="Select start date and time" title="Start Date (optional)">
-                </div>
-                <div class="form-group">
-                    <label>End Date (optional)</label>
-                    <input type="datetime-local" name="ends_at" placeholder="Select end date and time">
-                </div>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Post Announcement</button>
-            </div>
-        </form>
-    </div>
+        </div>
 
-    <div class="announcement-list">
-        <h2>Announcement History</h2>
-        {% if error == 'manager' %}
-        <div class="inline-error">Manager password is required to delete an announcement.</div>
-        {% endif %}
-        {% if announcements %}
-            {% for announcement in announcements %}
-            <div class="announcement-card {% if announcement.is_active == 0 %}inactive{% endif %}">
-                <div class="announcement-text">{{ announcement.message }}</div>
-                <div class="announcement-meta">
-                    <span>Posted: {{ announcement.created_at }}</span>
-                    {% if announcement.starts_at %}<span>Starts: {{ announcement.starts_at }}</span>{% endif %}
-                    {% if announcement.ends_at %}<span>Ends: {{ announcement.ends_at }}</span>{% endif %}
-                </div>
-                <div class="announcement-actions">
-                    <form method="POST" action="/staff-announcements/{{ announcement.id }}/toggle">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        {% if announcement.is_active == 1 %}
-                        <input type="hidden" name="is_active" value="0">
-                        <button type="submit" class="btn btn-secondary">Archive</button>
-                        {% else %}
-                        <input type="hidden" name="is_active" value="1">
-                        <button type="submit" class="btn btn-secondary">Reactivate</button>
-                        {% endif %}
-                    </form>
-                    <form method="POST" action="/staff-announcements/{{ announcement.id }}/delete">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="password" name="manager_password" placeholder="Manager password" required>
-                        <button type="submit" class="btn btn-secondary">Delete</button>
-                    </form>
-                </div>
+        <div class="quick-action-secondary">
+            <div class="announcement-form">
+                <h2>Post Announcement</h2>
+                <form method="POST" action="/staff-announcements">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label>Announcement *</label>
+                        <textarea name="message" required placeholder="Share an update for the desk..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Date (optional)</label>
+                            <input type="datetime-local" name="starts_at" placeholder="Select start date and time" title="Start Date (optional)">
+                        </div>
+                        <div class="form-group">
+                            <label>End Date (optional)</label>
+                            <input type="datetime-local" name="ends_at" placeholder="Select end date and time">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Post Announcement</button>
+                    </div>
+                </form>
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <h3>No announcements yet</h3>
-                <p>Post a notice to share with the front desk.</p>
-            </div>
-        {% endif %}
+        </div>
     </div>
 </div>
 
