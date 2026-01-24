@@ -125,7 +125,7 @@ BAN_REASONS = [
 
 LOG_EDIT_WINDOW_MINUTES = 10
 MAINTENANCE_EDIT_WINDOW_MINUTES = 10
-IN_HOUSE_MESSAGE_EXPIRY_DAYS = 14
+IN_HOUSE_MESSAGE_EXPIRY_DAYS = 7
 
 # Account lockout settings
 MAX_LOGIN_ATTEMPTS = 5
@@ -1656,25 +1656,38 @@ def cleaning_checklists_page():
 @login_required
 def in_house_messages_page():
     recipient = request.args.get("recipient", "").strip()[:100]
-    show_expired = request.args.get("show_expired", "").strip() == "1"
-    error = request.args.get("error", "").strip()
+    show_archived = request.args.get("show_archived", "").strip() == "1"
     now = local_timestamp()
 
     conn = connect_db()
+
+    # Auto-archive expired messages
+    conn.execute("""
+        UPDATE in_house_messages
+        SET archived = 1, archived_at = ?
+        WHERE expires_at IS NOT NULL
+        AND expires_at <= ?
+        AND archived = 0
+    """, (now, now))
+    conn.commit()
+
+    # Fetch messages based on filter
     if recipient:
-        if show_expired:
+        if show_archived:
+            # Show all messages (active and archived)
             messages = conn.execute("""
                 SELECT * FROM in_house_messages
                 WHERE recipient_name = ?
                 ORDER BY created_at DESC, id DESC
             """, (recipient,)).fetchall()
         else:
+            # Show only active (non-archived) messages
             messages = conn.execute("""
                 SELECT * FROM in_house_messages
                 WHERE recipient_name = ?
-                AND (expires_at IS NULL OR expires_at > ?)
+                AND archived = 0
                 ORDER BY created_at DESC, id DESC
-            """, (recipient, now)).fetchall()
+            """, (recipient,)).fetchall()
     else:
         messages = []
     conn.close()
@@ -1683,8 +1696,7 @@ def in_house_messages_page():
         "in_house_messages.html",
         recipient=recipient,
         messages=messages,
-        show_expired=show_expired,
-        error=error,
+        show_archived=show_archived,
     )
 
 
@@ -1699,12 +1711,13 @@ def add_in_house_message():
         return redirect(url_for("in_house_messages_page", recipient=recipient))
 
     now = local_timestamp()
+    # Default expiration: 7 days from creation
     expires_at = future_timestamp(IN_HOUSE_MESSAGE_EXPIRY_DAYS)
     conn = connect_db()
     conn.execute("""
         INSERT INTO in_house_messages
-        (recipient_name, message_body, author_name, created_at, is_read, expires_at)
-        VALUES (?, ?, 'System', ?, 0, ?)
+        (recipient_name, message_body, author_name, created_at, expires_at, archived)
+        VALUES (?, ?, 'System', ?, ?, 0)
     """, (recipient, body, now, expires_at))
     conn.commit()
     conn.close()
@@ -1712,35 +1725,20 @@ def add_in_house_message():
     return redirect(url_for("in_house_messages_page", recipient=recipient))
 
 
-@app.post("/in-house-messages/<int:message_id>/read")
+@app.post("/in-house-messages/<int:message_id>/archive")
 @login_required
 @limiter.limit("10 per minute")
-def mark_in_house_message_read(message_id):
+def archive_in_house_message(message_id):
+    """Archive a message (no password required)."""
     recipient = request.form.get("recipient", "").strip()[:100]
+    now = local_timestamp()
+
     conn = connect_db()
     conn.execute("""
         UPDATE in_house_messages
-        SET is_read = 1, read_at = ?
+        SET archived = 1, archived_at = ?
         WHERE id = ?
-    """, (local_timestamp(), message_id))
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for("in_house_messages_page", recipient=recipient))
-
-
-@app.post("/in-house-messages/<int:message_id>/delete")
-@login_required
-@limiter.limit("5 per minute")
-def delete_in_house_message(message_id):
-    recipient = request.form.get("recipient", "").strip()[:100]
-    password = request.form.get("manager_password", "").strip()
-
-    if not verify_password(password, MANAGER_PASSWORD_HASH):
-        return redirect(url_for("in_house_messages_page", recipient=recipient, error="manager"))
-
-    conn = connect_db()
-    conn.execute("DELETE FROM in_house_messages WHERE id = ?", (message_id,))
+    """, (now, message_id))
     conn.commit()
     conn.close()
 

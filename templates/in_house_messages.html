@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -13,7 +13,7 @@
         <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
         <div class="header-text">
             <h1>In-House Messages</h1>
-            <div class="subtitle">Quiet notes for a specific person</div>
+            <div class="subtitle">Directed operational notes</div>
         </div>
         <div class="header-actions">
             <a href="/overview" class="logout-btn">Overview</a>
@@ -42,7 +42,7 @@
             <div class="form-group">
                 <label>Message *</label>
                 <textarea name="message_body" required placeholder="Leave a brief message..."></textarea>
-                <small class="form-hint">Messages are logged as System and expire automatically.</small>
+                <small class="form-hint">Messages auto-expire after 7 days and are archived automatically.</small>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Save Message</button>
@@ -60,41 +60,34 @@
                 </div>
                 <div class="form-group checkbox-inline">
                     <label>
-                        <input type="checkbox" name="show_expired" value="1" {% if show_expired %}checked{% endif %}>
-                        Show expired
+                        <input type="checkbox" name="show_archived" value="1" {% if show_archived %}checked{% endif %}>
+                        Show archived
                     </label>
                 </div>
                 <button type="submit" class="btn btn-secondary">View</button>
             </form>
         </div>
-        {% if error == 'manager' %}
-        <div class="inline-error">Manager password is required to delete a message.</div>
-        {% endif %}
 
         {% if recipient %}
             {% if messages %}
                 {% for message in messages %}
-                <div class="message-card {% if message.is_read %}read{% endif %}">
+                <div class="message-card {% if message.archived %}archived{% endif %}">
                     <div class="message-meta">
                         <span>{{ message.created_at }}</span>
-                        {% if message.is_read %}<span>Read</span>{% endif %}
+                        {% if message.archived %}
+                            <span class="archived-badge">Archived</span>
+                        {% endif %}
                     </div>
                     <div class="message-body">{{ message.message_body }}</div>
+                    {% if not message.archived %}
                     <div class="message-actions">
-                        {% if not message.is_read %}
-                        <form method="POST" action="/in-house-messages/{{ message.id }}/read">
+                        <form method="POST" action="/in-house-messages/{{ message.id }}/archive">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="recipient" value="{{ recipient }}">
-                            <button type="submit" class="btn btn-secondary">Mark Read</button>
-                        </form>
-                        {% endif %}
-                        <form method="POST" action="/in-house-messages/{{ message.id }}/delete">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="recipient" value="{{ recipient }}">
-                            <input type="password" name="manager_password" placeholder="Manager password" required>
-                            <button type="submit" class="btn btn-secondary">Delete</button>
+                            <button type="submit" class="btn btn-secondary">Archive</button>
                         </form>
                     </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             {% else %}
@@ -122,4 +115,3 @@
 
 </body>
 </html>
-

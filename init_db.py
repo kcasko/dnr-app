@@ -210,9 +210,9 @@ def init_db():
             message_body TEXT NOT NULL,
             author_name TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
-            is_read INTEGER DEFAULT 0,
-            read_at TIMESTAMP,
-            expires_at TIMESTAMP
+            expires_at TIMESTAMP,
+            archived INTEGER DEFAULT 0,
+            archived_at TIMESTAMP
         )
     """)
 
