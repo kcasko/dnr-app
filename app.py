@@ -421,12 +421,16 @@ def parse_date_input(value: str) -> date | None:
         return None
 
 
-def housekeeping_due_today(start_date: date, end_date: date, today: date) -> bool:
+def housekeeping_due_today(start_date: date, end_date: date, today: date, frequency_days: int = 3) -> bool:
     if not start_date or not end_date:
         return False
     if today < start_date or today > end_date:
         return False
-    return (today - start_date).days % 2 == 0
+    # Daily frequency (frequency_days=1) is always due
+    if frequency_days == 1:
+        return True
+    # For other frequencies, check if today is on schedule
+    return (today - start_date).days % frequency_days == 0
 
 
 def room_sort_key(room_number: str) -> tuple[int, str]:
@@ -1178,7 +1182,8 @@ def housekeeping_requests():
     for item in candidates:
         start_date = parse_date_input(item.get("start_date", ""))
         end_date = parse_date_input(item.get("end_date", ""))
-        if housekeeping_due_today(start_date, end_date, today):
+        frequency_days = item.get("frequency_days") or 3
+        if housekeeping_due_today(start_date, end_date, today, frequency_days):
             due_today.append(item)
 
     due_today.sort(key=lambda item: room_sort_key(item.get("room_number", "")))
@@ -1203,6 +1208,8 @@ def add_housekeeping_request():
     room_number = request.form.get("room_number", "").strip()[:20]
     start_raw = request.form.get("start_date", "").strip()
     end_raw = request.form.get("end_date", "").strip()
+    frequency = request.form.get("frequency", "every_3rd_day").strip()
+    custom_days_raw = request.form.get("custom_days", "").strip()
     notes = request.form.get("notes", "").strip()[:1000]
 
     start_date = parse_date_input(start_raw)
@@ -1213,12 +1220,21 @@ def add_housekeeping_request():
     if start_date > end_date:
         return redirect(url_for("housekeeping_requests", error="date_order"))
 
+    # Determine frequency_days based on selection
+    if frequency == "daily":
+        frequency_days = 1
+    elif frequency == "custom" and custom_days_raw.isdigit():
+        frequency_days = max(1, min(int(custom_days_raw), 30))  # Limit 1-30 days
+    else:
+        frequency = "every_3rd_day"
+        frequency_days = 3
+
     now = local_timestamp()
     conn = connect_db()
     conn.execute("""
-        INSERT INTO housekeeping_requests (room_number, start_date, end_date, frequency, notes, created_at, updated_at)
-        VALUES (?, ?, ?, 'every_other_day', ?, ?, ?)
-    """, (room_number, start_date.isoformat(), end_date.isoformat(), notes or None, now, now))
+        INSERT INTO housekeeping_requests (room_number, start_date, end_date, frequency, frequency_days, notes, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (room_number, start_date.isoformat(), end_date.isoformat(), frequency, frequency_days, notes or None, now, now))
     conn.commit()
     conn.close()
 
