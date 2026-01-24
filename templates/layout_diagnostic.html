@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Layout Diagnostic - DNR App</title>
+    <link rel="stylesheet" href="/static/styles.css?v={{ timestamp }}">
+    <style>
+        .diagnostic-box {
+            background: #f0f0f0;
+            border: 2px solid #333;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .test-primary {
+            background: #e6f2ff;
+            padding: 20px;
+            border: 3px solid #0066cc;
+            min-height: 200px;
+        }
+        .test-secondary {
+            background: #fff3e6;
+            padding: 20px;
+            border: 3px solid #ff9900;
+            min-height: 200px;
+        }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .warning { color: orange; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Quick Action Layout Diagnostic</h1>
+
+    <div class="diagnostic-box">
+        <strong>Instructions:</strong><br>
+        1. Your viewport width: <span id="viewport-width"></span>px<br>
+        2. Expected behavior:<br>
+        &nbsp;&nbsp;- If width > 768px: You should see BLUE and ORANGE boxes side-by-side (60/40 split)<br>
+        &nbsp;&nbsp;- If width ≤ 768px: You should see BLUE box on top, ORANGE box below<br>
+        3. If you DON'T see the expected layout, press Ctrl+Shift+R (or Cmd+Shift+R on Mac) to hard refresh<br>
+        4. Check the status below
+    </div>
+
+    <div class="diagnostic-box" id="css-check">
+        Checking CSS Grid support...
+    </div>
+
+    <h2>Layout Test</h2>
+    <div class="quick-action-layout" id="test-layout">
+        <div class="quick-action-primary">
+            <div class="test-primary">
+                <h3>LEFT COLUMN (Primary - 60%)</h3>
+                <p>✓ This should be wider</p>
+                <p>✓ This should be on the LEFT side on desktop</p>
+                <p>✓ This represents the list of existing entries</p>
+                <div style="background: white; padding: 10px; margin: 10px 0; border: 1px solid #0066cc;">
+                    Entry 1 (Sample)
+                </div>
+                <div style="background: white; padding: 10px; margin: 10px 0; border: 1px solid #0066cc;">
+                    Entry 2 (Sample)
+                </div>
+            </div>
+        </div>
+
+        <div class="quick-action-secondary">
+            <div class="test-secondary">
+                <h3>RIGHT COLUMN (Secondary - 40%)</h3>
+                <p>✓ This should be narrower</p>
+                <p>✓ This should be on the RIGHT side on desktop</p>
+                <p>✓ This represents the add/create form</p>
+                <div style="background: white; padding: 10px; margin: 10px 0;">
+                    <label>Sample Form Field</label><br>
+                    <input type="text" style="width: 100%; padding: 8px;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="diagnostic-box" id="layout-check">
+        Checking layout dimensions...
+    </div>
+</div>
+
+<script>
+// Check viewport width
+document.getElementById('viewport-width').textContent = window.innerWidth;
+
+// Check CSS Grid support
+const cssCheck = document.getElementById('css-check');
+if (CSS.supports('display', 'grid')) {
+    cssCheck.innerHTML = '<span class="success">✓ CSS Grid is supported in your browser</span>';
+} else {
+    cssCheck.innerHTML = '<span class="error">✗ CSS Grid is NOT supported in your browser - layout will not work!</span>';
+}
+
+// Check actual layout dimensions
+setTimeout(function() {
+    const layout = document.getElementById('test-layout');
+    const primary = document.querySelector('.quick-action-primary');
+    const secondary = document.querySelector('.quick-action-secondary');
+
+    const layoutCheck = document.getElementById('layout-check');
+    const layoutWidth = layout.offsetWidth;
+    const primaryWidth = primary.offsetWidth;
+    const secondaryWidth = secondary.offsetWidth;
+    const viewportWidth = window.innerWidth;
+
+    let status = '<strong>Layout Dimensions:</strong><br>';
+    status += 'Container width: ' + layoutWidth + 'px<br>';
+    status += 'Left column width: ' + primaryWidth + 'px<br>';
+    status += 'Right column width: ' + secondaryWidth + 'px<br>';
+    status += 'Viewport: ' + viewportWidth + 'px<br><br>';
+
+    if (viewportWidth > 768) {
+        // Desktop - should be side-by-side
+        const primaryPercent = Math.round((primaryWidth / layoutWidth) * 100);
+        const secondaryPercent = Math.round((secondaryWidth / layoutWidth) * 100);
+
+        status += '<strong>Expected (Desktop):</strong> Two columns side-by-side (≈60% / ≈40%)<br>';
+        status += '<strong>Actual:</strong> ';
+
+        if (primaryPercent >= 55 && primaryPercent <= 65 && secondaryPercent >= 35 && secondaryPercent <= 45) {
+            status += '<span class="success">✓ CORRECT - ' + primaryPercent + '% / ' + secondaryPercent + '%</span>';
+        } else if (primaryPercent >= 95) {
+            status += '<span class="error">✗ INCORRECT - Columns are stacked (100% width each)</span><br>';
+            status += '<span class="error">This means the CSS Grid is not working. Try hard refresh (Ctrl+Shift+R)</span>';
+        } else {
+            status += '<span class="warning">⚠ UNEXPECTED - ' + primaryPercent + '% / ' + secondaryPercent + '%</span>';
+        }
+    } else {
+        // Mobile - should be stacked
+        status += '<strong>Expected (Mobile):</strong> Columns stacked vertically<br>';
+        status += '<strong>Actual:</strong> ';
+
+        if (primaryWidth >= layoutWidth * 0.95) {
+            status += '<span class="success">✓ CORRECT - Columns are stacked</span>';
+        } else {
+            status += '<span class="warning">⚠ UNEXPECTED - Columns appear side-by-side on mobile?</span>';
+        }
+    }
+
+    layoutCheck.innerHTML = status;
+}, 100);
+
+// Update width on resize
+window.addEventListener('resize', function() {
+    document.getElementById('viewport-width').textContent = window.innerWidth;
+});
+</script>
+
+<footer class="footer">
+    <div class="footer-content">
+        <p>Layout Diagnostic Tool - DNR App</p>
+    </div>
+</footer>
+
+</body>
+</html>

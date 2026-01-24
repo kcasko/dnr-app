@@ -975,11 +975,17 @@ def add_log_entry():
 @limiter.limit("10 per minute")
 def edit_log_entry(entry_id):
     conn = connect_db()
-    entry = conn.execute("""
+    entry_row = conn.execute("""
         SELECT * FROM log_entries WHERE id = ?
     """, (entry_id,)).fetchone()
 
-    if not entry or entry.get("is_system_event"):
+    if not entry_row:
+        conn.close()
+        return redirect(url_for("log_book"))
+
+    entry = dict(entry_row)
+
+    if entry.get("is_system_event"):
         conn.close()
         return redirect(url_for("log_book"))
 
@@ -1090,11 +1096,17 @@ def add_maintenance_item():
 @limiter.limit("10 per minute")
 def edit_maintenance_item(item_id):
     conn = connect_db()
-    item = conn.execute("""
+    item_row = conn.execute("""
         SELECT * FROM maintenance_items WHERE id = ?
     """, (item_id,)).fetchone()
 
-    if not item or not is_editable_maintenance_item(item):
+    if not item_row:
+        conn.close()
+        return redirect(url_for("maintenance_list"))
+
+    item = dict(item_row)
+
+    if not is_editable_maintenance_item(item):
         conn.close()
         return redirect(url_for("maintenance_list"))
 
@@ -1130,13 +1142,15 @@ def update_maintenance_status(item_id):
         return redirect(url_for("maintenance_list"))
 
     conn = connect_db()
-    item = conn.execute("""
+    item_row = conn.execute("""
         SELECT * FROM maintenance_items WHERE id = ?
     """, (item_id,)).fetchone()
 
-    if not item:
+    if not item_row:
         conn.close()
         return redirect(url_for("maintenance_list"))
+
+    item = dict(item_row)
 
     if item.get("status") == new_status:
         conn.close()
@@ -1272,7 +1286,7 @@ def housekeeping_requests():
     due_today = []
     for item in due_today_raw:
         item_dict = dict(item)
-        item_dict['frequency_label'] = get_frequency_label(item.get('frequency'), item.get('frequency_days'))
+        item_dict['frequency_label'] = get_frequency_label(item_dict.get('frequency'), item_dict.get('frequency_days'))
         due_today.append(item_dict)
 
     due_today.sort(key=lambda item: room_sort_key(item.get("room_number", "")))
@@ -1359,11 +1373,17 @@ def edit_housekeeping_request(request_id):
         return redirect(url_for("housekeeping_requests", edit=request_id, error="date_order"))
 
     conn = connect_db()
-    existing = conn.execute("""
+    existing_row = conn.execute("""
         SELECT * FROM housekeeping_requests WHERE id = ?
     """, (request_id,)).fetchone()
 
-    if not existing or existing.get("archived_at"):
+    if not existing_row:
+        conn.close()
+        return redirect(url_for("housekeeping_requests"))
+
+    existing = dict(existing_row)
+
+    if existing.get("archived_at"):
         conn.close()
         return redirect(url_for("housekeeping_requests"))
 

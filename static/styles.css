@@ -1800,11 +1800,11 @@ header .subtitle {
     }
 
     .quick-action-layout .quick-action-primary {
-        order: 2;
+        order: 1;
     }
 
     .quick-action-layout .quick-action-secondary {
-        order: 1;
+        order: 2;
     }
 }
 
