@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Important Numbers{% endblock %}
+
+{% block page_title %}Important Numbers{% endblock %}
+
+{% block page_subtitle %}
+<div class="page-subtitle">Key contacts for front desk operations</div>
+{% endblock %}
+
+{% block content %}
+<div class="quick-action-layout">
+    <div class="quick-action-primary">
+        <div class="reference-list">
+            <h2>Contact List</h2>
+            {% if error == 'manager' %}
+            <div class="inline-error">Manager password is required to edit or delete a number.</div>
+            {% endif %}
+            {% if numbers %}
+            {% for item in numbers %}
+            <div class="entry-card">
+                {% if edit_id == item.id %}
+                <form method="POST" action="/important-numbers/{{ item.id }}/edit" class="edit-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit_label_{{ item.id }}">Label *</label>
+                            <input type="text" id="edit_label_{{ item.id }}" name="label" value="{{ item.label }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit_phone_{{ item.id }}">Phone *</label>
+                            <input type="text" id="edit_phone_{{ item.id }}" name="phone" value="{{ item.phone }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_notes_{{ item.id }}">Notes</label>
+                        <textarea id="edit_notes_{{ item.id }}" name="notes">{{ item.notes or '' }}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="visually-hidden" for="edit_manager_password_{{ item.id }}">Manager password</label>
+                        <input type="password" id="edit_manager_password_{{ item.id }}" name="manager_password" placeholder="Manager password" required>
+                    </div>
+                    <div class="form-actions">
+                        <a href="/important-numbers" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="entry-title">{{ item.label }}</div>
+                <div class="entry-body">{{ item.phone }}</div>
+                {% if item.notes %}<div class="entry-notes text-pre-wrap">{{ item.notes }}</div>{% endif %}
+                <div class="entry-actions">
+                    <a href="/important-numbers?edit={{ item.id }}#form-section" class="btn btn-secondary">Edit</a>
+                    <form method="POST" action="/important-numbers/{{ item.id }}/delete">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="password" name="manager_password" placeholder="Manager password" required>
+                        <button type="submit" class="btn btn-secondary">Delete</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <h3>No numbers listed</h3>
+                <p>Use the form on the right to add contact numbers.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="quick-action-secondary">
+        <div class="reference-form" id="form-section">
+            <h2>Add Important Number</h2>
+            <form method="POST" action="/important-numbers">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Label *</label>
+                        <input type="text" name="label" required placeholder="Police non-emergency">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone *</label>
+                        <input type="text" name="phone" required placeholder="555-555-5555">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes" placeholder="Optional details..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add Number</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

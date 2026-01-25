@@ -312,6 +312,28 @@
             color: #333;
         }
 
+        /* TODAY separator */
+        .today-separator {
+            margin: 2rem 0 1rem;
+            border-top: 2px dashed #856404;
+            opacity: 0.3;
+        }
+
+        /* Expiring card variant */
+        .expiring-card {
+            border-color: #6c757d;
+        }
+
+        /* Checkout notice style */
+        .checkout-notice {
+            background: #e9ecef;
+            font-style: italic;
+            font-size: 0.85rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            color: #495057;
+        }
+
         /* Responsive adjustments */
         @media (max-width: 1024px) {
             .dual-view-layout {
@@ -392,7 +414,9 @@
                             <a class="btn btn-secondary btn-compact"
                                 href="/housekeeping-requests?edit={{ item.id }}#housekeeping-form-section">Edit</a>
                             <button type="button" class="btn btn-danger btn-compact"
-                                onclick='confirmDelete({{ item.id }}, {{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }})'>Delete</button>
+                                data-request-id="{{ item.id }}"
+                                data-request-details='{{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }}'
+                                onclick="confirmDelete(parseInt(this.dataset.requestId), JSON.parse(this.dataset.requestDetails))">Delete</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -403,8 +427,7 @@
                     {% endif %}
                 </div>
 
-                <div class="today-separator" style="margin: 2rem 0 1rem; border-top: 2px dashed #856404; opacity: 0.3;">
-                </div>
+                <div class="today-separator"></div>
                 <div class="today-header">
                     <h2>FORMS TO DISPOSE</h2>
                     <p class="today-subtitle">{{ expiring_today|length }} form(s) to collect</p>
@@ -412,17 +435,17 @@
                 <div class="today-list">
                     {% if expiring_today %}
                     {% for item in expiring_today %}
-                    <div class="today-card expiring-card" style="border-color: #6c757d;">
+                    <div class="today-card expiring-card">
                         <div class="today-card-room">Room {{ item.room_number }}</div>
                         {% if item.guest_name %}
                         <div class="today-card-guest">{{ item.guest_name }}</div>
                         {% endif %}
-                        <div class="today-card-notes"
-                            style="background: #e9ecef; font-style: italic; font-size: 0.85rem; padding: 0.25rem 0.5rem; border-radius: 4px; color: #495057;">
-                            Checkout Today</div>
+                        <div class="today-card-notes checkout-notice">Checkout Today</div>
                         <div class="today-card-actions">
                             <button type="button" class="btn btn-danger btn-compact"
-                                onclick='confirmDelete({{ item.id }}, {{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }})'>Dispose</button>
+                                data-request-id="{{ item.id }}"
+                                data-request-details='{{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }}'
+                                onclick="confirmDelete(parseInt(this.dataset.requestId), JSON.parse(this.dataset.requestDetails))">Dispose</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -463,7 +486,9 @@
                             <a class="btn btn-secondary btn-compact"
                                 href="/housekeeping-requests?edit={{ item.id }}#housekeeping-form-section">Edit</a>
                             <button type="button" class="btn btn-danger btn-compact"
-                                onclick='confirmDelete({{ item.id }}, {{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }})'>Delete</button>
+                                data-request-id="{{ item.id }}"
+                                data-request-details='{{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }}'
+                                onclick="confirmDelete(parseInt(this.dataset.requestId), JSON.parse(this.dataset.requestDetails))">Delete</button>
                         </div>
                     </div>
                     {% endfor %}

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}DNR App{% endblock %} - Sleep Inn</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Simplified Top Header -->
+    <header class="app-header">
+        <div class="app-header-content">
+            <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="app-header-logo">
+            <div class="app-header-nav">
+                <a href="/overview" class="app-header-link">Overview</a>
+                <a href="/settings" class="app-header-link">Settings</a>
+                <a href="/logout" class="app-header-link app-header-link-logout">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout: Sidebar + Content -->
+    <div class="app-layout">
+        <!-- Persistent Sidebar Navigation -->
+        <aside class="app-sidebar">
+            <nav class="sidebar-nav" aria-label="Main navigation">
+                <!-- Operations Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-label">Operations</div>
+                    <a href="/dnr" class="sidebar-link {% if request.path == '/dnr' %}active{% endif %}">
+                        Do Not Rent List
+                    </a>
+                    <a href="/room-issues" class="sidebar-link {% if request.path == '/room-issues' %}active{% endif %}">
+                        Room Issues
+                    </a>
+                    <a href="/maintenance" class="sidebar-link {% if request.path == '/maintenance' %}active{% endif %}">
+                        Maintenance
+                    </a>
+                    <a href="/housekeeping-requests" class="sidebar-link {% if request.path == '/housekeeping-requests' %}active{% endif %}">
+                        Housekeeping
+                    </a>
+                </div>
+
+                <!-- Communication Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-label">Communication</div>
+                    <a href="/log-book" class="sidebar-link {% if request.path == '/log-book' %}active{% endif %}">
+                        Shift Notes
+                    </a>
+                    <a href="/staff-announcements" class="sidebar-link {% if request.path == '/staff-announcements' %}active{% endif %}">
+                        Staff Notices
+                    </a>
+                    <a href="/in-house-messages" class="sidebar-link {% if request.path == '/in-house-messages' %}active{% endif %}">
+                        In-House Messages
+                    </a>
+                </div>
+
+                <!-- Quick Reference Section -->
+                <div class="sidebar-section">
+                    <div class="sidebar-section-label">Quick Reference</div>
+                    <a href="/important-numbers" class="sidebar-link {% if request.path == '/important-numbers' %}active{% endif %}">
+                        Important Numbers
+                    </a>
+                    <a href="/how-to-guides" class="sidebar-link {% if request.path == '/how-to-guides' %}active{% endif %}">
+                        How-To Guides
+                    </a>
+                    <a href="/food-local-spots" class="sidebar-link {% if request.path == '/food-local-spots' %}active{% endif %}">
+                        Food & Local Spots
+                    </a>
+                    <a href="/cleaning-checklists" class="sidebar-link {% if request.path == '/cleaning-checklists' %}active{% endif %}">
+                        Cleaning Checklists
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="app-main" id="main-content">
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-header-content">
+                    <div class="page-title-section">
+                        <h1 class="page-title">{% block page_title %}Page Title{% endblock %}</h1>
+                        {% block page_subtitle %}{% endblock %}
+                    </div>
+                    <div class="page-actions">
+                        {% block page_actions %}{% endblock %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page Content -->
+            <div class="page-content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <div class="app-footer-content">
+            <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+            <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
+        </div>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

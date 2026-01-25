@@ -1,123 +1,284 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Overview - DNR App</title>
-    <link rel="stylesheet" href="/static/styles.css">
-</head>
+{% block title %}Overview{% endblock %}
 
-<body>
+{% block page_title %}Overview{% endblock %}
 
-    <header>
-        <div class="header-content">
-            <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
-            <div class="header-text">
-                <h1>Overview</h1>
-                <div class="subtitle">Operational Snapshot</div>
-            </div>
-            <div class="header-actions">
-                <a href="/overview" class="logout-btn">Overview</a>
-                <a href="/dnr" class="logout-btn">Do Not Rent List</a>
-                <a href="/log-book" class="logout-btn">Shift Notes</a>
-                <a href="/room-issues" class="logout-btn">Room Issues</a>
-                <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
-                <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
-                <a href="/settings" class="logout-btn">Settings</a>
-                <a href="/logout" class="logout-btn">Logout</a>
-            </div>
-        </div>
-    </header>
+{% block page_subtitle %}
+<p class="page-subtitle">Operational snapshot - Last updated: {{ last_updated }}</p>
+{% endblock %}
 
-    <div class="container">
-        <div class="overview-section">
-            <div class="overview-header">
-                <h2>Operational Alerts</h2>
-                <div class="overview-meta">
-                    <!-- UX: Overview is read-only; refresh is manual only. -->
-                    <div class="last-updated">Last updated: {{ last_updated }}</div>
-                    <form method="GET" action="/overview">
-                        <button type="submit" class="btn btn-secondary">Refresh Overview</button>
-                    </form>
+{% block content %}
+
+<!-- Critical Alerts Section -->
+<div class="overview-alerts-section">
+    <h2 class="section-heading">Attention Needed</h2>
+    <div class="alert-cards-grid">
+        <!-- Critical: Rooms Out of Order -->
+        {% if room_out_of_order_count > 0 %}
+        <a href="/room-issues" class="alert-card-link">
+            <div class="alert-card alert-card-critical">
+                <div class="alert-card-icon">🔴</div>
+                <div class="alert-card-content">
+                    <div class="alert-card-label">Rooms Out of Order</div>
+                    <div class="alert-card-count">{{ room_out_of_order_count }}</div>
+                    <div class="alert-card-action">Manage Room Issues →</div>
                 </div>
             </div>
-            <div class="alert-cards">
-                <div class="alert-card">
-                    <div class="alert-label">Active DNR entries</div>
-                    <div class="alert-count">{{ active_dnr_count }}</div>
-                </div>
-                <div class="alert-card alert-critical">
-                    <div class="alert-label">Rooms Out of Order</div>
-                    <div class="alert-count">{{ room_out_of_order_count }}</div>
-                </div>
-                <div class="alert-card alert-warning">
-                    <div class="alert-label">Rooms Use If Needed</div>
-                    <div class="alert-count">{{ room_use_if_needed_count }}</div>
-                </div>
-                <div class="alert-card">
-                    <div class="alert-label">Open Maintenance Issues</div>
-                    <div class="alert-count">{{ open_maintenance_count }}</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="overview-section">
-            <h2>What Just Happened</h2>
-            <div class="overview-scroll">
-                {% if recent_notes %}
-                {% for note in recent_notes %}
-                <div class="overview-note">
-                    <div class="overview-note-time">{{ note.created_at }}</div>
-                    <div class="overview-note-text text-pre-wrap">{{ note.note | truncate(140, True) }}</div>
-                </div>
-                {% endfor %}
-                {% else %}
-                <div class="empty-state compact">
-                    <h3>No shift notes yet</h3>
-                    <p>Shift notes will appear here as they are added.</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-
-        {% if announcements %}
-        <div class="overview-section">
-            <h2>Active Notices</h2>
-            <div class="notice-list">
-                {% for announcement in announcements %}
-                <div class="notice-card">
-                    <div class="notice-text text-pre-wrap">{{ announcement.message }}</div>
-                    <div class="notice-meta">Posted {{ announcement.created_at }}</div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
+        </a>
         {% endif %}
 
-        <div class="overview-section">
-            <h2>Quick Actions</h2>
-            <div class="quick-actions">
-                <a class="quick-action" href="/important-numbers">Important Numbers</a>
-                <a class="quick-action" href="/how-to-guides">How-To Guides</a>
-                <a class="quick-action" href="/food-local-spots">Food &amp; Local Spots</a>
-                <a class="quick-action" href="/cleaning-checklists">Cleaning Checklists</a>
-                <a class="quick-action" href="/staff-announcements">Staff Notices</a>
-                <a class="quick-action" href="/in-house-messages">In-House Messages</a>
+        <!-- Warning: Rooms Use If Needed -->
+        {% if room_use_if_needed_count > 0 %}
+        <a href="/room-issues" class="alert-card-link">
+            <div class="alert-card alert-card-warning">
+                <div class="alert-card-icon">⚠️</div>
+                <div class="alert-card-content">
+                    <div class="alert-card-label">Rooms Use If Needed</div>
+                    <div class="alert-card-count">{{ room_use_if_needed_count }}</div>
+                    <div class="alert-card-action">Manage Room Issues →</div>
+                </div>
             </div>
-        </div>
+        </a>
+        {% endif %}
     </div>
+</div>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-content">
-            <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
-            <p class="footer-contact">For support or inquiries: <a
-                    href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me"
-                    target="_blank" rel="noopener">taurustech.me</a></p>
+<!-- Awareness Section -->
+<div class="overview-awareness-section">
+    <h2 class="section-heading">Awareness</h2>
+    <div class="alert-cards-grid">
+        <!-- Active DNR Entries -->
+        <a href="/dnr" class="alert-card-link">
+            <div class="alert-card alert-card-info">
+                <div class="alert-card-content">
+                    <div class="alert-card-label">Active DNR Records</div>
+                    <div class="alert-card-count">{{ active_dnr_count }}</div>
+                    <div class="alert-card-action">View DNR List →</div>
+                </div>
+            </div>
+        </a>
+
+        <!-- Open Maintenance Issues -->
+        <a href="/maintenance?status=open" class="alert-card-link">
+            <div class="alert-card alert-card-info">
+                <div class="alert-card-content">
+                    <div class="alert-card-label">Open Maintenance</div>
+                    <div class="alert-card-count">{{ open_maintenance_count }}</div>
+                    <div class="alert-card-action">View Maintenance →</div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- What Just Happened Section -->
+<div class="overview-feed-section">
+    <h2 class="section-heading">What Just Happened</h2>
+    <p class="section-description">Recent shift notes from the last shift</p>
+
+    <div class="overview-feed">
+        {% if recent_notes %}
+            {% for note in recent_notes[:3] %}
+            <div class="feed-item">
+                <div class="feed-item-time">{{ note.created_at }}</div>
+                <div class="feed-item-text text-pre-wrap">{{ note.note }}</div>
+            </div>
+            {% endfor %}
+
+            <div class="feed-action">
+                <a href="/log-book" class="btn-link">See all shift notes →</a>
+            </div>
+        {% else %}
+            <div class="empty-state-compact">
+                <p>No shift notes yet. Shift notes will appear here as they are added.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Active Staff Notices Section -->
+{% if announcements %}
+<div class="overview-notices-section">
+    <h2 class="section-heading">Active Staff Notices</h2>
+    <div class="notices-feed">
+        {% for announcement in announcements %}
+        <div class="notice-item">
+            <div class="notice-item-text text-pre-wrap">{{ announcement.message }}</div>
+            <div class="notice-item-meta">Posted {{ announcement.created_at }}</div>
         </div>
-    </footer>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
-</body>
+{% endblock %}
 
-</html>
+{% block extra_css %}
+<style>
+/* Overview Page Specific Styles */
+.overview-alerts-section,
+.overview-awareness-section,
+.overview-feed-section,
+.overview-notices-section {
+    background: var(--bg-white);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.section-heading {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.section-description {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+/* Alert Cards Grid */
+.alert-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.alert-card-link {
+    text-decoration: none;
+    display: block;
+    transition: transform 0.2s;
+}
+
+.alert-card-link:hover {
+    transform: translateY(-2px);
+}
+
+.alert-card {
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    min-height: 120px;
+}
+
+.alert-card-critical {
+    background: rgba(196, 69, 54, 0.05);
+    border-color: rgba(196, 69, 54, 0.4);
+}
+
+.alert-card-warning {
+    background: rgba(201, 162, 39, 0.08);
+    border-color: rgba(201, 162, 39, 0.5);
+}
+
+.alert-card-info {
+    background: var(--bg-light);
+    border-color: var(--border-light);
+}
+
+.alert-card-icon {
+    font-size: 32px;
+    line-height: 1;
+}
+
+.alert-card-content {
+    flex: 1;
+}
+
+.alert-card-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.alert-card-critical .alert-card-label {
+    color: #7a2017;
+}
+
+.alert-card-warning .alert-card-label {
+    color: #7a5e00;
+}
+
+.alert-card-info .alert-card-label {
+    color: var(--text-muted);
+}
+
+.alert-card-count {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 12px;
+}
+
+.alert-card-critical .alert-card-count {
+    color: var(--danger);
+}
+
+.alert-card-warning .alert-card-count {
+    color: var(--accent-gold);
+}
+
+.alert-card-info .alert-card-count {
+    color: var(--primary-purple);
+}
+
+.alert-card-action {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary-purple);
+}
+
+/* Feed Styles */
+.overview-feed,
+.notices-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.feed-item,
+.notice-item {
+    padding: 16px;
+    background: var(--bg-light);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-purple);
+}
+
+.feed-item-time,
+.notice-item-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.feed-item-text,
+.notice-item-text {
+    font-size: 14px;
+    color: var(--text-dark);
+}
+
+.feed-action {
+    margin-top: 8px;
+    text-align: center;
+}
+
+.empty-state-compact {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state-compact p {
+    margin: 0;
+}
+</style>
+{% endblock %}
