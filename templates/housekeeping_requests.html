@@ -390,7 +390,7 @@
                         {% endif %}
                         <div class="today-card-actions">
                             <a class="btn btn-secondary btn-compact"
-                                href="/housekeeping-requests?edit={{ item.id }}">Edit</a>
+                                href="/housekeeping-requests?edit={{ item.id }}#housekeeping-form-section">Edit</a>
                             <button type="button" class="btn btn-danger btn-compact"
                                 onclick='confirmDelete({{ item.id }}, {{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }})'>Delete</button>
                         </div>
@@ -461,7 +461,7 @@
                         {% endif %}
                         <div class="housekeeping-card-actions">
                             <a class="btn btn-secondary btn-compact"
-                                href="/housekeeping-requests?edit={{ item.id }}">Edit</a>
+                                href="/housekeeping-requests?edit={{ item.id }}#housekeeping-form-section">Edit</a>
                             <button type="button" class="btn btn-danger btn-compact"
                                 onclick='confirmDelete({{ item.id }}, {{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }})'>Delete</button>
                         </div>
@@ -477,7 +477,14 @@
 
                 <div class="add-request-section" id="housekeeping-form-section">
                     {% set current_freq = edit_item.frequency if edit_item else 'every_3rd_day' %}
-                    <h2>{% if edit_item %}Edit Housekeeping Request{% else %}Add Housekeeping Request{% endif %}</h2>
+                    <h2>{% if edit_item %}Edit Housekeeping Request (ID: {{ edit_item.id }}){% else %}Add Housekeeping
+                        Request{% endif %}</h2>
+                    {% if edit_item %}
+                    <div
+                        style="background-color: #d4edda; color: #155724; padding: 10px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #c3e6cb;">
+                        <strong>DEBUG:</strong> Editing mode active for Room {{ edit_item.room_number }}.
+                    </div>
+                    {% endif %}
                     {% if edit_item %}
                     <p class="section-subtitle">Editing Room {{ edit_item.room_number }}{% if edit_item.guest_name %} -
                         {{ edit_item.guest_name }}{% endif %}</p>
