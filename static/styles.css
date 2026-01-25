@@ -33,7 +33,7 @@ header {
     background: linear-gradient(135deg, var(--primary-purple) 0%, var(--dark-purple) 100%);
     color: #fff;
     padding: 12px 24px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .header-content {
@@ -137,7 +137,7 @@ header .subtitle {
     padding: 16px;
     background: var(--bg-white);
     border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .search-box {
@@ -184,7 +184,8 @@ header .subtitle {
     font-size: 13px;
     cursor: pointer;
     transition: all 0.2s;
-    color: #595969; /* Darker than --text-muted for WCAG AA contrast */
+    color: #595969;
+    /* Darker than --text-muted for WCAG AA contrast */
 }
 
 .filter-btn:hover {
@@ -225,7 +226,8 @@ header .subtitle {
     font-size: 13px;
     cursor: pointer;
     transition: all 0.2s;
-    color: #595969; /* Darker than --text-muted for WCAG AA contrast */
+    color: #595969;
+    /* Darker than --text-muted for WCAG AA contrast */
 }
 
 .sort-dir-btn:hover {
@@ -237,7 +239,7 @@ header .subtitle {
 .records-list {
     background: var(--bg-white);
     border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     overflow: hidden;
 }
 
@@ -349,7 +351,7 @@ header .subtitle {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
     align-items: center;
     justify-content: center;
@@ -367,7 +369,7 @@ header .subtitle {
     max-width: 700px;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .modal-header {
@@ -714,7 +716,7 @@ header .subtitle {
     right: 4px;
     width: 24px;
     height: 24px;
-    background: rgba(0,0,0,0.6);
+    background: rgba(0, 0, 0, 0.6);
     color: #fff;
     border: none;
     border-radius: 50%;
@@ -817,7 +819,9 @@ header .subtitle {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Toast Notification */
@@ -860,7 +864,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .settings-card h2 {
@@ -949,7 +953,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .filter-section .form-row {
@@ -975,7 +979,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .log-entry-system {
@@ -1048,7 +1052,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .maintenance-card-header {
@@ -1170,7 +1174,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .housekeeping-card {
@@ -1178,7 +1182,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .housekeeping-card-header {
@@ -1229,7 +1233,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .overview-section h2 {
@@ -1377,7 +1381,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .room-issues-list h2 {
@@ -1390,7 +1394,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .room-issue-card.resolved {
@@ -1462,7 +1466,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .empty-state.compact {
@@ -1474,7 +1478,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .reference-list h2 {
@@ -1487,7 +1491,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 18px;
     margin-bottom: 14px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -1525,7 +1529,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .announcement-list h2 {
@@ -1538,7 +1542,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -1580,7 +1584,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .messages-list h2 {
@@ -1595,6 +1599,33 @@ header .subtitle {
     gap: 16px;
     flex-wrap: wrap;
     margin-bottom: 12px;
+}
+
+
+/* Quick Action Layout (Desktop Split View) */
+.quick-action-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+@media (min-width: 992px) {
+    .quick-action-layout {
+        display: grid;
+        grid-template-columns: 3fr 2fr;
+        gap: 24px;
+        align-items: start;
+    }
+}
+
+.quick-action-primary {
+    min-width: 0;
+    /* Prevent grid blowout */
+}
+
+.quick-action-secondary {
+    position: sticky;
+    top: 20px;
 }
 
 .messages-filter {
@@ -1617,7 +1648,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 18px;
     margin-bottom: 14px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -1678,7 +1709,7 @@ header .subtitle {
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .checklist-header h2 {
@@ -1752,7 +1783,7 @@ header .subtitle {
         padding: 16px;
     }
 
-    .record-row > div {
+    .record-row>div {
         margin-bottom: 4px;
     }
 

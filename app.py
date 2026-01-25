@@ -1312,7 +1312,10 @@ def add_housekeeping_request():
     guest_name = request.form.get("guest_name", "").strip()[:100]
     start_raw = request.form.get("start_date", "").strip()
     end_raw = request.form.get("end_date", "").strip()
-    frequency = request.form.get("frequency", "none").strip()
+    frequency = request.form.get("frequency", "every_3rd_day").strip()
+    if frequency == "none":
+        frequency = "every_3rd_day"
+        
     frequency_days_raw = request.form.get("frequency_days", "").strip()
     notes = request.form.get("notes", "").strip()[:1000]
 
