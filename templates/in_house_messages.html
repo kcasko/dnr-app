@@ -1,159 +1,116 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>In-House Messages - DNR App</title>
-    <link rel="stylesheet" href="/static/styles.css">
-</head>
+{% block title %}In-House Messages{% endblock %}
 
-<body>
+{% block page_title %}In-House Messages{% endblock %}
 
-    <header>
-        <div class="header-content">
-            <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
-            <div class="header-text">
-                <h1>In-House Messages</h1>
-                <div class="subtitle">Directed operational notes</div>
+{% block page_subtitle %}
+<div class="page-subtitle">Directed operational notes</div>
+{% endblock %}
+
+{% block content %}
+<div class="quick-action-layout">
+    <div class="quick-action-primary">
+        <div class="messages-list">
+            <div class="messages-header">
+                <h2>Messages</h2>
+                <form class="messages-filter" method="GET" action="/in-house-messages">
+                    <div class="form-group">
+                        <label class="visually-hidden" for="recipient-select">Recipient</label>
+                        <input id="recipient-select" type="text" name="recipient" placeholder="Filter by recipient" value="{{ recipient }}">
+                    </div>
+                    <div class="form-group checkbox-inline">
+                        <label>
+                            <input type="checkbox" name="show_archived" value="1" {% if show_archived %}checked{% endif %}>
+                            Show archived
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-secondary">View</button>
+                </form>
             </div>
-            <div class="header-actions">
-                <a href="/overview" class="logout-btn">Overview</a>
-                <a href="/dnr" class="logout-btn">Do Not Rent List</a>
-                <a href="/log-book" class="logout-btn">Shift Notes</a>
-                <a href="/room-issues" class="logout-btn">Room Issues</a>
-                <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
-                <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
-                <a href="/settings" class="logout-btn">Settings</a>
-                <a href="/logout" class="logout-btn">Logout</a>
-            </div>
-        </div>
-    </header>
 
-    <div class="container">
-        <div class="quick-action-layout">
-            <div class="quick-action-primary">
-                <div class="messages-list">
-                    <div class="messages-header">
-                        <h2>Messages</h2>
-                        <form class="messages-filter" method="GET" action="/in-house-messages">
-                            <div class="form-group">
-                                <label class="visually-hidden" for="recipient-select">Recipient</label>
-                                <input id="recipient-select" type="text" name="recipient"
-                                    placeholder="Filter by recipient" value="{{ recipient }}">
-                            </div>
-                            <div class="form-group checkbox-inline">
-                                <label>
-                                    <input type="checkbox" name="show_archived" value="1" {% if show_archived
-                                        %}checked{% endif %}>
-                                    Show archived
-                                </label>
-                            </div>
-                            <button type="submit" class="btn btn-secondary">View</button>
-                        </form>
-                    </div>
-
-                    {% if recipient %}
-                    {% if messages %}
-                    {% for message in messages %}
-                    <div class="message-card {% if message.archived %}archived{% endif %}">
-                        <div class="message-meta">
-                            <span>{{ message.created_at }}</span>
-                            {% if message.archived %}
-                            <span class="archived-badge">Archived</span>
-                            {% endif %}
-                        </div>
-                        {% if edit_id == message.id and not message.archived %}
-                        <form method="POST" action="/in-house-messages/{{ message.id }}/edit" class="edit-form">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="recipient" value="{{ recipient }}">
-                            <input type="hidden" name="show_archived" value="{% if show_archived %}1{% endif %}">
-                            <div class="form-group">
-                                <label class="visually-hidden" for="edit_message_{{ message.id }}">Message</label>
-                                <textarea id="edit_message_{{ message.id }}" name="message_body"
-                                    required>{{ message.message_body }}</textarea>
-                            </div>
-                            <div class="form-actions">
-                                <a href="{{ url_for('in_house_messages_page', recipient=recipient, show_archived='1' if show_archived else None) }}"
-                                    class="btn btn-secondary">Cancel</a>
-                                <button type="submit" class="btn btn-primary">Save</button>
-                            </div>
-                        </form>
-                        {% else %}
-                        <div class="message-body text-pre-wrap">{{ message.message_body }}</div>
-                        <div class="message-actions">
-                            {% if not message.archived %}
-                            <a href="{{ url_for('in_house_messages_page', recipient=recipient, show_archived='1' if show_archived else None, edit=message.id) }}#form-section"
-                                class="btn btn-secondary">Edit</a>
-                            <form method="POST" action="/in-house-messages/{{ message.id }}/archive">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="recipient" value="{{ recipient }}">
-                                <input type="hidden" name="show_archived" value="{% if show_archived %}1{% endif %}">
-                                <button type="submit" class="btn btn-secondary">Archive</button>
-                            </form>
-                            {% endif %}
-                            <form method="POST" action="/in-house-messages/{{ message.id }}/delete">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="recipient" value="{{ recipient }}">
-                                <input type="hidden" name="show_archived" value="{% if show_archived %}1{% endif %}">
-                                <button type="submit" class="btn btn-secondary">Delete</button>
-                            </form>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                    {% else %}
-                    <div class="empty-state">
-                        <h3>No messages for this recipient</h3>
-                        <p>Leave a message using the form on the right.</p>
-                    </div>
-                    {% endif %}
-                    {% else %}
-                    <div class="empty-state">
-                        <h3>Select a recipient</h3>
-                        <p>Enter a name to view their messages.</p>
-                    </div>
+            {% if recipient %}
+            {% if messages %}
+            {% for message in messages %}
+            <div class="message-card {% if message.archived %}archived{% endif %}">
+                <div class="message-meta">
+                    <span>{{ message.created_at }}</span>
+                    {% if message.archived %}
+                    <span class="archived-badge">Archived</span>
                     {% endif %}
                 </div>
-            </div>
-
-            <div class="quick-action-secondary">
-                <div class="reference-form" id="form-section">
-                    <h2>Add Message</h2>
-                    <form method="POST" action="/in-house-messages">
+                {% if edit_id == message.id and not message.archived %}
+                <form method="POST" action="/in-house-messages/{{ message.id }}/edit" class="edit-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="recipient" value="{{ recipient }}">
+                    <input type="hidden" name="show_archived" value="{% if show_archived %}1{% endif %}">
+                    <div class="form-group">
+                        <label class="visually-hidden" for="edit_message_{{ message.id }}">Message</label>
+                        <textarea id="edit_message_{{ message.id }}" name="message_body" required>{{ message.message_body }}</textarea>
+                    </div>
+                    <div class="form-actions">
+                        <a href="{{ url_for('in_house_messages_page', recipient=recipient, show_archived='1' if show_archived else None) }}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="message-body text-pre-wrap">{{ message.message_body }}</div>
+                <div class="message-actions">
+                    {% if not message.archived %}
+                    <a href="{{ url_for('in_house_messages_page', recipient=recipient, show_archived='1' if show_archived else None, edit=message.id) }}#form-section" class="btn btn-secondary">Edit</a>
+                    <form method="POST" action="/in-house-messages/{{ message.id }}/archive">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Recipient *</label>
-                                <input type="text" name="recipient_name" required placeholder="Name"
-                                    value="{{ recipient }}">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Message *</label>
-                            <textarea name="message_body" required placeholder="Leave a brief message..."></textarea>
-                            <small class="form-hint">Messages auto-expire after 7 days and are archived
-                                automatically.</small>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">Save Message</button>
-                        </div>
+                        <input type="hidden" name="recipient" value="{{ recipient }}">
+                        <input type="hidden" name="show_archived" value="{% if show_archived %}1{% endif %}">
+                        <button type="submit" class="btn btn-secondary">Archive</button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" action="/in-house-messages/{{ message.id }}/delete">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="recipient" value="{{ recipient }}">
+                        <input type="hidden" name="show_archived" value="{% if show_archived %}1{% endif %}">
+                        <button type="submit" class="btn btn-secondary">Delete</button>
                     </form>
                 </div>
+                {% endif %}
             </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <h3>No messages for this recipient</h3>
+                <p>Leave a message using the form on the right.</p>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="empty-state">
+                <h3>Select a recipient</h3>
+                <p>Enter a name to view their messages.</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-content">
-            <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
-            <p class="footer-contact">For support or inquiries: <a
-                    href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me"
-                    target="_blank" rel="noopener">taurustech.me</a></p>
+    <div class="quick-action-secondary">
+        <div class="reference-form" id="form-section">
+            <h2>Add Message</h2>
+            <form method="POST" action="/in-house-messages">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Recipient *</label>
+                        <input type="text" name="recipient_name" required placeholder="Name" value="{{ recipient }}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Message *</label>
+                    <textarea name="message_body" required placeholder="Leave a brief message..."></textarea>
+                    <small class="form-hint">Messages auto-expire after 7 days and are archived automatically.</small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Message</button>
+                </div>
+            </form>
         </div>
-    </footer>
-
-</body>
-
-</html>
+    </div>
+</div>
+{% endblock %}

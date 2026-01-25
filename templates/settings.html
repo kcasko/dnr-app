@@ -1,113 +1,84 @@
-﻿<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Settings - Restricted Guests Log</title>
-    <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
+{% extends "base.html" %}
 
-<a href="#main-content" class="skip-link">Skip to main content</a>
+{% block title %}Settings{% endblock %}
 
-<header>
-    <div class="header-content">
-        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
-        <div class="header-text">
-            <h1>System Settings</h1>
-            <div class="subtitle">Manage Passwords and Credentials</div>
-        </div>
-                <div class="header-actions">
-            <a href="/overview" class="logout-btn">Overview</a>
-            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
-            <a href="/log-book" class="logout-btn">Shift Notes</a>
-            <a href="/room-issues" class="logout-btn">Room Issues</a>
-            <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
-            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
-            <a href="/settings" class="logout-btn">Settings</a>
-            <a href="/logout" class="logout-btn">Logout</a>
-        </div>
+{% block page_title %}System Settings{% endblock %}
+
+{% block page_subtitle %}
+<div class="page-subtitle">Manage Passwords and Credentials</div>
+{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+    <div class="settings-card">
+        <h2>Change Login Credentials</h2>
+        <p class="settings-description">Update the username and password used to access the system.</p>
+
+        <form id="loginForm" onsubmit="updateLoginCredentials(event)">
+            <div class="form-group">
+                <label>New Username *</label>
+                <input type="text" name="username" required placeholder="Enter new username" autocomplete="off">
+            </div>
+
+            <div class="form-group">
+                <label>New Password *</label>
+                <input type="password" name="password" required placeholder="Min 8 chars, upper/lower/number" autocomplete="new-password" minlength="8">
+            </div>
+
+            <div class="form-group">
+                <label>Confirm Password *</label>
+                <input type="password" name="confirm_password" required placeholder="Re-enter new password" autocomplete="new-password">
+            </div>
+
+            <div class="form-group">
+                <label>Current Password (to confirm changes) *</label>
+                <input type="password" name="current_password" required placeholder="Enter current password" autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="btn btn-primary">Update Login Credentials</button>
+        </form>
     </div>
-</header>
 
-<div class="container" id="main-content">
-    <div class="settings-page">
-        <div class="settings-card">
-            <h2>Change Login Credentials</h2>
-            <p class="settings-description">Update the username and password used to access the system.</p>
+    <div class="settings-card">
+        <h2>Change Manager Password</h2>
+        <p class="settings-description">Update the password required to lift bans. This is separate from login credentials.</p>
 
-            <form id="loginForm" onsubmit="updateLoginCredentials(event)">
-                <div class="form-group">
-                    <label>New Username *</label>
-                    <input type="text" name="username" required placeholder="Enter new username" autocomplete="off">
-                </div>
+        <form id="managerForm" onsubmit="updateManagerPassword(event)">
+            <div class="form-group">
+                <label>New Manager Password *</label>
+                <input type="password" name="new_manager_password" required placeholder="Min 8 chars, upper/lower/number" autocomplete="new-password" minlength="8">
+            </div>
 
-                <div class="form-group">
-                    <label>New Password *</label>
-                    <input type="password" name="password" required placeholder="Min 8 chars, upper/lower/number" autocomplete="new-password" minlength="8">
-                </div>
+            <div class="form-group">
+                <label>Confirm Manager Password *</label>
+                <input type="password" name="confirm_manager_password" required placeholder="Re-enter new manager password" autocomplete="new-password">
+            </div>
 
-                <div class="form-group">
-                    <label>Confirm Password *</label>
-                    <input type="password" name="confirm_password" required placeholder="Re-enter new password" autocomplete="new-password">
-                </div>
+            <div class="form-group">
+                <label>Current Login Password (to confirm changes) *</label>
+                <input type="password" name="current_password" required placeholder="Enter your login password" autocomplete="current-password">
+            </div>
 
-                <div class="form-group">
-                    <label>Current Password (to confirm changes) *</label>
-                    <input type="password" name="current_password" required placeholder="Enter current password" autocomplete="current-password">
-                </div>
+            <button type="submit" class="btn btn-primary">Update Manager Password</button>
+        </form>
+    </div>
 
-                <button type="submit" class="btn btn-primary">Update Login Credentials</button>
-            </form>
-        </div>
-
-        <div class="settings-card">
-            <h2>Change Manager Password</h2>
-            <p class="settings-description">Update the password required to lift bans. This is separate from login credentials.</p>
-
-            <form id="managerForm" onsubmit="updateManagerPassword(event)">
-                <div class="form-group">
-                    <label>New Manager Password *</label>
-                    <input type="password" name="new_manager_password" required placeholder="Min 8 chars, upper/lower/number" autocomplete="new-password" minlength="8">
-                </div>
-
-                <div class="form-group">
-                    <label>Confirm Manager Password *</label>
-                    <input type="password" name="confirm_manager_password" required placeholder="Re-enter new manager password" autocomplete="new-password">
-                </div>
-
-                <div class="form-group">
-                    <label>Current Login Password (to confirm changes) *</label>
-                    <input type="password" name="current_password" required placeholder="Enter your login password" autocomplete="current-password">
-                </div>
-
-                <button type="submit" class="btn btn-primary">Update Manager Password</button>
-            </form>
-        </div>
-
-        <div class="settings-info">
-            <h3>Important Security Notes</h3>
-            <ul>
-                <li><strong>Login Credentials:</strong> Used to access the DNR system. This protects all data and functionality.</li>
-                <li><strong>Manager Password:</strong> Required to lift bans. Keep this separate and secure.</li>
-                <li><strong>Keep passwords secure:</strong> Use strong, unique passwords for both credentials.</li>
-                <li><strong>You will be logged out:</strong> After changing login credentials, you'll need to log in again with the new username and password.</li>
-            </ul>
-        </div>
+    <div class="settings-info">
+        <h3>Important Security Notes</h3>
+        <ul>
+            <li><strong>Login Credentials:</strong> Used to access the DNR system. This protects all data and functionality.</li>
+            <li><strong>Manager Password:</strong> Required to lift bans. Keep this separate and secure.</li>
+            <li><strong>Keep passwords secure:</strong> Use strong, unique passwords for both credentials.</li>
+            <li><strong>You will be logged out:</strong> After changing login credentials, you'll need to log in again with the new username and password.</li>
+        </ul>
     </div>
 </div>
 
-<!-- Footer -->
-<footer class="footer">
-    <div class="footer-content">
-        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
-        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
-    </div>
-</footer>
-
 <!-- Toast Notification -->
 <div class="toast" id="toast"></div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
 let csrfToken = null;
 
@@ -251,8 +222,4 @@ async function updateLoginCredentials(e) {
 // Initialize CSRF token
 getCsrfToken();
 </script>
-
-</body>
-</html>
-
-
+{% endblock %}

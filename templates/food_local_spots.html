@@ -1,137 +1,97 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Food & Local Spots - DNR App</title>
-    <link rel="stylesheet" href="/static/styles.css">
-</head>
+{% block title %}Food & Local Spots{% endblock %}
 
-<body>
+{% block page_title %}Food & Local Spots{% endblock %}
 
-    <header>
-        <div class="header-content">
-            <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
-            <div class="header-text">
-                <h1>Food & Local Spots</h1>
-                <div class="subtitle">Nearby recommendations for guests</div>
-            </div>
-            <div class="header-actions">
-                <a href="/overview" class="logout-btn">Overview</a>
-                <a href="/dnr" class="logout-btn">Do Not Rent List</a>
-                <a href="/log-book" class="logout-btn">Shift Notes</a>
-                <a href="/room-issues" class="logout-btn">Room Issues</a>
-                <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
-                <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
-                <a href="/settings" class="logout-btn">Settings</a>
-                <a href="/logout" class="logout-btn">Logout</a>
-            </div>
-        </div>
-    </header>
+{% block page_subtitle %}
+<div class="page-subtitle">Nearby recommendations for guests</div>
+{% endblock %}
 
-    <div class="container">
-        <div class="quick-action-layout">
-            <div class="quick-action-primary">
-                <div class="reference-list">
-                    <h2>Recommendations</h2>
-                    {% if spots %}
-                    {% for spot in spots %}
-                    <div class="entry-card">
-                        {% if edit_id == spot.id %}
-                        <form method="POST" action="/food-local-spots/{{ spot.id }}/edit" class="edit-form">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <div class="form-group">
-                                <label for="edit_name_{{ spot.id }}">Name *</label>
-                                <input type="text" id="edit_name_{{ spot.id }}" name="name" value="{{ spot.name }}"
-                                    required>
-                            </div>
-                            <div class="form-group">
-                                <label for="edit_address_{{ spot.id }}">Address</label>
-                                <input type="text" id="edit_address_{{ spot.id }}" name="address"
-                                    value="{{ spot.address or '' }}">
-                            </div>
-                            <div class="form-group">
-                                <label for="edit_phone_{{ spot.id }}">Phone</label>
-                                <input type="text" id="edit_phone_{{ spot.id }}" name="phone"
-                                    value="{{ spot.phone or '' }}">
-                            </div>
-                            <div class="form-group">
-                                <label for="edit_notes_{{ spot.id }}">Notes</label>
-                                <textarea id="edit_notes_{{ spot.id }}" name="notes">{{ spot.notes or '' }}</textarea>
-                            </div>
-                            <div class="form-actions">
-                                <a href="/food-local-spots" class="btn btn-secondary">Cancel</a>
-                                <button type="submit" class="btn btn-primary">Save</button>
-                            </div>
-                        </form>
-                        {% else %}
-                        <div class="entry-title">{{ spot.name }}</div>
-                        {% if spot.address %}<div class="entry-body">{{ spot.address }}</div>{% endif %}
-                        {% if spot.phone %}<div class="entry-body">{{ spot.phone }}</div>{% endif %}
-                        {% if spot.notes %}<div class="entry-notes text-pre-wrap">{{ spot.notes }}</div>{% endif %}
-                        <div class="entry-actions">
-                            <a href="/food-local-spots?edit={{ spot.id }}#form-section"
-                                class="btn btn-secondary">Edit</a>
-                            <form method="POST" action="/food-local-spots/{{ spot.id }}/delete" class="inline-form">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-secondary">Delete</button>
-                            </form>
-                        </div>
-                        {% endif %}
+{% block content %}
+<div class="quick-action-layout">
+    <div class="quick-action-primary">
+        <div class="reference-list">
+            <h2>Recommendations</h2>
+            {% if spots %}
+            {% for spot in spots %}
+            <div class="entry-card">
+                {% if edit_id == spot.id %}
+                <form method="POST" action="/food-local-spots/{{ spot.id }}/edit" class="edit-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label for="edit_name_{{ spot.id }}">Name *</label>
+                        <input type="text" id="edit_name_{{ spot.id }}" name="name" value="{{ spot.name }}" required>
                     </div>
-                    {% endfor %}
-                    {% else %}
-                    <div class="empty-state">
-                        <h3>No recommendations listed</h3>
-                        <p>Use the form on the right to add local spots.</p>
+                    <div class="form-group">
+                        <label for="edit_address_{{ spot.id }}">Address</label>
+                        <input type="text" id="edit_address_{{ spot.id }}" name="address" value="{{ spot.address or '' }}">
                     </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="quick-action-secondary">
-                <div class="reference-form" id="form-section">
-                    <h2>Add Food &amp; Local Spot</h2>
-                    <form method="POST" action="/food-local-spots">
+                    <div class="form-group">
+                        <label for="edit_phone_{{ spot.id }}">Phone</label>
+                        <input type="text" id="edit_phone_{{ spot.id }}" name="phone" value="{{ spot.phone or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_notes_{{ spot.id }}">Notes</label>
+                        <textarea id="edit_notes_{{ spot.id }}" name="notes">{{ spot.notes or '' }}</textarea>
+                    </div>
+                    <div class="form-actions">
+                        <a href="/food-local-spots" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="entry-title">{{ spot.name }}</div>
+                {% if spot.address %}<div class="entry-body">{{ spot.address }}</div>{% endif %}
+                {% if spot.phone %}<div class="entry-body">{{ spot.phone }}</div>{% endif %}
+                {% if spot.notes %}<div class="entry-notes text-pre-wrap">{{ spot.notes }}</div>{% endif %}
+                <div class="entry-actions">
+                    <a href="/food-local-spots?edit={{ spot.id }}#form-section" class="btn btn-secondary">Edit</a>
+                    <form method="POST" action="/food-local-spots/{{ spot.id }}/delete" class="inline-form">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Name *</label>
-                                <input type="text" name="name" required placeholder="City Diner">
-                            </div>
-                            <div class="form-group">
-                                <label>Phone</label>
-                                <input type="text" name="phone" placeholder="555-555-5555">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Address</label>
-                            <input type="text" name="address" placeholder="123 Main St">
-                        </div>
-                        <div class="form-group">
-                            <label>Notes</label>
-                            <textarea name="notes" placeholder="Hours, best dishes, walking distance..."></textarea>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">Add Spot</button>
-                        </div>
+                        <button type="submit" class="btn btn-secondary">Delete</button>
                     </form>
                 </div>
+                {% endif %}
             </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <h3>No recommendations listed</h3>
+                <p>Use the form on the right to add local spots.</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-content">
-            <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
-            <p class="footer-contact">For support or inquiries: <a
-                    href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me"
-                    target="_blank" rel="noopener">taurustech.me</a></p>
+    <div class="quick-action-secondary">
+        <div class="reference-form" id="form-section">
+            <h2>Add Food &amp; Local Spot</h2>
+            <form method="POST" action="/food-local-spots">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" name="name" required placeholder="City Diner">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="text" name="phone" placeholder="555-555-5555">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <input type="text" name="address" placeholder="123 Main St">
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes" placeholder="Hours, best dishes, walking distance..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add Spot</button>
+                </div>
+            </form>
         </div>
-    </footer>
-
-</body>
-
-</html>
+    </div>
+</div>
+{% endblock %}

@@ -1,868 +1,804 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Housekeeping Requests - DNR App</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <style>
-        /* Dual-view layout */
+{% block title %}Housekeeping Requests{% endblock %}
+
+{% block page_title %}Housekeeping Requests{% endblock %}
+
+{% block page_subtitle %}
+<div class="page-subtitle">Stayover cleaning schedule</div>
+{% endblock %}
+
+{% block page_actions %}
+<button type="button" class="btn btn-secondary" onclick="printTodaysRequests()">Print Today's Requests</button>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Dual-view layout */
+    .dual-view-layout {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 2rem;
+        margin-top: 1rem;
+    }
+
+    /* TODAY column (left) */
+    .today-column {
+        background: #fff3cd;
+        border-radius: 8px;
+        padding: 1.5rem;
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+        position: sticky;
+        top: 1rem;
+    }
+
+    .today-header h2 {
+        margin: 0 0 0.5rem 0;
+        color: #856404;
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+
+    .today-subtitle {
+        margin: 0 0 1rem 0;
+        color: #856404;
+        font-size: 0.9rem;
+    }
+
+    .today-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .today-card {
+        background: white;
+        border: 2px solid #ffc107;
+        border-radius: 6px;
+        padding: 1rem;
+    }
+
+    .today-card-room {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .today-card-guest {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+    }
+
+    .today-card-frequency {
+        font-size: 0.85rem;
+        color: #856404;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .today-card-notes {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0.75rem;
+        padding: 0.5rem;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    .today-card-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .today-empty {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: #856404;
+    }
+
+    /* Main area (right) */
+    .main-area {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .all-active-section h2 {
+        margin: 0 0 0.5rem 0;
+    }
+
+    .section-subtitle {
+        margin: 0 0 1rem 0;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .due-today-indicator {
+        border-left: 4px solid #ffc107;
+    }
+
+    .due-badge {
+        display: inline-block;
+        background: #ffc107;
+        color: #856404;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-left: 0.5rem;
+    }
+
+    .add-request-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+
+    .add-request-section h2 {
+        margin: 0 0 1rem 0;
+    }
+
+    /* Compact action buttons (shared between TODAY + ALL) */
+    .btn-compact {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.85rem;
+        line-height: 1;
+    }
+
+    .today-card-actions .btn {
+        flex: 1;
+    }
+
+    /* Modal styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-large {
+        max-width: 800px;
+    }
+
+    .modal-content h2 {
+        margin: 0 0 1rem 0;
+    }
+
+    .warning-text {
+        color: #dc3545;
+        font-weight: 600;
+    }
+
+    .modal-hidden {
+        display: none;
+    }
+
+    .frequency-modes {
+        display: flex;
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+
+    .frequency-mode {
+        flex: 1;
+        padding: 1rem;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .frequency-mode:hover {
+        border-color: #0066cc;
+        background: #f8f9fa;
+    }
+
+    .frequency-mode input[type="radio"] {
+        margin-right: 0.5rem;
+    }
+
+    .frequency-mode.selected {
+        border-color: #0066cc;
+        background: #e6f2ff;
+    }
+
+    .frequency-mode h4 {
+        margin: 0 0 0.5rem 0;
+        color: #333;
+    }
+
+    .frequency-mode p {
+        margin: 0;
+        font-size: 0.9em;
+        color: #666;
+    }
+
+    .custom-frequency-input {
+        display: none;
+        margin-top: 1rem;
+    }
+
+    .custom-frequency-input.visible {
+        display: block;
+    }
+
+    .service-dates-preview {
+        display: none;
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    .service-dates-preview.visible {
+        display: block;
+    }
+
+    .service-dates-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .service-date-item {
+        padding: 0.5rem;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        text-align: center;
+        font-size: 0.9em;
+    }
+
+    .service-date-item.inactive {
+        opacity: 0.5;
+        text-decoration: line-through;
+    }
+
+    .service-date-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+    }
+
+    .service-date-toggle input[type="checkbox"] {
+        margin: 0;
+    }
+
+    .print-list-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .print-list-item:last-child {
+        border-bottom: none;
+    }
+
+    .print-rooms-container {
+        margin-top: 2rem;
+    }
+
+    .print-guest-name {
+        color: #666;
+    }
+
+    .print-frequency {
+        color: #666;
+    }
+
+    .print-notes {
+        margin-top: 0.25rem;
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    /* TODAY separator */
+    .today-separator {
+        margin: 2rem 0 1rem;
+        border-top: 2px dashed #856404;
+        opacity: 0.3;
+    }
+
+    /* Expiring card variant */
+    .expiring-card {
+        border-color: #6c757d;
+    }
+
+    /* Checkout notice style */
+    .checkout-notice {
+        background: #e9ecef;
+        font-style: italic;
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        color: #495057;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1024px) {
         .dual-view-layout {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 2rem;
-            margin-top: 1rem;
+            grid-template-columns: 1fr;
         }
 
-        /* TODAY column (left) */
         .today-column {
-            background: #fff3cd;
-            border-radius: 8px;
-            padding: 1.5rem;
-            max-height: calc(100vh - 200px);
-            overflow-y: auto;
-            position: sticky;
-            top: 1rem;
+            position: relative;
+            max-height: none;
         }
+    }
+</style>
+{% endblock %}
 
-        .today-header h2 {
-            margin: 0 0 0.5rem 0;
-            color: #856404;
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
+{% block content %}
+{% if error == 'missing' %}
+<div class="inline-error">Please fill in all required fields: room number, start date, end date, and frequency.</div>
+{% elif error == 'date_order' %}
+<div class="inline-error">The start date must be on or before the end date. Please check your dates.</div>
+{% elif error == 'invalid_frequency' %}
+<div class="inline-error">Invalid frequency value. Please enter a number between 1 and 30.</div>
+{% endif %}
 
-        .today-subtitle {
-            margin: 0 0 1rem 0;
-            color: #856404;
-            font-size: 0.9rem;
-        }
-
-        .today-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .today-card {
-            background: white;
-            border: 2px solid #ffc107;
-            border-radius: 6px;
-            padding: 1rem;
-        }
-
-        .today-card-room {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-
-        .today-card-guest {
-            font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 0.5rem;
-        }
-
-        .today-card-frequency {
-            font-size: 0.85rem;
-            color: #856404;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .today-card-notes {
-            font-size: 0.85rem;
-            color: #666;
-            margin-bottom: 0.75rem;
-            padding: 0.5rem;
-            background: #f8f9fa;
-            border-radius: 4px;
-        }
-
-        .today-card-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .today-empty {
-            text-align: center;
-            padding: 2rem 1rem;
-            color: #856404;
-        }
-
-        /* Main area (right) */
-        .main-area {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        .all-active-section h2 {
-            margin: 0 0 0.5rem 0;
-        }
-
-        .section-subtitle {
-            margin: 0 0 1rem 0;
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .due-today-indicator {
-            border-left: 4px solid #ffc107;
-        }
-
-        .due-badge {
-            display: inline-block;
-            background: #ffc107;
-            color: #856404;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            margin-left: 0.5rem;
-        }
-
-        .add-request-section {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 1.5rem;
-        }
-
-        .add-request-section h2 {
-            margin: 0 0 1rem 0;
-        }
-
-        /* Compact action buttons (shared between TODAY + ALL) */
-        .btn-compact {
-            padding: 0.4rem 0.75rem;
-            font-size: 0.85rem;
-            line-height: 1;
-        }
-
-        .today-card-actions .btn {
-            flex: 1;
-        }
-
-        /* Modal styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 8px;
-            padding: 2rem;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-large {
-            max-width: 800px;
-        }
-
-        .modal-content h2 {
-            margin: 0 0 1rem 0;
-        }
-
-        .warning-text {
-            color: #dc3545;
-            font-weight: 600;
-        }
-
-        .modal-hidden {
-            display: none;
-        }
-
-        .frequency-modes {
-            display: flex;
-            gap: 1rem;
-            margin: 1rem 0;
-        }
-
-        .frequency-mode {
-            flex: 1;
-            padding: 1rem;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .frequency-mode:hover {
-            border-color: #0066cc;
-            background: #f8f9fa;
-        }
-
-        .frequency-mode input[type="radio"] {
-            margin-right: 0.5rem;
-        }
-
-        .frequency-mode.selected {
-            border-color: #0066cc;
-            background: #e6f2ff;
-        }
-
-        .frequency-mode h4 {
-            margin: 0 0 0.5rem 0;
-            color: #333;
-        }
-
-        .frequency-mode p {
-            margin: 0;
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        .custom-frequency-input {
-            display: none;
-            margin-top: 1rem;
-        }
-
-        .custom-frequency-input.visible {
-            display: block;
-        }
-
-        .service-dates-preview {
-            display: none;
-            margin-top: 1rem;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 4px;
-        }
-
-        .service-dates-preview.visible {
-            display: block;
-        }
-
-        .service-dates-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-        }
-
-        .service-date-item {
-            padding: 0.5rem;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            text-align: center;
-            font-size: 0.9em;
-        }
-
-        .service-date-item.inactive {
-            opacity: 0.5;
-            text-decoration: line-through;
-        }
-
-        .service-date-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-bottom: 0.5rem;
-        }
-
-        .service-date-toggle input[type="checkbox"] {
-            margin: 0;
-        }
-
-        .print-list-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.75rem;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .print-list-item:last-child {
-            border-bottom: none;
-        }
-
-        .print-rooms-container {
-            margin-top: 2rem;
-        }
-
-        .print-guest-name {
-            color: #666;
-        }
-
-        .print-frequency {
-            color: #666;
-        }
-
-        .print-notes {
-            margin-top: 0.25rem;
-            font-size: 0.9rem;
-            color: #333;
-        }
-
-        /* TODAY separator */
-        .today-separator {
-            margin: 2rem 0 1rem;
-            border-top: 2px dashed #856404;
-            opacity: 0.3;
-        }
-
-        /* Expiring card variant */
-        .expiring-card {
-            border-color: #6c757d;
-        }
-
-        /* Checkout notice style */
-        .checkout-notice {
-            background: #e9ecef;
-            font-style: italic;
-            font-size: 0.85rem;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            color: #495057;
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 1024px) {
-            .dual-view-layout {
-                grid-template-columns: 1fr;
-            }
-
-            .today-column {
-                position: relative;
-                max-height: none;
-            }
-        }
-    </style>
-</head>
-
-<body>
-
-    <a href="#main-content" class="skip-link">Skip to main content</a>
-
-    <header class="no-print">
-        <div class="header-content">
-            <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
-            <div class="header-text">
-                <h1>Housekeeping Requests</h1>
-                <div class="subtitle">Stayover cleaning schedule</div>
-            </div>
-            <div class="header-actions">
-                <a href="/overview" class="logout-btn">Overview</a>
-                <a href="/dnr" class="logout-btn">Do Not Rent List</a>
-                <a href="/log-book" class="logout-btn">Shift Notes</a>
-                <a href="/room-issues" class="logout-btn">Room Issues</a>
-                <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
-                <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
-                <a href="/settings" class="logout-btn">Settings</a>
-                <a href="/logout" class="logout-btn">Logout</a>
-            </div>
+<div class="dual-view-layout">
+    <!-- LEFT COLUMN: TODAY -->
+    <div class="today-column">
+        <div class="today-header">
+            <h2>TODAY</h2>
+            <p class="today-subtitle">{{ due_today|length }} request(s) due</p>
         </div>
-    </header>
-
-    <div class="container no-print" id="main-content">
-        <div class="housekeeping-actions">
-            <div class="housekeeping-intro">
-                <h2>Housekeeping Management</h2>
-                <div class="subtitle">Manage all housekeeping requests and today's schedule.</div>
-            </div>
-            <button type="button" class="btn btn-secondary" onclick="printTodaysRequests()">Print Today's
-                Requests</button>
-        </div>
-
-        {% if error == 'missing' %}
-        <div class="inline-error">Please fill in all required fields: room number, start date, end date, and frequency.
-        </div>
-        {% elif error == 'date_order' %}
-        <div class="inline-error">The start date must be on or before the end date. Please check your dates.</div>
-        {% elif error == 'invalid_frequency' %}
-        <div class="inline-error">Invalid frequency value. Please enter a number between 1 and 30.</div>
-        {% endif %}
-
-        <div class="dual-view-layout">
-            <!-- LEFT COLUMN: TODAY -->
-            <div class="today-column">
-                <div class="today-header">
-                    <h2>TODAY</h2>
-                    <p class="today-subtitle">{{ due_today|length }} request(s) due</p>
-                </div>
-                <div class="today-list">
-                    {% if due_today %}
-                    {% for item in due_today %}
-                    <div class="today-card">
-                        <div class="today-card-room">Room {{ item.room_number }}</div>
-                        {% if item.guest_name %}
-                        <div class="today-card-guest">{{ item.guest_name }}</div>
-                        {% endif %}
-                        <div class="today-card-frequency">{{ item.frequency_label }}</div>
-                        {% if item.notes %}
-                        <div class="today-card-notes text-pre-wrap">{{ item.notes }}</div>
-                        {% endif %}
-                        <div class="today-card-actions">
-                            <a class="btn btn-secondary btn-compact"
-                                href="/housekeeping-requests?edit={{ item.id }}#housekeeping-form-section">Edit</a>
-                            <button type="button" class="btn btn-danger btn-compact"
-                                data-request-id="{{ item.id }}"
+        <div class="today-list">
+            {% if due_today %}
+            {% for item in due_today %}
+            <div class="today-card">
+                <div class="today-card-room">Room {{ item.room_number }}</div>
+                {% if item.guest_name %}
+                <div class="today-card-guest">{{ item.guest_name }}</div>
+                {% endif %}
+                <div class="today-card-frequency">{{ item.frequency_label }}</div>
+                {% if item.notes %}
+                <div class="today-card-notes text-pre-wrap">{{ item.notes }}</div>
+                {% endif %}
+                <div class="today-card-actions">
+                    <a class="btn btn-secondary btn-compact" href="/housekeeping-requests?edit={{ item.id }}#housekeeping-form-section">Edit</a>
+                    <button type="button" class="btn btn-destructive btn-compact" data-request-id="{{ item.id }}"
                                 data-request-details='{{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }}'
                                 onclick="confirmDelete(parseInt(this.dataset.requestId), JSON.parse(this.dataset.requestDetails))">Delete</button>
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% else %}
-                    <div class="today-empty">
-                        <p>No requests due today</p>
-                    </div>
-                    {% endif %}
                 </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="today-empty">
+                <p>No requests due today</p>
+            </div>
+            {% endif %}
+        </div>
 
-                <div class="today-separator"></div>
-                <div class="today-header">
-                    <h2>FORMS TO DISPOSE</h2>
-                    <p class="today-subtitle">{{ expiring_today|length }} form(s) to collect</p>
-                </div>
-                <div class="today-list">
-                    {% if expiring_today %}
-                    {% for item in expiring_today %}
-                    <div class="today-card expiring-card">
-                        <div class="today-card-room">Room {{ item.room_number }}</div>
-                        {% if item.guest_name %}
-                        <div class="today-card-guest">{{ item.guest_name }}</div>
-                        {% endif %}
-                        <div class="today-card-notes checkout-notice">Checkout Today</div>
-                        <div class="today-card-actions">
-                            <button type="button" class="btn btn-danger btn-compact"
-                                data-request-id="{{ item.id }}"
+        <div class="today-separator"></div>
+        <div class="today-header">
+            <h2>FORMS TO DISPOSE</h2>
+            <p class="today-subtitle">{{ expiring_today|length }} form(s) to collect</p>
+        </div>
+        <div class="today-list">
+            {% if expiring_today %}
+            {% for item in expiring_today %}
+            <div class="today-card expiring-card">
+                <div class="today-card-room">Room {{ item.room_number }}</div>
+                {% if item.guest_name %}
+                <div class="today-card-guest">{{ item.guest_name }}</div>
+                {% endif %}
+                <div class="today-card-notes checkout-notice">Checkout Today</div>
+                <div class="today-card-actions">
+                    <button type="button" class="btn btn-destructive btn-compact" data-request-id="{{ item.id }}"
                                 data-request-details='{{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }}'
                                 onclick="confirmDelete(parseInt(this.dataset.requestId), JSON.parse(this.dataset.requestDetails))">Dispose</button>
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% else %}
-                    <div class="today-empty">
-                        <p>No checkouts today</p>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
-
-            <!-- MAIN AREA: ALL ACTIVE REQUESTS + ADD/EDIT FORM -->
-            <div class="main-area">
-                <div class="all-active-section">
-                    <h2>ALL ACTIVE REQUESTS</h2>
-                    <p class="section-subtitle">{{ all_active|length }} active request(s)</p>
-
-                    {% if all_active %}
-                    {% for item in all_active %}
-                    <div class="housekeeping-card {% if item.is_due_today %}due-today-indicator{% endif %}">
-                        <div class="housekeeping-card-header">
-                            <div class="housekeeping-room">
-                                Room {{ item.room_number }}
-                                {% if item.guest_name %}
-                                <span class="guest-name-label"> - {{ item.guest_name }}</span>
-                                {% endif %}
-                                {% if item.is_due_today %}
-                                <span class="due-badge">DUE TODAY</span>
-                                {% endif %}
-                            </div>
-                            <div class="housekeeping-meta">{{ item.frequency_label }}</div>
-                        </div>
-                        <div class="housekeeping-dates">{{ item.start_date }} to {{ item.end_date }}</div>
-                        {% if item.notes %}
-                        <div class="housekeeping-notes text-pre-wrap">{{ item.notes }}</div>
-                        {% endif %}
-                        <div class="housekeeping-card-actions">
-                            <a class="btn btn-secondary btn-compact"
-                                href="/housekeeping-requests?edit={{ item.id }}#housekeeping-form-section">Edit</a>
-                            <button type="button" class="btn btn-danger btn-compact"
-                                data-request-id="{{ item.id }}"
-                                data-request-details='{{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }}'
-                                onclick="confirmDelete(parseInt(this.dataset.requestId), JSON.parse(this.dataset.requestDetails))">Delete</button>
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% else %}
-                    <div class="empty-state">
-                        <h3>No active housekeeping requests</h3>
-                        <p>Add a new request using the form below.</p>
-                    </div>
-                    {% endif %}
-                </div>
-
-                <div class="add-request-section" id="housekeeping-form-section">
-                    {% set current_freq = edit_item.frequency if edit_item else 'every_3rd_day' %}
-                    <h2>{% if edit_item %}Edit Housekeeping Request (ID: {{ edit_item.id }}){% else %}Add Housekeeping
-                        Request{% endif %}</h2>
-                    {% if edit_item %}
-                    <p class="section-subtitle">Editing Room {{ edit_item.room_number }}{% if edit_item.guest_name %} -
-                        {{ edit_item.guest_name }}{% endif %}</p>
-                    {% endif %}
-                    <form method="POST"
-                        action="{% if edit_item %}/housekeeping-requests/{{ edit_item.id }}/edit{% else %}/housekeeping-requests{% endif %}"
-                        id="housekeeping-form">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="room-number">Room Number *</label>
-                                <input type="text" name="room_number" required placeholder="Room 214" id="room-number"
-                                    value="{{ edit_item.room_number if edit_item else '' }}">
-                            </div>
-                            <div class="form-group">
-                                <label for="guest-name">Guest Name/Initials (Optional)</label>
-                                <input type="text" name="guest_name" placeholder="J. Smith or JS" id="guest-name"
-                                    value="{{ edit_item.guest_name if edit_item and edit_item.guest_name else '' }}">
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="start-date">Start Date (First Full Day) *</label>
-                                <input type="date" name="start_date" required id="start-date"
-                                    value="{{ edit_item.start_date if edit_item else '' }}">
-                            </div>
-                            <div class="form-group">
-                                <label for="end-date">Checkout Date *</label>
-                                <input type="date" name="end_date" required id="end-date"
-                                    value="{{ edit_item.end_date if edit_item else '' }}">
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Housekeeping Frequency *</label>
-                            <div class="frequency-modes">
-                                <label
-                                    class="frequency-mode {% if current_freq == 'every_3rd_day' %}selected{% endif %}"
-                                    data-frequency="every_3rd_day">
-                                    <input type="radio" name="frequency" value="every_3rd_day" {% if
-                                        current_freq=='every_3rd_day' %}checked{% endif %}>
-                                    <div>
-                                        <h4>Every 3rd Day</h4>
-                                        <p>Preset schedule</p>
-                                    </div>
-                                </label>
-                                <label class="frequency-mode {% if current_freq == 'daily' %}selected{% endif %}"
-                                    data-frequency="daily">
-                                    <input type="radio" name="frequency" value="daily" {% if current_freq=='daily'
-                                        %}checked{% endif %}>
-                                    <div>
-                                        <h4>Daily</h4>
-                                        <p>Every day</p>
-                                    </div>
-                                </label>
-                                <label class="frequency-mode {% if current_freq == 'custom' %}selected{% endif %}"
-                                    data-frequency="custom">
-                                    <input type="radio" name="frequency" value="custom" {% if current_freq=='custom'
-                                        %}checked{% endif %}>
-                                    <div>
-                                        <h4>Custom</h4>
-                                        <p>Custom interval</p>
-                                    </div>
-                                </label>
-                            </div>
-
-                            <div class="custom-frequency-input {% if current_freq == 'custom' %}visible{% endif %}"
-                                id="custom-frequency-input">
-                                <label>Every X Days</label>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <input type="number" name="frequency_days" min="1" max="30"
-                                            placeholder="Enter number of days" id="frequency-days"
-                                            value="{{ edit_item.frequency_days if edit_item and edit_item.frequency_days else '' }}">
-                                    </div>
-                                    <div class="form-group">
-                                        <button type="button" class="btn btn-secondary" id="preview-dates-btn">Preview
-                                            Dates</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="service-dates-preview" id="service-dates-preview">
-                                <h4>Service Dates Preview</h4>
-                                <div id="preview-content"></div>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="request-notes">Notes (Optional)</label>
-                            <textarea name="notes" placeholder="Optional notes..." maxlength="1000"
-                                class="char-counter-textarea" data-maxlength="1000"
-                                id="request-notes">{{ edit_item.notes if edit_item and edit_item.notes else '' }}</textarea>
-                            <small class="char-counter">0 / 1000</small>
-                        </div>
-
-                        <div class="form-actions">
-                            {% if edit_item %}
-                            <a href="/housekeeping-requests" class="btn btn-secondary">Cancel</a>
-                            <button type="submit" class="btn btn-primary">Save Changes</button>
-                            {% else %}
-                            <button type="submit" class="btn btn-primary">Add Request</button>
-                            {% endif %}
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- DELETE CONFIRMATION MODAL -->
-    <div class="modal-overlay modal-hidden" id="delete-modal">
-        <div class="modal-content">
-            <h2>Confirm Delete</h2>
-            <p>Are you sure you want to permanently delete <strong id="delete-request-display"></strong>?</p>
-            <p class="warning-text">This action cannot be undone.</p>
-            <form method="POST" id="delete-form" action="">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
-                    <button type="submit" class="btn btn-danger">Delete Request</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="print-only">
-        <div class="print-header">
-            <h1>Housekeeping Requests - <span id="print-today-date">{{ today }}</span></h1>
-        </div>
-        <div id="print-today-list">
-            {% if print_rooms %}
-            <div class="print-rooms-container">
-                {% for item in print_rooms %}
-                <div class="print-list-item">
-                    <div>
-                        <strong>Room {{ item.room }}</strong>
-                        {% if item.guest %}
-                        <span class="print-guest-name"> - {{ item.guest }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="print-frequency">{{ item.frequency }}</div>
-                    {% if item.notes %}
-                    <div class="print-notes text-pre-wrap">{{ item.notes }}</div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
+            {% endfor %}
             {% else %}
-            <div class="print-empty">No housekeeping requests are due today.</div>
+            <div class="today-empty">
+                <p>No checkouts today</p>
+            </div>
             {% endif %}
         </div>
     </div>
 
-    <footer class="footer no-print">
-        <div class="footer-content">
-            <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
-            <p class="footer-contact">For support or inquiries: <a
-                    href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me"
-                    target="_blank" rel="noopener">taurustech.me</a></p>
+    <!-- MAIN AREA: ALL ACTIVE REQUESTS + ADD/EDIT FORM -->
+    <div class="main-area">
+        <div class="all-active-section">
+            <h2>ALL ACTIVE REQUESTS</h2>
+            <p class="section-subtitle">{{ all_active|length }} active request(s)</p>
+
+            {% if all_active %}
+            {% for item in all_active %}
+            <div class="housekeeping-card {% if item.is_due_today %}due-today-indicator{% endif %}">
+                <div class="housekeeping-card-header">
+                    <div class="housekeeping-room">
+                        Room {{ item.room_number }}
+                        {% if item.guest_name %}
+                        <span class="guest-name-label"> - {{ item.guest_name }}</span>
+                        {% endif %}
+                        {% if item.is_due_today %}
+                        <span class="due-badge">DUE TODAY</span>
+                        {% endif %}
+                    </div>
+                    <div class="housekeeping-meta">{{ item.frequency_label }}</div>
+                </div>
+                <div class="housekeeping-dates">{{ item.start_date }} to {{ item.end_date }}</div>
+                {% if item.notes %}
+                <div class="housekeeping-notes text-pre-wrap">{{ item.notes }}</div>
+                {% endif %}
+                <div class="housekeeping-card-actions">
+                    <a class="btn btn-secondary btn-compact" href="/housekeeping-requests?edit={{ item.id }}#housekeeping-form-section">Edit</a>
+                    <button type="button" class="btn btn-destructive btn-compact" data-request-id="{{ item.id }}"
+                                data-request-details='{{ {"room": item.room_number, "guest": item.guest_name or "", "start": item.start_date, "end": item.end_date}|tojson }}'
+                                onclick="confirmDelete(parseInt(this.dataset.requestId), JSON.parse(this.dataset.requestDetails))">Delete</button>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <h3>No active housekeeping requests</h3>
+                <p>Add a new request using the form below.</p>
+            </div>
+            {% endif %}
         </div>
-    </footer>
 
-    <script>
-        // Delete confirmation modal
-        function confirmDelete(requestId, details) {
-            var modal = document.getElementById('delete-modal');
-            var requestDisplay = document.getElementById('delete-request-display');
-            var deleteForm = document.getElementById('delete-form');
+        <div class="add-request-section" id="housekeeping-form-section">
+            {% set current_freq = edit_item.frequency if edit_item else 'every_3rd_day' %}
+            <h2>{% if edit_item %}Edit Housekeeping Request (ID: {{ edit_item.id }}){% else %}Add Housekeeping Request{% endif %}</h2>
+            {% if edit_item %}
+            <p class="section-subtitle">Editing Room {{ edit_item.room_number }}{% if edit_item.guest_name %} - {{ edit_item.guest_name }}{% endif %}</p>
+            {% endif %}
+            <form method="POST" action="{% if edit_item %}/housekeeping-requests/{{ edit_item.id }}/edit{% else %}/housekeeping-requests{% endif %}" id="housekeeping-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-            var text = 'Room ' + (details.room || '');
-            if (details.guest) text += ' - ' + details.guest;
-            if (details.start && details.end) text += ' (' + details.start + ' to ' + details.end + ')';
-            requestDisplay.textContent = text;
-            deleteForm.action = '/housekeeping-requests/' + requestId + '/delete';
-            modal.classList.remove('modal-hidden');
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="room-number">Room Number *</label>
+                        <input type="text" name="room_number" required placeholder="Room 214" id="room-number" value="{{ edit_item.room_number if edit_item else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="guest-name">Guest Name/Initials (Optional)</label>
+                        <input type="text" name="guest_name" placeholder="J. Smith or JS" id="guest-name" value="{{ edit_item.guest_name if edit_item and edit_item.guest_name else '' }}">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="start-date">Start Date (First Full Day) *</label>
+                        <input type="date" name="start_date" required id="start-date" value="{{ edit_item.start_date if edit_item else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="end-date">Checkout Date *</label>
+                        <input type="date" name="end_date" required id="end-date" value="{{ edit_item.end_date if edit_item else '' }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Housekeeping Frequency *</label>
+                    <div class="frequency-modes">
+                        <label class="frequency-mode {% if current_freq == 'every_3rd_day' %}selected{% endif %}" data-frequency="every_3rd_day">
+                            <input type="radio" name="frequency" value="every_3rd_day" {% if current_freq=='every_3rd_day' %}checked{% endif %}>
+                            <div>
+                                <h4>Every 3rd Day</h4>
+                                <p>Preset schedule</p>
+                            </div>
+                        </label>
+                        <label class="frequency-mode {% if current_freq == 'daily' %}selected{% endif %}" data-frequency="daily">
+                            <input type="radio" name="frequency" value="daily" {% if current_freq=='daily' %}checked{% endif %}>
+                            <div>
+                                <h4>Daily</h4>
+                                <p>Every day</p>
+                            </div>
+                        </label>
+                        <label class="frequency-mode {% if current_freq == 'custom' %}selected{% endif %}" data-frequency="custom">
+                            <input type="radio" name="frequency" value="custom" {% if current_freq=='custom' %}checked{% endif %}>
+                            <div>
+                                <h4>Custom</h4>
+                                <p>Custom interval</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="custom-frequency-input {% if current_freq == 'custom' %}visible{% endif %}" id="custom-frequency-input">
+                        <label>Every X Days</label>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <input type="number" name="frequency_days" min="1" max="30" placeholder="Enter number of days" id="frequency-days" value="{{ edit_item.frequency_days if edit_item and edit_item.frequency_days else '' }}">
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-secondary" id="preview-dates-btn">Preview Dates</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="service-dates-preview" id="service-dates-preview">
+                        <h4>Service Dates Preview</h4>
+                        <div id="preview-content"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="request-notes">Notes (Optional)</label>
+                    <textarea name="notes" placeholder="Optional notes..." maxlength="1000" class="char-counter-textarea" data-maxlength="1000" id="request-notes">{{ edit_item.notes if edit_item and edit_item.notes else '' }}</textarea>
+                    <small class="char-counter">0 / 1000</small>
+                </div>
+
+                <div class="form-actions">
+                    {% if edit_item %}
+                    <a href="/housekeeping-requests" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    {% else %}
+                    <button type="submit" class="btn btn-primary">Add Request</button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+<div class="modal-overlay modal-hidden" id="delete-modal">
+    <div class="modal-content">
+        <h2>Confirm Delete</h2>
+        <p>Are you sure you want to permanently delete <strong id="delete-request-display"></strong>?</p>
+        <p class="warning-text">This action cannot be undone.</p>
+        <form method="POST" id="delete-form" action="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button type="submit" class="btn btn-destructive">Delete Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="print-only">
+    <div class="print-header">
+        <h1>Housekeeping Requests - <span id="print-today-date">{{ today }}</span></h1>
+    </div>
+    <div id="print-today-list">
+        {% if print_rooms %}
+        <div class="print-rooms-container">
+            {% for item in print_rooms %}
+            <div class="print-list-item">
+                <div>
+                    <strong>Room {{ item.room }}</strong>
+                    {% if item.guest %}
+                    <span class="print-guest-name"> - {{ item.guest }}</span>
+                    {% endif %}
+                </div>
+                <div class="print-frequency">{{ item.frequency }}</div>
+                {% if item.notes %}
+                <div class="print-notes text-pre-wrap">{{ item.notes }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="print-empty">No housekeeping requests are due today.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Delete confirmation modal
+    function confirmDelete(requestId, details) {
+        var modal = document.getElementById('delete-modal');
+        var requestDisplay = document.getElementById('delete-request-display');
+        var deleteForm = document.getElementById('delete-form');
+
+        var text = 'Room ' + (details.room || '');
+        if (details.guest) text += ' - ' + details.guest;
+        if (details.start && details.end) text += ' (' + details.start + ' to ' + details.end + ')';
+        requestDisplay.textContent = text;
+        deleteForm.action = '/housekeeping-requests/' + requestId + '/delete';
+        modal.classList.remove('modal-hidden');
+    }
+
+    function closeDeleteModal() {
+        var modal = document.getElementById('delete-modal');
+        modal.classList.add('modal-hidden');
+    }
+
+    // Close modal on background click
+    document.getElementById('delete-modal').addEventListener('click', function (e) {
+        if (e.target === this) {
+            closeDeleteModal();
         }
+    });
 
-        function closeDeleteModal() {
-            var modal = document.getElementById('delete-modal');
-            modal.classList.add('modal-hidden');
+    // Character counter for textareas
+    document.querySelectorAll('.char-counter-textarea').forEach(function (textarea) {
+        var counter = textarea.parentElement.querySelector('.char-counter');
+        if (counter) {
+            var maxLen = parseInt(textarea.getAttribute('data-maxlength') || '1000', 10);
+            function updateCounter() {
+                counter.textContent = textarea.value.length + ' / ' + maxLen;
+            }
+            textarea.addEventListener('input', updateCounter);
+            updateCounter();
         }
+    });
 
-        // Close modal on background click
-        document.getElementById('delete-modal').addEventListener('click', function (e) {
-            if (e.target === this) {
-                closeDeleteModal();
+    // Frequency mode selection (for add form)
+    document.querySelectorAll('.frequency-mode').forEach(function (mode) {
+        mode.addEventListener('click', function (e) {
+            if (e.target.tagName !== 'INPUT') {
+                var radio = this.querySelector('input[type="radio"]');
+                radio.checked = true;
+                radio.dispatchEvent(new Event('change'));
+            }
+
+            // Update selected state for this group
+            var formContext = this.closest('form') || this.closest('.add-request-section');
+            if (formContext) {
+                formContext.querySelectorAll('.frequency-mode').forEach(function (m) {
+                    m.classList.remove('selected');
+                });
+            }
+            this.classList.add('selected');
+
+            // Show/hide custom frequency input
+            var frequency = this.getAttribute('data-frequency');
+            var customInput = formContext ? formContext.querySelector('.custom-frequency-input') : document.getElementById('custom-frequency-input');
+            var preview = document.getElementById('service-dates-preview');
+
+            if (frequency === 'custom' && customInput) {
+                customInput.classList.add('visible');
+            } else if (customInput) {
+                customInput.classList.remove('visible');
+                if (preview) preview.classList.remove('visible');
             }
         });
+    });
 
-        // Character counter for textareas
-        document.querySelectorAll('.char-counter-textarea').forEach(function (textarea) {
-            var counter = textarea.parentElement.querySelector('.char-counter');
-            if (counter) {
-                var maxLen = parseInt(textarea.getAttribute('data-maxlength') || '1000', 10);
-                function updateCounter() {
-                    counter.textContent = textarea.value.length + ' / ' + maxLen;
-                }
-                textarea.addEventListener('input', updateCounter);
-                updateCounter();
+    // Preview service dates for custom frequency
+    var previewBtn = document.getElementById('preview-dates-btn');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function () {
+            var startDate = document.getElementById('start-date').value;
+            var endDate = document.getElementById('end-date').value;
+            var frequencyDays = document.getElementById('frequency-days').value;
+
+            if (!startDate || !endDate || !frequencyDays) {
+                alert('Please fill in start date, end date, and frequency days');
+                return;
             }
-        });
 
-        // Frequency mode selection (for add form)
-        document.querySelectorAll('.frequency-mode').forEach(function (mode) {
-            mode.addEventListener('click', function (e) {
-                if (e.target.tagName !== 'INPUT') {
-                    var radio = this.querySelector('input[type="radio"]');
-                    radio.checked = true;
-                    radio.dispatchEvent(new Event('change'));
-                }
+            fetch('/api/preview-service-dates', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                },
+                body: JSON.stringify({
+                    start_date: startDate,
+                    end_date: endDate,
+                    frequency: 'custom',
+                    frequency_days: parseInt(frequencyDays)
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
 
-                // Update selected state for this group
-                var formContext = this.closest('form') || this.closest('.add-request-section');
-                if (formContext) {
-                    formContext.querySelectorAll('.frequency-mode').forEach(function (m) {
-                        m.classList.remove('selected');
+                    var previewDiv = document.getElementById('service-dates-preview');
+                    var previewContent = document.getElementById('preview-content');
+
+                    var html = '<p><strong>' + data.count + ' service date(s) will be generated:</strong></p>';
+                    html += '<div class="service-dates-grid">';
+                    data.service_dates.forEach(function (date) {
+                        html += '<div class="service-date-item">' + date + '</div>';
                     });
-                }
-                this.classList.add('selected');
+                    html += '</div>';
 
-                // Show/hide custom frequency input
-                var frequency = this.getAttribute('data-frequency');
-                var customInput = formContext ? formContext.querySelector('.custom-frequency-input') : document.getElementById('custom-frequency-input');
-                var preview = document.getElementById('service-dates-preview');
-
-                if (frequency === 'custom' && customInput) {
-                    customInput.classList.add('visible');
-                } else if (customInput) {
-                    customInput.classList.remove('visible');
-                    if (preview) preview.classList.remove('visible');
-                }
-            });
+                    previewContent.innerHTML = html;
+                    previewDiv.classList.add('visible');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to preview dates');
+                });
         });
+    }
 
-        // Preview service dates for custom frequency
-        var previewBtn = document.getElementById('preview-dates-btn');
-        if (previewBtn) {
-            previewBtn.addEventListener('click', function () {
-                var startDate = document.getElementById('start-date').value;
-                var endDate = document.getElementById('end-date').value;
-                var frequencyDays = document.getElementById('frequency-days').value;
+    function printTodaysRequests() {
+        fetch('/api/housekeeping-requests/print-today', { method: 'GET' })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                var dateEl = document.getElementById('print-today-date');
+                if (dateEl && data.today) dateEl.textContent = data.today;
 
-                if (!startDate || !endDate || !frequencyDays) {
-                    alert('Please fill in start date, end date, and frequency days');
+                var listRoot = document.getElementById('print-today-list');
+                if (!listRoot) {
+                    window.print();
                     return;
                 }
 
-                fetch('/api/preview-service-dates', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
-                    },
-                    body: JSON.stringify({
-                        start_date: startDate,
-                        end_date: endDate,
-                        frequency: 'custom',
-                        frequency_days: parseInt(frequencyDays)
-                    })
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            alert(data.error);
-                            return;
-                        }
+                listRoot.innerHTML = '';
 
-                        var previewDiv = document.getElementById('service-dates-preview');
-                        var previewContent = document.getElementById('preview-content');
+                if (!data.requests || data.requests.length === 0) {
+                    var empty = document.createElement('div');
+                    empty.className = 'print-empty';
+                    empty.textContent = 'No housekeeping requests are due today.';
+                    listRoot.appendChild(empty);
+                    window.print();
+                    return;
+                }
 
-                        var html = '<p><strong>' + data.count + ' service date(s) will be generated:</strong></p>';
-                        html += '<div class="service-dates-grid">';
-                        data.service_dates.forEach(function (date) {
-                            html += '<div class="service-date-item">' + date + '</div>';
-                        });
-                        html += '</div>';
+                var container = document.createElement('div');
+                container.className = 'print-rooms-container';
 
-                        previewContent.innerHTML = html;
-                        previewDiv.classList.add('visible');
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Failed to preview dates');
-                    });
-            });
-        }
+                data.requests.forEach(function (item) {
+                    var row = document.createElement('div');
+                    row.className = 'print-list-item';
 
-        function printTodaysRequests() {
-            fetch('/api/housekeeping-requests/print-today', { method: 'GET' })
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    var dateEl = document.getElementById('print-today-date');
-                    if (dateEl && data.today) dateEl.textContent = data.today;
+                    var header = document.createElement('div');
+                    var strong = document.createElement('strong');
+                    strong.textContent = 'Room ' + (item.room_number || '');
+                    header.appendChild(strong);
 
-                    var listRoot = document.getElementById('print-today-list');
-                    if (!listRoot) {
-                        window.print();
-                        return;
+                    if (item.guest_name) {
+                        var guest = document.createElement('span');
+                        guest.className = 'print-guest-name';
+                        guest.textContent = ' - ' + item.guest_name;
+                        header.appendChild(guest);
                     }
 
-                    listRoot.innerHTML = '';
+                    var freq = document.createElement('div');
+                    freq.className = 'print-frequency';
+                    freq.textContent = item.frequency_label || '';
 
-                    if (!data.requests || data.requests.length === 0) {
-                        var empty = document.createElement('div');
-                        empty.className = 'print-empty';
-                        empty.textContent = 'No housekeeping requests are due today.';
-                        listRoot.appendChild(empty);
-                        window.print();
-                        return;
+                    row.appendChild(header);
+                    row.appendChild(freq);
+
+                    if (item.notes) {
+                        var notes = document.createElement('div');
+                        notes.className = 'print-notes';
+                        notes.textContent = item.notes;
+                        row.appendChild(notes);
                     }
 
-                    var container = document.createElement('div');
-                    container.className = 'print-rooms-container';
-
-                    data.requests.forEach(function (item) {
-                        var row = document.createElement('div');
-                        row.className = 'print-list-item';
-
-                        var header = document.createElement('div');
-                        var strong = document.createElement('strong');
-                        strong.textContent = 'Room ' + (item.room_number || '');
-                        header.appendChild(strong);
-
-                        if (item.guest_name) {
-                            var guest = document.createElement('span');
-                            guest.className = 'print-guest-name';
-                            guest.textContent = ' - ' + item.guest_name;
-                            header.appendChild(guest);
-                        }
-
-                        var freq = document.createElement('div');
-                        freq.className = 'print-frequency';
-                        freq.textContent = item.frequency_label || '';
-
-                        row.appendChild(header);
-                        row.appendChild(freq);
-
-                        if (item.notes) {
-                            var notes = document.createElement('div');
-                            notes.className = 'print-notes';
-                            notes.textContent = item.notes;
-                            row.appendChild(notes);
-                        }
-
-                        container.appendChild(row);
-                    });
-
-                    listRoot.appendChild(container);
-                    window.print();
-                })
-                .catch(function () {
-                    window.print();
+                    container.appendChild(row);
                 });
-        }
-    </script>
 
-</body>
-
-</html>
+                listRoot.appendChild(container);
+                window.print();
+            })
+            .catch(function () {
+                window.print();
+            });
+    }
+</script>
+{% endblock %}
