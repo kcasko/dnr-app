@@ -40,3 +40,6 @@ tmpclaude-*
 *.pem
 *.key
 secrets.json
+
+# Phase 1 UX redesign backups (local only)
+templates/phase1_backups/
