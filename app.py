@@ -278,10 +278,12 @@ def validate_file_type(file_stream) -> str | None:
         if detected_mime in ALLOWED_MIME_TYPES:
             return detected_mime
             
+        print(f"Magic rejected mime: {detected_mime}")
         return None
     except Exception as e:
-        print(f"Validation error: {e}") # Debug log
-        return None
+        print(f"Validation error (falling back to extension check): {e}") 
+        # Fallback to extension check on error (e.g. missing libmagic)
+        return 'extension_only'
 
 
 def parse_docx_paragraphs(file_stream) -> list[str]:
@@ -2392,11 +2394,15 @@ def upload_photo(record_id):
     try:
         run_transaction(save_photo)
         return jsonify({"message": "Photo uploaded successfully"}), 201
-    except Exception:
+    except Exception as e:
         # Clean up file if database operation failed
         if os.path.exists(filepath):
-            os.remove(filepath)
-        return jsonify({"error": "Failed to upload photo. Please try again."}), 500
+            try:
+                os.remove(filepath)
+            except:
+                pass
+        print(f"Upload error: {e}") # Log to console
+        return jsonify({"error": f"Failed to upload: {str(e)}"}), 500
 
 
 @app.get("/uploads/<filename>")
