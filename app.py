@@ -1503,7 +1503,13 @@ def housekeeping_requests():
 
     edit_id = request.args.get("edit", "").strip()
     editable_id = int(edit_id) if edit_id.isdigit() else None
-    edit_item = next((item for item in all_active if item.get("id") == editable_id), None)
+    edit_item = None
+    if editable_id:
+        conn = connect_db()
+        row = conn.execute("SELECT * FROM housekeeping_requests WHERE id = ?", (editable_id,)).fetchone()
+        conn.close()
+        if row:
+            edit_item = dict(row)
 
     return render_template(
         "housekeeping_requests.html",
