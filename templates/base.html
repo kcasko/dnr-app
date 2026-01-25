@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,13 +8,21 @@
     <link rel="stylesheet" href="/static/styles.css">
     {% block extra_css %}{% endblock %}
 </head>
+
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
     <!-- Simplified Top Header -->
     <header class="app-header">
         <div class="app-header-content">
-            <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="app-header-logo">
+            <div class="header-left">
+                <button class="mobile-menu-btn" aria-label="Toggle Navigation">
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                </button>
+                <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="app-header-logo">
+            </div>
             <div class="app-header-nav">
                 <a href="/overview" class="app-header-link">Overview</a>
                 <a href="/settings" class="app-header-link">Settings</a>
@@ -22,10 +31,17 @@
         </div>
     </header>
 
+    <!-- Sidebar Overlay (Mobile) -->
+    <div class="sidebar-overlay"></div>
+
     <!-- Main Layout: Sidebar + Content -->
     <div class="app-layout">
         <!-- Persistent Sidebar Navigation -->
         <aside class="app-sidebar">
+            <div class="sidebar-header-mobile">
+                <h3>Menu</h3>
+                <button class="sidebar-close-btn">&times;</button>
+            </div>
             <nav class="sidebar-nav" aria-label="Main navigation">
                 <!-- Operations Section -->
                 <div class="sidebar-section">
@@ -33,13 +49,16 @@
                     <a href="/dnr" class="sidebar-link {% if request.path == '/dnr' %}active{% endif %}">
                         Do Not Rent List
                     </a>
-                    <a href="/room-issues" class="sidebar-link {% if request.path == '/room-issues' %}active{% endif %}">
+                    <a href="/room-issues"
+                        class="sidebar-link {% if request.path == '/room-issues' %}active{% endif %}">
                         Room Issues
                     </a>
-                    <a href="/maintenance" class="sidebar-link {% if request.path == '/maintenance' %}active{% endif %}">
+                    <a href="/maintenance"
+                        class="sidebar-link {% if request.path == '/maintenance' %}active{% endif %}">
                         Maintenance
                     </a>
-                    <a href="/housekeeping-requests" class="sidebar-link {% if request.path == '/housekeeping-requests' %}active{% endif %}">
+                    <a href="/housekeeping-requests"
+                        class="sidebar-link {% if request.path == '/housekeeping-requests' %}active{% endif %}">
                         Housekeeping
                     </a>
                 </div>
@@ -50,10 +69,12 @@
                     <a href="/log-book" class="sidebar-link {% if request.path == '/log-book' %}active{% endif %}">
                         Shift Notes
                     </a>
-                    <a href="/staff-announcements" class="sidebar-link {% if request.path == '/staff-announcements' %}active{% endif %}">
+                    <a href="/staff-announcements"
+                        class="sidebar-link {% if request.path == '/staff-announcements' %}active{% endif %}">
                         Staff Notices
                     </a>
-                    <a href="/in-house-messages" class="sidebar-link {% if request.path == '/in-house-messages' %}active{% endif %}">
+                    <a href="/in-house-messages"
+                        class="sidebar-link {% if request.path == '/in-house-messages' %}active{% endif %}">
                         In-House Messages
                     </a>
                 </div>
@@ -61,16 +82,20 @@
                 <!-- Quick Reference Section -->
                 <div class="sidebar-section">
                     <div class="sidebar-section-label">Quick Reference</div>
-                    <a href="/important-numbers" class="sidebar-link {% if request.path == '/important-numbers' %}active{% endif %}">
+                    <a href="/important-numbers"
+                        class="sidebar-link {% if request.path == '/important-numbers' %}active{% endif %}">
                         Important Numbers
                     </a>
-                    <a href="/how-to-guides" class="sidebar-link {% if request.path == '/how-to-guides' %}active{% endif %}">
+                    <a href="/how-to-guides"
+                        class="sidebar-link {% if request.path == '/how-to-guides' %}active{% endif %}">
                         How-To Guides
                     </a>
-                    <a href="/food-local-spots" class="sidebar-link {% if request.path == '/food-local-spots' %}active{% endif %}">
+                    <a href="/food-local-spots"
+                        class="sidebar-link {% if request.path == '/food-local-spots' %}active{% endif %}">
                         Food & Local Spots
                     </a>
-                    <a href="/cleaning-checklists" class="sidebar-link {% if request.path == '/cleaning-checklists' %}active{% endif %}">
+                    <a href="/cleaning-checklists"
+                        class="sidebar-link {% if request.path == '/cleaning-checklists' %}active{% endif %}">
                         Cleaning Checklists
                     </a>
                 </div>
@@ -103,10 +128,31 @@
     <footer class="app-footer">
         <div class="app-footer-content">
             <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
-            <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
+            <p class="footer-contact">For support or inquiries: <a
+                    href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me"
+                    target="_blank" rel="noopener">taurustech.me</a></p>
         </div>
     </footer>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            const closeBtn = document.querySelector('.sidebar-close-btn');
+            const sidebar = document.querySelector('.app-sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+
+            function toggleMenu() {
+                sidebar.classList.toggle('active');
+                overlay.classList.toggle('active');
+            }
+
+            if (menuBtn) menuBtn.addEventListener('click', toggleMenu);
+            if (closeBtn) closeBtn.addEventListener('click', toggleMenu);
+            if (overlay) overlay.addEventListener('click', toggleMenu);
+        });
+    </script>
+
     {% block extra_js %}{% endblock %}
 </body>
+
 </html>

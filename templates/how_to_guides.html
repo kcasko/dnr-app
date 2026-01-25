@@ -26,10 +26,11 @@
             {% for guide in guides %}
             <div class="entry-card">
                 <div class="entry-title">{{ guide.title }}</div>
-                <div class="entry-body">{{ guide.body }}</div>
+                <div class="entry-body text-pre-wrap">{{ guide.body }}</div>
                 {% if guide.filename %}
                 <div class="entry-attachment">
-                    <a href="/uploads/{{ guide.filename }}" target="_blank" class="btn btn-sm btn-outline">View Document</a>
+                    <a href="/uploads/{{ guide.filename }}" target="_blank" class="btn btn-sm btn-outline">View
+                        Document</a>
                 </div>
                 {% endif %}
                 <div class="entry-actions">
@@ -75,7 +76,8 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label>Document File *</label>
-                    <input type="file" name="guide_file" accept=".docx,.pdf" required title="Select a DOCX or PDF file to upload">
+                    <input type="file" name="guide_file" accept=".docx,.pdf" required
+                        title="Select a DOCX or PDF file to upload">
                     <small class="form-hint">DOCX and PDF files are both supported.</small>
                 </div>
                 <div class="form-actions">

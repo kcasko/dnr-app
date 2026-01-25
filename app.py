@@ -881,6 +881,42 @@ def overview():
     )
 
 
+@app.get("/api/overview-alerts")
+@login_required
+def get_overview_alerts():
+    """Get real-time alert counts for the dashboard poll."""
+    conn = connect_db()
+    
+    active_dnr_count = conn.execute("""
+        SELECT COUNT(*) AS count FROM records WHERE status = 'active'
+    """).fetchone()["count"]
+    
+    room_out_of_order_count = conn.execute("""
+        SELECT COUNT(*) AS count FROM room_issues
+        WHERE state = 'active' AND status = 'out_of_order'
+    """).fetchone()["count"]
+    
+    room_use_if_needed_count = conn.execute("""
+        SELECT COUNT(*) AS count FROM room_issues
+        WHERE state = 'active' AND status = 'use_if_needed'
+    """).fetchone()["count"]
+    
+    open_maintenance_count = conn.execute("""
+        SELECT COUNT(*) AS count FROM maintenance_items
+        WHERE status IN ('open', 'in_progress', 'blocked')
+    """).fetchone()["count"]
+    
+    conn.close()
+
+    return jsonify({
+        "active_dnr_count": active_dnr_count,
+        "room_out_of_order_count": room_out_of_order_count,
+        "room_use_if_needed_count": room_use_if_needed_count,
+        "open_maintenance_count": open_maintenance_count,
+        "last_updated": local_timestamp()
+    })
+
+
 @app.get("/log-book")
 @login_required
 def log_book():

@@ -28,6 +28,29 @@ body {
     line-height: 1.5;
 }
 
+/* Accessibility: Skip Link */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary-purple);
+    color: white;
+    padding: 8px;
+    z-index: 1001;
+    transition: top 0.2s;
+    text-decoration: none;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* Accessibility: Global Focus Styles */
+:focus-visible {
+    outline: 2px solid var(--accent-gold);
+    outline-offset: 2px;
+}
+
 /* ============================================
    NEW LAYOUT SYSTEM (Base Template)
    ============================================ */
@@ -93,7 +116,8 @@ body {
 .app-layout {
     display: grid;
     grid-template-columns: 240px 1fr;
-    min-height: calc(100vh - 74px); /* viewport height minus header */
+    min-height: calc(100vh - 74px);
+    /* viewport height minus header */
     max-width: 1920px;
     margin: 0 auto;
 }
@@ -104,7 +128,8 @@ body {
     border-right: 1px solid var(--border-light);
     padding: 24px 0;
     position: sticky;
-    top: 74px; /* height of app-header */
+    top: 74px;
+    /* height of app-header */
     height: calc(100vh - 74px);
     overflow-y: auto;
 }
@@ -278,95 +303,140 @@ body {
     border-radius: 4px;
 }
 
-/* Responsive Sidebar */
+/* Responsive Sidebar and Mobile Menu */
+.mobile-menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 30px;
+    height: 21px;
+    padding: 0;
+    margin-right: 16px;
+}
+
+.mobile-menu-btn .bar {
+    width: 100%;
+    height: 3px;
+    background-color: white;
+    border-radius: 3px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    /* Below sidebar (999) but above content */
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.sidebar-overlay.active {
+    display: block;
+    opacity: 1;
+}
+
+.sidebar-header-mobile {
+    display: none;
+    /* Hidden on desktop */
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 12px;
+}
+
+.sidebar-header-mobile h3 {
+    margin: 0;
+    font-size: 18px;
+    color: var(--text-dark);
+}
+
+.sidebar-close-btn {
+    background: none;
+    border: none;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
 @media (max-width: 1024px) {
     .app-layout {
         grid-template-columns: 1fr;
     }
 
+    .mobile-menu-btn {
+        display: flex;
+        /* Show hamburger on mobile */
+    }
+
     .app-sidebar {
-        display: none; /* Will add mobile menu toggle later */
+        /* Mobile: Slide-in Drawer */
+        display: block !important;
+        /* Override none if set elsewhere */
+        position: fixed;
+        top: 0;
+        left: -280px;
+        /* Start off-screen */
+        width: 280px;
+        height: 100vh;
+        z-index: 999;
+        background: var(--bg-white);
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        transition: left 0.3s ease-in-out;
+        padding-top: 0;
+        /* Header inside sidebar handles padding */
+    }
+
+    .app-sidebar.active {
+        left: 0;
+        /* Slide in */
+    }
+
+    .sidebar-header-mobile {
+        display: flex;
+        /* Show mobile header */
+    }
+
+    .page-header {
+        padding: 16px 20px;
+    }
+
+    .page-content {
+        padding: 0 20px 20px 20px;
+    }
+
+    /* Improve touch targets */
+    .sidebar-link,
+    .btn,
+    .nav-link,
+    input,
+    select {
+        padding: 12px 16px !important;
+        /* Larger touch area */
+        font-size: 16px !important;
+        /* Prevent iOS zoom */
+    }
+
+    .btn-link {
+        padding: 12px !important;
     }
 }
 
-/* ============================================
-   LEGACY HEADER STYLES (for old templates)
-   Keep until all pages migrated to base.html
-   ============================================ */
 
-/* Header */
-header {
-    background: linear-gradient(135deg, var(--primary-purple) 0%, var(--dark-purple) 100%);
-    color: #fff;
-    padding: 12px 24px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.header-content {
-    display: grid;
-    grid-template-columns: auto minmax(280px, 1fr) auto;
-    align-items: center;
-    column-gap: 16px;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.header-logo {
-    height: 50px;
-    width: auto;
-    border-radius: 4px;
-    background: #fff;
-    padding: 4px;
-}
-
-.header-text {
-    min-width: 0;
-    overflow: hidden;
-}
-
-header h1 {
-    margin: 0;
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-header .subtitle {
-    font-size: 12px;
-    opacity: 0.8;
-    margin-top: 2px;
-}
-
-.logout-btn {
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
-    text-decoration: none;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    height: 34px;
-    line-height: 1;
-    transition: background 0.2s;
-}
-
-.logout-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-}
-
-.header-actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: nowrap;
-    flex-shrink: 0;
-}
 
 /* Action row wrapping */
 .form-actions,
