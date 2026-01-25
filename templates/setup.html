@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Initial Setup - Restricted Guests Log</title>
+    <title>Initial Setup - DNR App - Sleep Inn</title>
     <link rel="stylesheet" href="/static/styles.css">
     <style>
         body {
@@ -145,17 +145,21 @@
 
         .setup-footer {
             margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
             text-align: center;
-            font-size: 12px;
-            color: var(--text-muted);
+            font-size: 11px;
+            color: #999;
         }
 
         .setup-footer-link {
-            color: var(--text-muted);
+            color: #999;
             text-decoration: none;
+            transition: color 0.2s;
         }
 
         .setup-footer-link:hover {
+            color: #667eea;
             text-decoration: underline;
         }
     </style>
@@ -164,14 +168,14 @@
     <div class="setup-container">
         <div class="setup-header">
             <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo">
-            <h1>Initial Setup</h1>
-            <p>Configure your system credentials</p>
+            <h1>DNR App - Initial Setup</h1>
+            <p>Sleep Inn Front Desk Management System</p>
         </div>
 
         <div class="security-notice">
-            <strong>Security Setup Required</strong>
-            This is a one-time setup to create secure credentials for your system.
-            Choose strong, unique passwords that you will remember.
+            <strong>🔒 Security Setup Required</strong>
+            This is a one-time setup to configure secure credentials for the DNR App.
+            Please choose strong, unique passwords that you will remember.
         </div>
 
         {% if errors %}
@@ -185,7 +189,7 @@
 
             <div class="section-title">Login Credentials</div>
             <p class="setup-description">
-                These credentials will be used to access the system.
+                These credentials will be used by front desk staff to access the DNR App.
             </p>
 
             <div class="form-group">
@@ -238,9 +242,8 @@
         </form>
 
         <div class="setup-footer">
-            Do Not Rent System &copy; 2026 TaurusTechLLC<br>
-            <a href="mailto:keith@taurustech.me" class="setup-footer-link">keith@taurustech.me</a> |
-            <a href="https://taurustech.me" target="_blank" rel="noopener" class="setup-footer-link">taurustech.me</a>
+            &copy; 2026 TaurusTechLLC. All rights reserved.<br>
+            For support or inquiries: <a href="mailto:keith@taurustech.me" class="setup-footer-link">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener" class="setup-footer-link">taurustech.me</a>
         </div>
     </div>
 </body>

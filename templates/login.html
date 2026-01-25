@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Login - Restricted Guests Log</title>
+    <title>Login - DNR App - Sleep Inn</title>
     <link rel="stylesheet" href="/static/styles.css">
     <style>
         body {
@@ -104,18 +104,35 @@
 
         .login-footer {
             margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
             text-align: center;
-            font-size: 12px;
-            color: var(--text-muted);
+            font-size: 11px;
+            color: #999;
         }
 
         .login-footer-link {
-            color: var(--text-muted);
+            color: #999;
             text-decoration: none;
+            transition: color 0.2s;
         }
 
         .login-footer-link:hover {
+            color: #667eea;
             text-decoration: underline;
+        }
+
+        .internal-use-notice {
+            display: inline-block;
+            background: #fff3cd;
+            color: #856404;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 8px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
     </style>
 </head>
@@ -123,8 +140,9 @@
     <div class="login-container">
         <div class="login-header">
             <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo">
-            <h1>Restricted Guests Log</h1>
-            <p>Internal Use Only</p>
+            <h1>DNR App</h1>
+            <p>Sleep Inn Front Desk Management System</p>
+            <span class="internal-use-notice">Internal Use Only</span>
         </div>
 
         {% if error %}
@@ -147,8 +165,8 @@
         </form>
 
         <div class="login-footer">
-            Do Not Rent System &copy; 2026 TaurusTechLLC<br>
-            <a href="mailto:keith@taurustech.me" class="login-footer-link">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener" class="login-footer-link">taurustech.me</a>
+            &copy; 2026 TaurusTechLLC. All rights reserved.<br>
+            For support or inquiries: <a href="mailto:keith@taurustech.me" class="login-footer-link">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener" class="login-footer-link">taurustech.me</a>
         </div>
     </div>
 </body>
