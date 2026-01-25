@@ -480,12 +480,6 @@
                     <h2>{% if edit_item %}Edit Housekeeping Request (ID: {{ edit_item.id }}){% else %}Add Housekeeping
                         Request{% endif %}</h2>
                     {% if edit_item %}
-                    <div
-                        style="background-color: #d4edda; color: #155724; padding: 10px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #c3e6cb;">
-                        <strong>DEBUG:</strong> Editing mode active for Room {{ edit_item.room_number }}.
-                    </div>
-                    {% endif %}
-                    {% if edit_item %}
                     <p class="section-subtitle">Editing Room {{ edit_item.room_number }}{% if edit_item.guest_name %} -
                         {{ edit_item.guest_name }}{% endif %}</p>
                     {% endif %}
