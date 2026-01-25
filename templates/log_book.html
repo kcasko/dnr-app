@@ -58,6 +58,7 @@
                         {% if entry.is_editable %}
                         <div class="log-entry-actions">
                             <a class="btn btn-secondary" href="/log-book?edit={{ entry.id }}">Edit</a>
+                            <button type="button" class="btn btn-danger" onclick="confirmDeleteLogEntry({{ entry.id }}, '{{ entry.author_name }}')">Delete</button>
                         </div>
                         {% endif %}
 
@@ -164,6 +165,83 @@
                     target="_blank" rel="noopener">taurustech.me</a></p>
         </div>
     </footer>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay modal-hidden" id="delete-log-modal">
+        <div class="modal-content">
+            <h2>Confirm Delete</h2>
+            <p>Are you sure you want to permanently delete the log entry by <strong id="delete-log-author"></strong>?</p>
+            <p class="warning-text">This action cannot be undone.</p>
+            <form method="POST" id="delete-log-form" action="">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeDeleteLogModal()">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-content h2 {
+            margin: 0 0 1rem 0;
+        }
+        .warning-text {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        .modal-hidden {
+            display: none;
+        }
+    </style>
+
+    <script>
+        function confirmDeleteLogEntry(entryId, authorName) {
+            var modal = document.getElementById('delete-log-modal');
+            var authorDisplay = document.getElementById('delete-log-author');
+            var deleteForm = document.getElementById('delete-log-form');
+
+            authorDisplay.textContent = authorName;
+            deleteForm.action = '/log-book/entries/' + entryId + '/delete';
+            modal.classList.remove('modal-hidden');
+        }
+
+        function closeDeleteLogModal() {
+            var modal = document.getElementById('delete-log-modal');
+            modal.classList.add('modal-hidden');
+        }
+
+        // Close modal on background click
+        var logModal = document.getElementById('delete-log-modal');
+        if (logModal) {
+            logModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeDeleteLogModal();
+                }
+            });
+        }
+    </script>
 
 </body>
 

@@ -34,11 +34,38 @@
             <div class="announcement-list">
                 <h2>Announcement History</h2>
                 {% if error == 'manager' %}
-                <div class="inline-error">Manager password is required to delete an announcement.</div>
+                <div class="inline-error">Manager password is required to edit or delete an announcement.</div>
                 {% endif %}
                 {% if announcements %}
                     {% for announcement in announcements %}
                     <div class="announcement-card {% if announcement.is_active == 0 %}inactive{% endif %}">
+                        {% if edit_id == announcement.id %}
+                        <form method="POST" action="/staff-announcements/{{ announcement.id }}/edit" class="edit-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="form-group">
+                                <label for="edit_message_{{ announcement.id }}">Announcement *</label>
+                                <textarea id="edit_message_{{ announcement.id }}" name="message" required>{{ announcement.message }}</textarea>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="edit_starts_{{ announcement.id }}">Start Date (optional)</label>
+                                    <input type="datetime-local" id="edit_starts_{{ announcement.id }}" name="starts_at" value="{% if announcement.starts_at %}{{ announcement.starts_at[:16] | replace(' ', 'T') }}{% endif %}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="edit_ends_{{ announcement.id }}">End Date (optional)</label>
+                                    <input type="datetime-local" id="edit_ends_{{ announcement.id }}" name="ends_at" value="{% if announcement.ends_at %}{{ announcement.ends_at[:16] | replace(' ', 'T') }}{% endif %}">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="visually-hidden" for="edit_manager_password_{{ announcement.id }}">Manager password</label>
+                                <input type="password" id="edit_manager_password_{{ announcement.id }}" name="manager_password" placeholder="Manager password" required>
+                            </div>
+                            <div class="form-actions">
+                                <a href="/staff-announcements" class="btn btn-secondary">Cancel</a>
+                                <button type="submit" class="btn btn-primary">Save</button>
+                            </div>
+                        </form>
+                        {% else %}
                         <div class="announcement-text">{{ announcement.message }}</div>
                         <div class="announcement-meta">
                             <span>Posted: {{ announcement.created_at }}</span>
@@ -46,6 +73,7 @@
                             {% if announcement.ends_at %}<span>Ends: {{ announcement.ends_at }}</span>{% endif %}
                         </div>
                         <div class="announcement-actions">
+                            <a href="/staff-announcements?edit={{ announcement.id }}" class="btn btn-secondary">Edit</a>
                             <form method="POST" action="/staff-announcements/{{ announcement.id }}/toggle">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if announcement.is_active == 1 %}
@@ -62,6 +90,7 @@
                                 <button type="submit" class="btn btn-secondary">Delete</button>
                             </form>
                         </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 {% else %}
@@ -111,5 +140,4 @@
 
 </body>
 </html>
-
 

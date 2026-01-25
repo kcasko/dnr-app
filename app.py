@@ -55,9 +55,9 @@ from flask_limiter.util import get_remote_address
 load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "dnr.db")
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-CREDENTIALS_FILE = os.path.join(BASE_DIR, ".credentials")
+DB_PATH = os.environ.get("DB_PATH") or os.path.join(BASE_DIR, "dnr.db")
+UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER") or os.path.join(BASE_DIR, "uploads")
+CREDENTIALS_FILE = os.environ.get("CREDENTIALS_FILE") or os.path.join(BASE_DIR, ".credentials")
 
 # Ensure upload folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -87,6 +87,9 @@ app.config['WTF_CSRF_SSL_STRICT'] = os.environ.get('FLASK_ENV') == 'production'
 csrf = CSRFProtect(app)
 
 # Rate limiting
+if os.environ.get('FLASK_ENV') == 'testing':
+    app.config['RATELIMIT_ENABLED'] = False
+
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
@@ -327,6 +330,15 @@ def connect_db():
     return conn
 
 
+def redirect_in_house_messages(recipient: str, show_archived: bool):
+    params = {}
+    if recipient:
+        params["recipient"] = recipient
+    if show_archived:
+        params["show_archived"] = "1"
+    return redirect(url_for("in_house_messages_page", **params))
+
+
 def run_transaction(ops):
     """Execute database operations within a transaction with rollback on error."""
     conn = connect_db()
@@ -511,7 +523,8 @@ def generate_service_dates(start_date: date, end_date: date, frequency: str, fre
 def housekeeping_due_today(start_date: date, end_date: date, today: date, frequency_days: int = 3) -> bool:
     if not start_date or not end_date:
         return False
-    if today < start_date or today > end_date:
+    # Ignore requests before start date or on/after checkout date
+    if today < start_date or today >= end_date:
         return False
     # Daily frequency (frequency_days=1) is always due
     if frequency_days == 1:
@@ -1043,6 +1056,41 @@ def edit_log_entry(entry_id):
     return redirect(url_for("log_book"))
 
 
+@app.post("/log-book/entries/<int:entry_id>/delete")
+@login_required
+@limiter.limit("10 per minute")
+def delete_log_entry(entry_id):
+    """Delete a log entry permanently."""
+    conn = connect_db()
+    entry_row = conn.execute("""
+        SELECT * FROM log_entries WHERE id = ?
+    """, (entry_id,)).fetchone()
+
+    if not entry_row:
+        conn.close()
+        return redirect(url_for("log_book"))
+
+    entry = dict(entry_row)
+
+    # Only allow deleting non-system entries
+    if entry.get("is_system_event"):
+        conn.close()
+        return redirect(url_for("log_book"))
+
+    # Check if entry is still editable (within 10-minute window)
+    if not is_editable_log_entry(entry):
+        conn.close()
+        return redirect(url_for("log_book"))
+
+    conn.execute("""
+        DELETE FROM log_entries WHERE id = ?
+    """, (entry_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("log_book"))
+
+
 def archive_expired_housekeeping_requests(today: date):
     today_str = today.isoformat()
     now = local_timestamp()
@@ -1215,6 +1263,36 @@ def update_maintenance_status(item_id):
     return redirect(url_for("maintenance_list"))
 
 
+@app.post("/maintenance/<int:item_id>/delete")
+@login_required
+@limiter.limit("10 per minute")
+def delete_maintenance_item(item_id):
+    """Delete a maintenance item permanently."""
+    conn = connect_db()
+    item_row = conn.execute("""
+        SELECT * FROM maintenance_items WHERE id = ?
+    """, (item_id,)).fetchone()
+
+    if not item_row:
+        conn.close()
+        return redirect(url_for("maintenance_list"))
+
+    item = dict(item_row)
+
+    # Check if item is still editable (within 10-minute window)
+    if not is_editable_maintenance_item(item):
+        conn.close()
+        return redirect(url_for("maintenance_list"))
+
+    conn.execute("""
+        DELETE FROM maintenance_items WHERE id = ?
+    """, (item_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("maintenance_list"))
+
+
 @app.get("/room-issues")
 @login_required
 def room_issues_list():
@@ -1225,7 +1303,10 @@ def room_issues_list():
     """).fetchall()
     conn.close()
 
-    return render_template("room_issues.html", issues=issues)
+    edit_id = request.args.get("edit", "").strip()
+    editable_id = int(edit_id) if edit_id.isdigit() else None
+
+    return render_template("room_issues.html", issues=issues, edit_id=editable_id)
 
 
 @app.post("/room-issues")
@@ -1296,43 +1377,110 @@ def update_room_issue_state(issue_id):
     return redirect(url_for("room_issues_list"))
 
 
+@app.post("/room-issues/<int:issue_id>/edit")
+@login_required
+@limiter.limit("10 per minute")
+def edit_room_issue(issue_id):
+    room_number = request.form.get("room_number", "").strip()[:20]
+    status = request.form.get("status", "").strip()
+    note = request.form.get("note", "").strip()[:1000]
+
+    if not room_number or status not in {"out_of_order", "use_if_needed"}:
+        return redirect(url_for("room_issues_list", edit=issue_id))
+
+    now = local_timestamp()
+    conn = connect_db()
+    conn.execute("""
+        UPDATE room_issues
+        SET room_number = ?, status = ?, note = ?, updated_at = ?
+        WHERE id = ?
+    """, (room_number, status, note or None, now, issue_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("room_issues_list"))
+
+
+@app.post("/room-issues/<int:issue_id>/delete")
+@login_required
+@limiter.limit("5 per minute")
+def delete_room_issue(issue_id):
+    conn = connect_db()
+    conn.execute("DELETE FROM room_issues WHERE id = ?", (issue_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for("room_issues_list"))
+
+
 @app.get("/housekeeping-requests")
 @login_required
 def housekeeping_requests():
     today = date.today()
-    archive_expired_housekeeping_requests(today)
     today_str = today.isoformat()
 
-    # Query requests that have active service dates for today
+    # Query ALL active requests (today is between start and checkout)
     conn = connect_db()
-    due_today_raw = conn.execute("""
-        SELECT DISTINCT hr.*
-        FROM housekeeping_requests hr
-        INNER JOIN housekeeping_service_dates hsd ON hr.id = hsd.housekeeping_request_id
-        WHERE hr.archived_at IS NULL
-        AND hsd.service_date = ?
-        AND hsd.is_active = 1
-        ORDER BY hr.id DESC
-    """, (today_str,)).fetchall()
+    all_active_raw = conn.execute("""
+        SELECT * FROM housekeeping_requests
+        WHERE date(start_date) <= date(?)
+        AND date(end_date) > date(?)
+        ORDER BY id DESC
+    """, (today_str, today_str)).fetchall()
     conn.close()
 
-    # Enrich with frequency labels
+    # Process all active requests and compute which are due today
     due_today = []
-    for item in due_today_raw:
+    all_active = []
+
+    for item in all_active_raw:
         item_dict = dict(item)
         item_dict['frequency_label'] = get_frequency_label(item_dict.get('frequency'), item_dict.get('frequency_days'))
-        due_today.append(item_dict)
 
+        # Compute if due today
+        start_date = parse_date_input(item_dict.get('start_date'))
+        end_date = parse_date_input(item_dict.get('end_date'))
+        frequency = item_dict.get('frequency')
+        frequency_days = item_dict.get('frequency_days')
+
+        # Compute frequency_days for non-custom frequencies
+        if frequency == 'daily':
+            freq_days_computed = 1
+        elif frequency == 'every_3rd_day':
+            freq_days_computed = 3
+        elif frequency == 'custom' and frequency_days:
+            freq_days_computed = frequency_days
+        else:
+            freq_days_computed = 3  # default
+
+        is_due_today = housekeeping_due_today(start_date, end_date, today, freq_days_computed)
+        item_dict['is_due_today'] = is_due_today
+
+        if is_due_today:
+            due_today.append(item_dict)
+        all_active.append(item_dict)
+
+    # Sort both lists by room number
     due_today.sort(key=lambda item: room_sort_key(item.get("room_number", "")))
+    all_active.sort(key=lambda item: room_sort_key(item.get("room_number", "")))
 
     edit_id = request.args.get("edit", "").strip()
     editable_id = int(edit_id) if edit_id.isdigit() else None
+    edit_item = next((item for item in all_active if item.get("id") == editable_id), None)
 
     return render_template(
         "housekeeping_requests.html",
-        requests=due_today,
-        print_rooms=[{"room": item.get("room_number", ""), "guest": item.get("guest_name", ""), "frequency": item.get("frequency_label", "")} for item in due_today],
-        editable_id=editable_id,
+        due_today=due_today,
+        all_active=all_active,
+        print_rooms=[
+            {
+                "room": item.get("room_number", ""),
+                "guest": item.get("guest_name", ""),
+                "frequency": item.get("frequency_label", ""),
+                "notes": item.get("notes", ""),
+            }
+            for item in due_today
+        ],
+        edit_item=edit_item,
         today=today_str,
         error=request.args.get("error", "").strip(),
     )
@@ -1404,18 +1552,31 @@ def add_housekeeping_request():
 @login_required
 @limiter.limit("10 per minute")
 def edit_housekeeping_request(request_id):
+    # Get all editable fields
+    room_number = request.form.get("room_number", "").strip()[:20]
+    guest_name = request.form.get("guest_name", "").strip()[:100]
     start_raw = request.form.get("start_date", "").strip()
     end_raw = request.form.get("end_date", "").strip()
+    frequency = request.form.get("frequency", "").strip()
+    frequency_days_raw = request.form.get("frequency_days", "").strip()
     notes = request.form.get("notes", "").strip()[:1000]
-    recalculate = request.form.get("recalculate", "yes").strip()  # Default to yes
-
     start_date = parse_date_input(start_raw)
     end_date = parse_date_input(end_raw)
 
-    if not start_date or not end_date:
+    if not room_number or not start_date or not end_date or not frequency:
         return redirect(url_for("housekeeping_requests", edit=request_id, error="missing"))
     if start_date > end_date:
         return redirect(url_for("housekeeping_requests", edit=request_id, error="date_order"))
+
+    # Parse frequency_days for custom frequency
+    frequency_days = None
+    if frequency == "custom":
+        try:
+            frequency_days = int(frequency_days_raw)
+            if frequency_days < 1 or frequency_days > 30:
+                return redirect(url_for("housekeeping_requests", edit=request_id, error="invalid_frequency"))
+        except (ValueError, TypeError):
+            return redirect(url_for("housekeeping_requests", edit=request_id, error="invalid_frequency"))
 
     conn = connect_db()
     existing_row = conn.execute("""
@@ -1428,64 +1589,146 @@ def edit_housekeeping_request(request_id):
 
     existing = dict(existing_row)
 
-    if existing.get("archived_at"):
-        conn.close()
-        return redirect(url_for("housekeeping_requests"))
-
-    # Check if dates changed
-    dates_changed = (
-        existing.get("start_date") != start_date.isoformat() or
-        existing.get("end_date") != end_date.isoformat()
-    )
-
     # Update the request
     now = local_timestamp()
-    archived_at = now if date.today() > end_date else None
     conn.execute("""
         UPDATE housekeeping_requests
-        SET start_date = ?, end_date = ?, notes = ?, updated_at = ?, archived_at = ?
+        SET room_number = ?, guest_name = ?, start_date = ?, end_date = ?, frequency = ?, frequency_days = ?, notes = ?, updated_at = ?, archived_at = NULL
         WHERE id = ?
-    """, (start_date.isoformat(), end_date.isoformat(), notes or None, now, archived_at, request_id))
+    """, (room_number, guest_name or None, start_date.isoformat(), end_date.isoformat(), frequency, frequency_days, notes or None, now, request_id))
     conn.commit()
 
-    # Recalculate service dates if dates changed and user confirmed
-    if dates_changed and recalculate == "yes":
-        # Delete old service dates
+    # Always regenerate service dates to match updated schedule.
+    conn.execute("""
+        DELETE FROM housekeeping_service_dates
+        WHERE housekeeping_request_id = ?
+    """, (request_id,))
+    service_dates = generate_service_dates(start_date, end_date, frequency, frequency_days)
+    for service_date in service_dates:
         conn.execute("""
-            DELETE FROM housekeeping_service_dates
-            WHERE housekeeping_request_id = ?
-        """, (request_id,))
-        conn.commit()
-
-        # Generate new service dates
-        frequency = existing.get("frequency")
-        frequency_days = existing.get("frequency_days")
-        service_dates = generate_service_dates(start_date, end_date, frequency, frequency_days)
-
-        # Insert new service dates
-        for service_date in service_dates:
-            conn.execute("""
-                INSERT INTO housekeeping_service_dates (housekeeping_request_id, service_date, is_active)
-                VALUES (?, ?, 1)
-            """, (request_id, service_date))
-        conn.commit()
+            INSERT INTO housekeeping_service_dates (housekeeping_request_id, service_date, is_active)
+            VALUES (?, ?, 1)
+        """, (request_id, service_date))
+    conn.commit()
 
     conn.close()
 
     # Log the change
     change_bits = []
+    if existing.get("room_number") != room_number:
+        change_bits.append(f"room {existing.get('room_number')} -> {room_number}")
+    if existing.get("guest_name") != guest_name:
+        change_bits.append(f"guest name updated")
     if existing.get("start_date") != start_date.isoformat():
         change_bits.append(f"start {existing.get('start_date')} -> {start_date.isoformat()}")
     if existing.get("end_date") != end_date.isoformat():
         change_bits.append(f"end {existing.get('end_date')} -> {end_date.isoformat()}")
+    if existing.get("frequency") != frequency:
+        change_bits.append("frequency updated")
     if (existing.get("notes") or "") != (notes or ""):
         change_bits.append("notes updated")
     if change_bits:
-        note = f"Housekeeping request updated for room {existing.get('room_number')}: {', '.join(change_bits)}"
-        if dates_changed and recalculate == "yes":
-            note += " (service dates recalculated)"
+        note = f"Housekeeping request updated: {', '.join(change_bits)}"
+        note += " (service dates recalculated)"
         insert_housekeeping_event(request_id, note)
 
+    return redirect(url_for("housekeeping_requests"))
+
+
+@app.get("/api/housekeeping-requests/print-today")
+@login_required
+def housekeeping_requests_print_today():
+    """Compute and return today's due housekeeping requests for printing."""
+    today = date.today()
+    today_str = today.isoformat()
+
+    conn = connect_db()
+    all_active_raw = conn.execute("""
+        SELECT * FROM housekeeping_requests
+        WHERE date(start_date) <= date(?)
+        AND date(end_date) > date(?)
+        ORDER BY id DESC
+    """, (today_str, today_str)).fetchall()
+    conn.close()
+
+    due_today = []
+    for item in all_active_raw:
+        item_dict = dict(item)
+        item_dict["frequency_label"] = get_frequency_label(
+            item_dict.get("frequency"), item_dict.get("frequency_days")
+        )
+
+        start_date = parse_date_input(item_dict.get("start_date"))
+        end_date = parse_date_input(item_dict.get("end_date"))
+        frequency = item_dict.get("frequency")
+        frequency_days = item_dict.get("frequency_days")
+
+        if frequency == "daily":
+            freq_days_computed = 1
+        elif frequency == "every_3rd_day":
+            freq_days_computed = 3
+        elif frequency == "custom" and frequency_days:
+            freq_days_computed = frequency_days
+        else:
+            freq_days_computed = 3
+
+        if housekeeping_due_today(start_date, end_date, today, freq_days_computed):
+            due_today.append(item_dict)
+
+    due_today.sort(key=lambda item: room_sort_key(item.get("room_number", "")))
+
+    return jsonify(
+        {
+            "today": today_str,
+            "requests": [
+                {
+                    "room_number": item.get("room_number", ""),
+                    "guest_name": item.get("guest_name", "") or "",
+                    "frequency_label": item.get("frequency_label", "") or "",
+                    "notes": item.get("notes", "") or "",
+                }
+                for item in due_today
+            ],
+        }
+    )
+
+
+@app.post("/housekeeping-requests/<int:request_id>/delete")
+@login_required
+@limiter.limit("10 per minute")
+def delete_housekeeping_request(request_id):
+    """Delete a housekeeping request permanently."""
+    conn = connect_db()
+
+    # Get the request info for logging
+    request_row = conn.execute("""
+        SELECT * FROM housekeeping_requests WHERE id = ?
+    """, (request_id,)).fetchone()
+
+    if request_row:
+        request_dict = dict(request_row)
+        room_number = request_dict.get('room_number', 'Unknown')
+
+        # Delete service dates first (foreign key constraint)
+        conn.execute("""
+            DELETE FROM housekeeping_service_dates
+            WHERE housekeeping_request_id = ?
+        """, (request_id,))
+
+        # Delete events
+        conn.execute("""
+            DELETE FROM housekeeping_request_events
+            WHERE housekeeping_request_id = ?
+        """, (request_id,))
+
+        # Delete the request itself
+        conn.execute("""
+            DELETE FROM housekeeping_requests WHERE id = ?
+        """, (request_id,))
+
+        conn.commit()
+
+    conn.close()
     return redirect(url_for("housekeeping_requests"))
 
 
@@ -1593,9 +1836,13 @@ def staff_announcements_list():
     """).fetchall()
     conn.close()
 
+    edit_id = request.args.get("edit", "").strip()
+    editable_id = int(edit_id) if edit_id.isdigit() else None
+
     return render_template(
         "staff_announcements.html",
         announcements=announcements,
+        edit_id=editable_id,
         error=request.args.get("error", "").strip(),
     )
 
@@ -1653,6 +1900,33 @@ def delete_staff_announcement(announcement_id):
 
     conn = connect_db()
     conn.execute("DELETE FROM staff_announcements WHERE id = ?", (announcement_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("staff_announcements_list"))
+
+
+@app.post("/staff-announcements/<int:announcement_id>/edit")
+@login_required
+@limiter.limit("5 per minute")
+def edit_staff_announcement(announcement_id):
+    password = request.form.get("manager_password", "").strip()
+    if not verify_manager_password(password):
+        return redirect(url_for("staff_announcements_list", error="manager", edit=announcement_id))
+
+    message = request.form.get("message", "").strip()[:2000]
+    starts_at = normalize_datetime_input(request.form.get("starts_at", "").strip())
+    ends_at = normalize_datetime_input(request.form.get("ends_at", "").strip())
+
+    if not message:
+        return redirect(url_for("staff_announcements_list", edit=announcement_id))
+
+    conn = connect_db()
+    conn.execute("""
+        UPDATE staff_announcements
+        SET message = ?, starts_at = ?, ends_at = ?
+        WHERE id = ?
+    """, (message, starts_at, ends_at, announcement_id))
     conn.commit()
     conn.close()
 
@@ -1722,6 +1996,8 @@ def cleaning_checklists_page():
 def in_house_messages_page():
     recipient = request.args.get("recipient", "").strip()[:100]
     show_archived = request.args.get("show_archived", "").strip() == "1"
+    edit_id = request.args.get("edit", "").strip()
+    editable_id = int(edit_id) if edit_id.isdigit() else None
     now = local_timestamp()
 
     conn = connect_db()
@@ -1762,6 +2038,7 @@ def in_house_messages_page():
         recipient=recipient,
         messages=messages,
         show_archived=show_archived,
+        edit_id=editable_id,
     )
 
 
@@ -1787,7 +2064,7 @@ def add_in_house_message():
     conn.commit()
     conn.close()
 
-    return redirect(url_for("in_house_messages_page", recipient=recipient))
+    return redirect_in_house_messages(recipient, show_archived=False)
 
 
 @app.post("/in-house-messages/<int:message_id>/archive")
@@ -1796,6 +2073,7 @@ def add_in_house_message():
 def archive_in_house_message(message_id):
     """Archive a message (no password required)."""
     recipient = request.form.get("recipient", "").strip()[:100]
+    show_archived = request.form.get("show_archived", "").strip() == "1"
     now = local_timestamp()
 
     conn = connect_db()
@@ -1807,7 +2085,56 @@ def archive_in_house_message(message_id):
     conn.commit()
     conn.close()
 
-    return redirect(url_for("in_house_messages_page", recipient=recipient))
+    return redirect_in_house_messages(recipient, show_archived)
+
+
+@app.post("/in-house-messages/<int:message_id>/edit")
+@login_required
+@limiter.limit("10 per minute")
+def edit_in_house_message(message_id):
+    recipient = request.form.get("recipient", "").strip()[:100]
+    show_archived = request.form.get("show_archived", "").strip() == "1"
+    body = request.form.get("message_body", "").strip()[:2000]
+
+    if not body:
+        return redirect_in_house_messages(recipient, show_archived)
+
+    conn = connect_db()
+    message_row = conn.execute(
+        "SELECT archived FROM in_house_messages WHERE id = ?",
+        (message_id,),
+    ).fetchone()
+    if not message_row:
+        conn.close()
+        return redirect_in_house_messages(recipient, show_archived)
+
+    if int(message_row.get("archived") or 0) == 1:
+        conn.close()
+        return redirect_in_house_messages(recipient, show_archived)
+
+    conn.execute(
+        "UPDATE in_house_messages SET message_body = ? WHERE id = ?",
+        (body, message_id),
+    )
+    conn.commit()
+    conn.close()
+
+    return redirect_in_house_messages(recipient, show_archived)
+
+
+@app.post("/in-house-messages/<int:message_id>/delete")
+@login_required
+@limiter.limit("10 per minute")
+def delete_in_house_message(message_id):
+    recipient = request.form.get("recipient", "").strip()[:100]
+    show_archived = request.form.get("show_archived", "").strip() == "1"
+
+    conn = connect_db()
+    conn.execute("DELETE FROM in_house_messages WHERE id = ?", (message_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect_in_house_messages(recipient, show_archived)
 
 
 @app.get("/api/records/<int:record_id>")
@@ -2209,9 +2536,13 @@ def important_numbers_page():
     """).fetchall()
     conn.close()
 
+    edit_id = request.args.get("edit", "").strip()
+    editable_id = int(edit_id) if edit_id.isdigit() else None
+
     return render_template(
         "important_numbers.html",
         numbers=numbers,
+        edit_id=editable_id,
         error=request.args.get("error", "").strip(),
     )
 
@@ -2265,6 +2596,32 @@ def delete_important_number(number_id):
 
     conn = connect_db()
     conn.execute("DELETE FROM important_numbers WHERE id = ?", (number_id,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("important_numbers_page"))
+
+
+@app.post("/important-numbers/<int:number_id>/edit")
+@login_required
+@limiter.limit("5 per minute")
+def edit_important_number(number_id):
+    password = request.form.get("manager_password", "").strip()
+    if not verify_manager_password(password):
+        return redirect(url_for("important_numbers_page", error="manager", edit=number_id))
+
+    label = request.form.get("label", "").strip()[:200]
+    phone = request.form.get("phone", "").strip()[:50]
+    notes = request.form.get("notes", "").strip()[:1000]
+
+    if not label or not phone:
+        return redirect(url_for("important_numbers_page", edit=number_id))
+
+    conn = connect_db()
+    conn.execute(
+        "UPDATE important_numbers SET label = ?, phone = ?, notes = ? WHERE id = ?",
+        (label, phone, notes or None, number_id),
+    )
     conn.commit()
     conn.close()
 
@@ -2643,4 +3000,5 @@ if __name__ == "__main__":
         warn_if_missing_tables()
 
     # Only enable debug mode in development
-    app.run(debug=not is_production, host='127.0.0.1')
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(debug=not is_production, host='127.0.0.1', port=port)

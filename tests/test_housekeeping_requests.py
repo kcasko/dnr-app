@@ -19,7 +19,7 @@ class TestHousekeepingRequests:
         expect(authenticated_page).to_have_title("Housekeeping Requests - DNR App")
 
         # Verify main heading
-        heading = authenticated_page.locator("h1")
+        heading = authenticated_page.locator("header h1")
         expect(heading).to_contain_text("Housekeeping Requests")
 
         # Verify form is present
@@ -27,7 +27,7 @@ class TestHousekeepingRequests:
         expect(form).to_be_visible()
 
     def test_add_housekeeping_request_no_service(self, authenticated_page: Page, flask_app, clean_db):
-        """Test adding a housekeeping request with no housekeeping service."""
+        """Test adding a housekeeping request using the default frequency."""
         authenticated_page.goto(f"{flask_app}/housekeeping-requests")
 
         # Fill out the form
@@ -40,9 +40,9 @@ class TestHousekeepingRequests:
         authenticated_page.fill("#start-date", start_date)
         authenticated_page.fill("#end-date", end_date)
 
-        # Select "No Housekeeping" (already selected by default)
-        no_service = authenticated_page.locator('label[data-frequency="none"]')
-        no_service.click()
+        # Default frequency should be selected already ("Every 3rd Day")
+        default_mode = authenticated_page.locator('label[data-frequency="every_3rd_day"]')
+        expect(default_mode).to_have_class(re.compile("selected"))
 
         # Submit the form
         authenticated_page.click('button[type="submit"]:has-text("Add Request")')
@@ -230,9 +230,9 @@ class TestHousekeepingRequests:
         """Test that selecting a frequency mode shows visual feedback."""
         authenticated_page.goto(f"{flask_app}/housekeeping-requests")
 
-        # Initially "No Housekeeping" should be selected
-        no_service = authenticated_page.locator('label[data-frequency="none"]')
-        expect(no_service).to_have_class(re.compile("selected"))
+        # Initially "Every 3rd Day" should be selected
+        every_3rd = authenticated_page.locator('label[data-frequency="every_3rd_day"]')
+        expect(every_3rd).to_have_class(re.compile("selected"))
 
         # Click on "Daily Housekeeping"
         daily = authenticated_page.locator('label[data-frequency="daily"]')
@@ -241,8 +241,8 @@ class TestHousekeepingRequests:
         # Daily should now be selected
         expect(daily).to_have_class(re.compile("selected"))
 
-        # No service should no longer be selected
-        expect(no_service).not_to_have_class(re.compile("selected"))
+        # Every 3rd Day should no longer be selected
+        expect(every_3rd).not_to_have_class(re.compile("selected"))
 
     def test_date_validation(self, authenticated_page: Page, flask_app, clean_db):
         """Test that end date must be after start date."""
@@ -305,11 +305,11 @@ class TestHousekeepingRequests:
         # Look for empty state message
         empty_state = authenticated_page.locator(".empty-state")
 
-        # If no requests are due today, empty state should be visible
-        # Note: This test assumes clean database with no requests due today
+        # If no requests are present, empty state should be visible
+        # Note: This test assumes clean database with no active requests
         if empty_state.count() > 0:
             expect(empty_state).to_be_visible()
-            expect(empty_state).to_contain_text("No housekeeping requests due today")
+            expect(empty_state).to_contain_text("No active housekeeping requests")
 
     @pytest.mark.slow
     def test_add_multiple_requests(self, authenticated_page: Page, flask_app, clean_db):
@@ -352,8 +352,8 @@ class TestHousekeepingRequests:
         # Try to submit without entering frequency days
         authenticated_page.click('button[type="submit"]:has-text("Add Request")')
 
-        # Should still be on the same page (HTML5 validation)
-        expect(authenticated_page).to_have_url(f"{flask_app}/housekeeping-requests")
+        # Should be redirected back with a validation error
+        expect(authenticated_page).to_have_url(f"{flask_app}/housekeeping-requests?error=invalid_frequency")
 
     def test_guest_name_optional(self, authenticated_page: Page, flask_app, clean_db):
         """Test that guest name field is optional."""

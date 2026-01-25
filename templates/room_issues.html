@@ -38,6 +38,43 @@
                 {% if issues %}
                     {% for issue in issues %}
                     <div class="room-issue-card {% if issue.state == 'resolved' %}resolved{% endif %}">
+                        {% if edit_id == issue.id %}
+                        <form method="POST" action="/room-issues/{{ issue.id }}/edit" class="edit-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="room-issue-header">
+                                <div>
+                                    <div class="room-issue-room">Edit Room Issue</div>
+                                    <div class="room-issue-meta">Logged: {{ issue.created_at }}</div>
+                                    {% if issue.resolved_at %}<div class="room-issue-meta">Resolved: {{ issue.resolved_at }}</div>{% endif %}
+                                </div>
+                                <div class="room-issue-status">
+                                    <span class="status-badge {{ issue.status }}">{{ issue.status | replace('_', ' ') }}</span>
+                                    <span class="status-badge {{ issue.state }}">{{ issue.state }}</span>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="edit_room_number_{{ issue.id }}">Room Number *</label>
+                                    <input type="text" id="edit_room_number_{{ issue.id }}" name="room_number" value="{{ issue.room_number }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="edit_status_{{ issue.id }}">Status *</label>
+                                    <select id="edit_status_{{ issue.id }}" name="status" required>
+                                        <option value="out_of_order" {% if issue.status == 'out_of_order' %}selected{% endif %}>Out of Order</option>
+                                        <option value="use_if_needed" {% if issue.status == 'use_if_needed' %}selected{% endif %}>Use If Needed</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit_note_{{ issue.id }}">Notes</label>
+                                <textarea id="edit_note_{{ issue.id }}" name="note" placeholder="Brief context for the desk...">{{ issue.note or '' }}</textarea>
+                            </div>
+                            <div class="form-actions">
+                                <a href="/room-issues" class="btn btn-secondary">Cancel</a>
+                                <button type="submit" class="btn btn-primary">Save</button>
+                            </div>
+                        </form>
+                        {% else %}
                         <div class="room-issue-header">
                             <div>
                                 <div class="room-issue-room">Room {{ issue.room_number }}</div>
@@ -53,6 +90,11 @@
                         <div class="room-issue-note">{{ issue.note }}</div>
                         {% endif %}
                         <div class="room-issue-actions">
+                            <a href="/room-issues?edit={{ issue.id }}" class="btn btn-secondary">Edit</a>
+                            <form method="POST" action="/room-issues/{{ issue.id }}/delete" class="room-issue-form-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-secondary">Delete</button>
+                            </form>
                             <form method="POST" action="/room-issues/{{ issue.id }}/status" class="room-issue-form-inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <label class="visually-hidden" for="room-status-{{ issue.id }}">Update status</label>
@@ -73,6 +115,7 @@
                                 {% endif %}
                             </form>
                         </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 {% else %}
@@ -125,5 +168,4 @@
 
 </body>
 </html>
-
 

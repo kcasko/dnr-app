@@ -34,21 +34,50 @@
             <div class="reference-list">
                 <h2>Contact List</h2>
                 {% if error == 'manager' %}
-                <div class="inline-error">Manager password is required to delete a number.</div>
+                <div class="inline-error">Manager password is required to edit or delete a number.</div>
                 {% endif %}
                 {% if numbers %}
                     {% for item in numbers %}
                     <div class="entry-card">
+                        {% if edit_id == item.id %}
+                        <form method="POST" action="/important-numbers/{{ item.id }}/edit" class="edit-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="edit_label_{{ item.id }}">Label *</label>
+                                    <input type="text" id="edit_label_{{ item.id }}" name="label" value="{{ item.label }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="edit_phone_{{ item.id }}">Phone *</label>
+                                    <input type="text" id="edit_phone_{{ item.id }}" name="phone" value="{{ item.phone }}" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit_notes_{{ item.id }}">Notes</label>
+                                <textarea id="edit_notes_{{ item.id }}" name="notes">{{ item.notes or '' }}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="visually-hidden" for="edit_manager_password_{{ item.id }}">Manager password</label>
+                                <input type="password" id="edit_manager_password_{{ item.id }}" name="manager_password" placeholder="Manager password" required>
+                            </div>
+                            <div class="form-actions">
+                                <a href="/important-numbers" class="btn btn-secondary">Cancel</a>
+                                <button type="submit" class="btn btn-primary">Save</button>
+                            </div>
+                        </form>
+                        {% else %}
                         <div class="entry-title">{{ item.label }}</div>
                         <div class="entry-body">{{ item.phone }}</div>
                         {% if item.notes %}<div class="entry-notes">{{ item.notes }}</div>{% endif %}
                         <div class="entry-actions">
+                            <a href="/important-numbers?edit={{ item.id }}" class="btn btn-secondary">Edit</a>
                             <form method="POST" action="/important-numbers/{{ item.id }}/delete">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="password" name="manager_password" placeholder="Manager password" required>
                                 <button type="submit" class="btn btn-secondary">Delete</button>
                             </form>
                         </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 {% else %}
@@ -98,5 +127,4 @@
 
 </body>
 </html>
-
 

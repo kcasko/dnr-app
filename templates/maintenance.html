@@ -70,6 +70,7 @@
                         {% if item.is_editable %}
                         <div class="maintenance-edit-actions">
                             <a class="btn btn-secondary" href="/maintenance?edit={{ item.id }}">Edit Details</a>
+                            <button type="button" class="btn btn-danger" onclick="confirmDeleteMaintenance({{ item.id }}, '{{ item.title }}')">Delete</button>
                         </div>
                         {% endif %}
                         {% if editable_id == item.id and item.is_editable %}
@@ -175,6 +176,83 @@
         <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
     </div>
 </footer>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay modal-hidden" id="delete-maintenance-modal">
+    <div class="modal-content">
+        <h2>Confirm Delete</h2>
+        <p>Are you sure you want to permanently delete the maintenance item: <strong id="delete-maintenance-title"></strong>?</p>
+        <p class="warning-text">This action cannot be undone.</p>
+        <form method="POST" id="delete-maintenance-form" action="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteMaintenanceModal()">Cancel</button>
+                <button type="submit" class="btn btn-danger">Delete Item</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .modal-content h2 {
+        margin: 0 0 1rem 0;
+    }
+    .warning-text {
+        color: #dc3545;
+        font-weight: 600;
+    }
+    .modal-hidden {
+        display: none;
+    }
+</style>
+
+<script>
+    function confirmDeleteMaintenance(itemId, title) {
+        var modal = document.getElementById('delete-maintenance-modal');
+        var titleDisplay = document.getElementById('delete-maintenance-title');
+        var deleteForm = document.getElementById('delete-maintenance-form');
+
+        titleDisplay.textContent = title;
+        deleteForm.action = '/maintenance/' + itemId + '/delete';
+        modal.classList.remove('modal-hidden');
+    }
+
+    function closeDeleteMaintenanceModal() {
+        var modal = document.getElementById('delete-maintenance-modal');
+        modal.classList.add('modal-hidden');
+    }
+
+    // Close modal on background click
+    var maintenanceModal = document.getElementById('delete-maintenance-modal');
+    if (maintenanceModal) {
+        maintenanceModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeDeleteMaintenanceModal();
+            }
+        });
+    }
+</script>
 
 </body>
 </html>
