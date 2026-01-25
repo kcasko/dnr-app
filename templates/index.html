@@ -15,6 +15,35 @@
             clip: rect(1px, 1px, 1px, 1px);
             white-space: nowrap;
         }
+
+        .doc-preview {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            padding: 0.5rem;
+            text-align: center;
+        }
+
+        .doc-icon {
+            font-size: 2rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .doc-name {
+            font-size: 0.8rem;
+            word-break: break-all;
+            line-height: 1.2;
+            color: #333;
+        }
+
+        .photo-item.document-item {
+            border: 1px solid #dee2e6;
+        }
     </style>
 </head>
 
@@ -523,18 +552,29 @@
         </div>
     `).join('');
 
-            const photosHtml = record.photos.map(p => `
-        <div class="photo-item">
-            <img src="/uploads/${escapeHtml(p.filename)}" alt="${escapeHtml(p.original_name)}" onclick="window.open('/uploads/${escapeHtml(p.filename)}', '_blank')">
+            const photosHtml = record.photos.map(p => {
+                const ext = p.filename.split('.').pop().toLowerCase();
+                const isDoc = ['pdf', 'docx'].includes(ext);
+                const icon = ext === 'pdf' ? '📄 PDF' : '📝 DOCX';
+
+                return `
+        <div class="photo-item ${isDoc ? 'document-item' : ''}">
+            ${isDoc
+                        ? `<div class="doc-preview" onclick="window.open('/uploads/${escapeHtml(p.filename)}', '_blank')">
+                     <span class="doc-icon">${icon}</span>
+                     <span class="doc-name">${escapeHtml(p.original_name)}</span>
+                   </div>`
+                        : `<img src="/uploads/${escapeHtml(p.filename)}" alt="${escapeHtml(p.original_name)}" onclick="window.open('/uploads/${escapeHtml(p.filename)}', '_blank')">`
+                    }
             ${!isReadOnly ? `<button type="button" class="delete-photo" onclick="deletePhoto(${p.id}, event)">&times;</button>` : ''}
         </div>
-    `).join('');
+    `}).join('');
 
             const photoUploadHtml = !isReadOnly && record.photos.length < 5 ? `
         <label class="photo-upload">
-            <input type="file" accept="image/*" onchange="uploadPhoto(${record.id}, this)">
+            <input type="file" accept="image/*,.pdf,.docx" onchange="uploadPhoto(${record.id}, this)">
             <div class="photo-upload-icon">+</div>
-            <div class="photo-upload-text">Add Photo<br>(${5 - record.photos.length} remaining)</div>
+            <div class="photo-upload-text">Add Photo/Doc<br>(${5 - record.photos.length} remaining)</div>
         </label>
     ` : '';
 

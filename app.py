@@ -99,12 +99,15 @@ limiter = Limiter(
 )
 
 # Allowed file extensions and MIME types for uploads
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+# Allowed file extensions and MIME types for uploads
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'docx'}
 ALLOWED_MIME_TYPES = {
     'image/png': 'png',
     'image/jpeg': ['jpg', 'jpeg'],
     'image/gif': 'gif',
-    'image/webp': 'webp'
+    'image/webp': 'webp',
+    'application/pdf': 'pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx'
 }
 
 # Predefined ban reasons
@@ -271,10 +274,13 @@ def validate_file_type(file_stream) -> str | None:
         mime = magic.Magic(mime=True)
         detected_mime = mime.from_buffer(header)
 
+        # Allow if detected mime is in our allowed keys
         if detected_mime in ALLOWED_MIME_TYPES:
             return detected_mime
+            
         return None
-    except Exception:
+    except Exception as e:
+        print(f"Validation error: {e}") # Debug log
         return None
 
 
