@@ -71,7 +71,8 @@
                         {% if spot.phone %}<div class="entry-body">{{ spot.phone }}</div>{% endif %}
                         {% if spot.notes %}<div class="entry-notes text-pre-wrap">{{ spot.notes }}</div>{% endif %}
                         <div class="entry-actions">
-                            <a href="/food-local-spots?edit={{ spot.id }}" class="btn btn-secondary">Edit</a>
+                            <a href="/food-local-spots?edit={{ spot.id }}#form-section"
+                                class="btn btn-secondary">Edit</a>
                             <form method="POST" action="/food-local-spots/{{ spot.id }}/delete" class="inline-form">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-secondary">Delete</button>
@@ -90,7 +91,7 @@
             </div>
 
             <div class="quick-action-secondary">
-                <div class="reference-form">
+                <div class="reference-form" id="form-section">
                     <h2>Add Food &amp; Local Spot</h2>
                     <form method="POST" action="/food-local-spots">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

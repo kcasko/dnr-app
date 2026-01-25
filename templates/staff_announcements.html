@@ -80,7 +80,8 @@
                             {% if announcement.ends_at %}<span>Ends: {{ announcement.ends_at }}</span>{% endif %}
                         </div>
                         <div class="announcement-actions">
-                            <a href="/staff-announcements?edit={{ announcement.id }}" class="btn btn-secondary">Edit</a>
+                            <a href="/staff-announcements?edit={{ announcement.id }}#form-section"
+                                class="btn btn-secondary">Edit</a>
                             <form method="POST" action="/staff-announcements/{{ announcement.id }}/toggle">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if announcement.is_active == 1 %}
@@ -110,8 +111,8 @@
             </div>
 
             <div class="quick-action-secondary">
-                <div class="announcement-form">
-                    <h2>Post Announcement</h2>
+                <div class="reference-form" id="form-section">
+                    <h2>Add Staff Announcement</h2>
                     <form method="POST" action="/staff-announcements">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="form-group">

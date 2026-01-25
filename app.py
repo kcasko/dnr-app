@@ -2711,6 +2711,11 @@ def import_how_to_guide():
     if not (filename_original.lower().endswith(".docx") or filename_original.lower().endswith(".pdf")):
         return redirect(url_for("how_to_guides_page", error="file"))
 
+    # Validate file content using magic bytes
+    detected_mime = validate_file_type(file.stream)
+    if not detected_mime:
+        return redirect(url_for("how_to_guides_page", error="file"))
+
     # Generate unique filename
     ext = filename_original.rsplit('.', 1)[1].lower()
     filename = f"{uuid.uuid4().hex}.{ext}"
@@ -2850,6 +2855,11 @@ def import_cleaning_checklist():
 
     filename_original = file.filename
     if not (filename_original.lower().endswith(".docx") or filename_original.lower().endswith(".pdf")):
+        return redirect(url_for("cleaning_checklists_page", error="file"))
+
+    # Validate file content using magic bytes
+    detected_mime = validate_file_type(file.stream)
+    if not detected_mime:
         return redirect(url_for("cleaning_checklists_page", error="file"))
 
     # Generate unique filename

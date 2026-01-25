@@ -76,7 +76,8 @@
                         <div class="entry-body">{{ item.phone }}</div>
                         {% if item.notes %}<div class="entry-notes text-pre-wrap">{{ item.notes }}</div>{% endif %}
                         <div class="entry-actions">
-                            <a href="/important-numbers?edit={{ item.id }}" class="btn btn-secondary">Edit</a>
+                            <a href="/important-numbers?edit={{ item.id }}#form-section"
+                                class="btn btn-secondary">Edit</a>
                             <form method="POST" action="/important-numbers/{{ item.id }}/delete">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="password" name="manager_password" placeholder="Manager password" required>
@@ -96,7 +97,7 @@
             </div>
 
             <div class="quick-action-secondary">
-                <div class="reference-form">
+                <div class="reference-form" id="form-section">
                     <h2>Add Important Number</h2>
                     <form method="POST" action="/important-numbers">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

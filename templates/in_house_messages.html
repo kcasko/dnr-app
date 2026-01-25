@@ -83,7 +83,7 @@
                         <div class="message-body text-pre-wrap">{{ message.message_body }}</div>
                         <div class="message-actions">
                             {% if not message.archived %}
-                            <a href="{{ url_for('in_house_messages_page', recipient=recipient, show_archived='1' if show_archived else None, edit=message.id) }}"
+                            <a href="{{ url_for('in_house_messages_page', recipient=recipient, show_archived='1' if show_archived else None, edit=message.id) }}#form-section"
                                 class="btn btn-secondary">Edit</a>
                             <form method="POST" action="/in-house-messages/{{ message.id }}/archive">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -118,8 +118,8 @@
             </div>
 
             <div class="quick-action-secondary">
-                <div class="messages-form">
-                    <h2>Leave a Message</h2>
+                <div class="reference-form" id="form-section">
+                    <h2>Add Message</h2>
                     <form method="POST" action="/in-house-messages">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="form-row">
