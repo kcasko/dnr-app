@@ -1505,11 +1505,15 @@ def housekeeping_requests():
     editable_id = int(edit_id) if edit_id.isdigit() else None
     edit_item = None
     if editable_id:
+        print(f"DEBUG: Attempting to fetch edit_item for ID {editable_id}")
         conn = connect_db()
         row = conn.execute("SELECT * FROM housekeeping_requests WHERE id = ?", (editable_id,)).fetchone()
         conn.close()
         if row:
             edit_item = dict(row)
+            print(f"DEBUG: Found edit_item: {edit_item.keys()}")
+        else:
+            print(f"DEBUG: No row found for ID {editable_id}")
 
     return render_template(
         "housekeeping_requests.html",
