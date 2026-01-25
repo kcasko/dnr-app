@@ -19,6 +19,7 @@ import re
 from datetime import date, datetime, timedelta
 from functools import wraps
 from zoneinfo import ZoneInfo
+import shift_utils
 
 TIMEZONE = ZoneInfo("America/New_York")
 
@@ -423,10 +424,23 @@ def is_editable_log_entry(entry: dict) -> bool:
     created_at = parse_db_timestamp(entry.get("created_at"))
     if not created_at:
         return False
-    # UX: Shift notes lock shortly after creation to protect handoff history.
-    # Use timezone-aware datetime for comparison if created_at is timezone-aware
-    now = datetime.now(TIMEZONE) if created_at.tzinfo else datetime.now()
-    return now - created_at <= timedelta(minutes=LOG_EDIT_WINDOW_MINUTES)
+
+    # Make timezone aware if it isn't
+    if not created_at.tzinfo:
+        created_at = created_at.replace(tzinfo=TIMEZONE)
+
+    shift_id = entry.get("shift_id")
+    if not shift_id:
+        # Fallback to time-based for old entries without shift_id
+        now = datetime.now(TIMEZONE)
+        return now - created_at <= timedelta(minutes=LOG_EDIT_WINDOW_MINUTES)
+
+    # Calculate the logical shift date for this entry
+    # (e.g. 1AM on Jan 2 is part of Jan 1 Shift 3)
+    entry_shift_date = shift_utils.get_shift_date(created_at)
+
+    # Check if this specific shift is still active
+    return shift_utils.is_shift_active(shift_id, entry_shift_date)
 
 
 def is_editable_maintenance_item(item: dict) -> bool:
@@ -1426,6 +1440,13 @@ def housekeeping_requests():
         AND date(end_date) > date(?)
         ORDER BY id DESC
     """, (today_str, today_str)).fetchall()
+
+    # Query expiring requests (checkout today)
+    expiring_raw = conn.execute("""
+        SELECT * FROM housekeeping_requests
+        WHERE date(end_date) = date(?)
+        ORDER BY id DESC
+    """, (today_str,)).fetchall()
     conn.close()
 
     # Process all active requests and compute which are due today
@@ -1463,6 +1484,15 @@ def housekeeping_requests():
     due_today.sort(key=lambda item: room_sort_key(item.get("room_number", "")))
     all_active.sort(key=lambda item: room_sort_key(item.get("room_number", "")))
 
+    # Process expiring requests
+    expiring_today = []
+    for item in expiring_raw:
+        item_dict = dict(item)
+        item_dict['frequency_label'] = get_frequency_label(item_dict.get('frequency'), item_dict.get('frequency_days'))
+        expiring_today.append(item_dict)
+    
+    expiring_today.sort(key=lambda item: room_sort_key(item.get("room_number", "")))
+
     edit_id = request.args.get("edit", "").strip()
     editable_id = int(edit_id) if edit_id.isdigit() else None
     edit_item = next((item for item in all_active if item.get("id") == editable_id), None)
@@ -1471,6 +1501,7 @@ def housekeeping_requests():
         "housekeeping_requests.html",
         due_today=due_today,
         all_active=all_active,
+        expiring_today=expiring_today,
         print_rooms=[
             {
                 "room": item.get("room_number", ""),
@@ -2551,6 +2582,7 @@ def important_numbers_page():
 @login_required
 def how_to_guides_page():
     conn = connect_db()
+    # Support backward compatibility by selecting all columns (schema changed)
     guides = conn.execute("""
         SELECT * FROM how_to_guides
         ORDER BY title ASC, id DESC
@@ -2657,40 +2689,24 @@ def import_how_to_guide():
     if not file:
         return redirect(url_for("how_to_guides_page", error="file"))
 
-    filename = file.filename.lower()
-    if filename.endswith(".docx"):
-        if not HAS_DOCX:
-            return redirect(url_for("how_to_guides_page", error="docx"))
-        try:
-            paragraphs = parse_docx_paragraphs(file)
-        except Exception:
-            return redirect(url_for("how_to_guides_page", error="parse"))
-    elif filename.endswith(".pdf"):
-        if not HAS_PDF:
-            return redirect(url_for("how_to_guides_page", error="pdf"))
-        try:
-            pdf_text = parse_pdf_text(file)
-        except Exception:
-            return redirect(url_for("how_to_guides_page", error="parse"))
-    else:
+    filename_original = file.filename
+    if not (filename_original.lower().endswith(".docx") or filename_original.lower().endswith(".pdf")):
         return redirect(url_for("how_to_guides_page", error="file"))
 
-    title = os.path.splitext(file.filename)[0].strip()[:200]
-    if filename.endswith(".pdf"):
-        body = (pdf_text or "").strip()[:4000]
-    else:
-        if not paragraphs:
-            return redirect(url_for("how_to_guides_page", error="empty"))
-        body = "\n\n".join(paragraphs)[:4000]
+    # Generate unique filename
+    ext = filename_original.rsplit('.', 1)[1].lower()
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
 
-    if not body:
-        return redirect(url_for("how_to_guides_page", error="empty"))
+    title = os.path.splitext(filename_original)[0].strip()[:200]
+    body = "See attached document."
 
     conn = connect_db()
     conn.execute("""
-        INSERT INTO how_to_guides (title, body, created_at)
-        VALUES (?, ?, ?)
-    """, (title, body, local_timestamp()))
+        INSERT INTO how_to_guides (title, body, created_at, filename, original_filename)
+        VALUES (?, ?, ?, ?, ?)
+    """, (title, body, local_timestamp(), filename, filename_original))
     conn.commit()
     conn.close()
 
@@ -2814,44 +2830,32 @@ def import_cleaning_checklist():
     if not file:
         return redirect(url_for("cleaning_checklists_page", error="file"))
 
-    filename = file.filename.lower()
-    if filename.endswith(".docx"):
-        if not HAS_DOCX:
-            return redirect(url_for("cleaning_checklists_page", error="docx"))
-        try:
-            paragraphs = parse_docx_paragraphs(file)
-        except Exception:
-            return redirect(url_for("cleaning_checklists_page", error="parse"))
-    elif filename.endswith(".pdf"):
-        if not HAS_PDF:
-            return redirect(url_for("cleaning_checklists_page", error="pdf"))
-        try:
-            paragraphs = parse_pdf_lines(file)
-        except Exception:
-            return redirect(url_for("cleaning_checklists_page", error="parse"))
-    else:
+    filename_original = file.filename
+    if not (filename_original.lower().endswith(".docx") or filename_original.lower().endswith(".pdf")):
         return redirect(url_for("cleaning_checklists_page", error="file"))
 
-    if not paragraphs:
-        return redirect(url_for("cleaning_checklists_page", error="empty"))
+    # Generate unique filename
+    ext = filename_original.rsplit('.', 1)[1].lower()
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
 
-    title = os.path.splitext(file.filename)[0].strip()[:200]
-    items = [p[:500] for p in paragraphs]
-
+    title = os.path.splitext(filename_original)[0].strip()[:200]
+    
     conn = connect_db()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO checklist_templates (name, description, is_active)
-        VALUES (?, NULL, 1)
-    """, (title,))
+        INSERT INTO checklist_templates (name, description, is_active, filename, original_filename)
+        VALUES (?, 'Imported Document', 1, ?, ?)
+    """, (title, filename, filename_original))
     template_id = cursor.lastrowid
-    rows = []
-    for idx, item in enumerate(items, start=1):
-        rows.append((template_id, idx, item))
-    cursor.executemany("""
+    
+    # Create a placeholder item
+    cursor.execute("""
         INSERT INTO checklist_items (template_id, position, item_text)
-        VALUES (?, ?, ?)
-    """, rows)
+        VALUES (?, 1, 'See attached document')
+    """, (template_id,))
+    
     conn.commit()
     conn.close()
 

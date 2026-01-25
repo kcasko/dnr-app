@@ -798,6 +798,11 @@ header .subtitle {
     width: 100px;
 }
 
+.text-pre-wrap {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .expiration-date-field {
     display: none;
 }

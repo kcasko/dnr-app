@@ -1,41 +1,43 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Room Issues - DNR App</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
+
 <body>
 
-<a href="#main-content" class="skip-link">Skip to main content</a>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<header>
-    <div class="header-content">
-        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
-        <div class="header-text">
-            <h1>Room Issues</h1>
-            <div class="subtitle">Out of Order and Use If Needed</div>
+    <header>
+        <div class="header-content">
+            <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+            <div class="header-text">
+                <h1>Room Issues</h1>
+                <div class="subtitle">Out of Order and Use If Needed</div>
+            </div>
+            <div class="header-actions">
+                <a href="/overview" class="logout-btn">Overview</a>
+                <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+                <a href="/log-book" class="logout-btn">Shift Notes</a>
+                <a href="/room-issues" class="logout-btn">Room Issues</a>
+                <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
+                <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+                <a href="/settings" class="logout-btn">Settings</a>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
         </div>
-                <div class="header-actions">
-            <a href="/overview" class="logout-btn">Overview</a>
-            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
-            <a href="/log-book" class="logout-btn">Shift Notes</a>
-            <a href="/room-issues" class="logout-btn">Room Issues</a>
-            <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
-            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
-            <a href="/settings" class="logout-btn">Settings</a>
-            <a href="/logout" class="logout-btn">Logout</a>
-        </div>
-    </div>
-</header>
+    </header>
 
-<div class="container" id="main-content">
-    <div class="quick-action-layout">
-        <div class="quick-action-primary">
-            <div class="room-issues-list">
-                <h2>Current Room Issues</h2>
-                {% if issues %}
+    <div class="container" id="main-content">
+        <div class="quick-action-layout">
+            <div class="quick-action-primary">
+                <div class="room-issues-list">
+                    <h2>Current Room Issues</h2>
+                    {% if issues %}
                     {% for issue in issues %}
                     <div class="room-issue-card {% if issue.state == 'resolved' %}resolved{% endif %}">
                         {% if edit_id == issue.id %}
@@ -45,29 +47,35 @@
                                 <div>
                                     <div class="room-issue-room">Edit Room Issue</div>
                                     <div class="room-issue-meta">Logged: {{ issue.created_at }}</div>
-                                    {% if issue.resolved_at %}<div class="room-issue-meta">Resolved: {{ issue.resolved_at }}</div>{% endif %}
+                                    {% if issue.resolved_at %}<div class="room-issue-meta">Resolved: {{
+                                        issue.resolved_at }}</div>{% endif %}
                                 </div>
                                 <div class="room-issue-status">
-                                    <span class="status-badge {{ issue.status }}">{{ issue.status | replace('_', ' ') }}</span>
+                                    <span class="status-badge {{ issue.status }}">{{ issue.status | replace('_', ' ')
+                                        }}</span>
                                     <span class="status-badge {{ issue.state }}">{{ issue.state }}</span>
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="edit_room_number_{{ issue.id }}">Room Number *</label>
-                                    <input type="text" id="edit_room_number_{{ issue.id }}" name="room_number" value="{{ issue.room_number }}" required>
+                                    <input type="text" id="edit_room_number_{{ issue.id }}" name="room_number"
+                                        value="{{ issue.room_number }}" required>
                                 </div>
                                 <div class="form-group">
                                     <label for="edit_status_{{ issue.id }}">Status *</label>
                                     <select id="edit_status_{{ issue.id }}" name="status" required>
-                                        <option value="out_of_order" {% if issue.status == 'out_of_order' %}selected{% endif %}>Out of Order</option>
-                                        <option value="use_if_needed" {% if issue.status == 'use_if_needed' %}selected{% endif %}>Use If Needed</option>
+                                        <option value="out_of_order" {% if issue.status=='out_of_order' %}selected{%
+                                            endif %}>Out of Order</option>
+                                        <option value="use_if_needed" {% if issue.status=='use_if_needed' %}selected{%
+                                            endif %}>Use If Needed</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label for="edit_note_{{ issue.id }}">Notes</label>
-                                <textarea id="edit_note_{{ issue.id }}" name="note" placeholder="Brief context for the desk...">{{ issue.note or '' }}</textarea>
+                                <textarea id="edit_note_{{ issue.id }}" name="note"
+                                    placeholder="Brief context for the desk...">{{ issue.note or '' }}</textarea>
                             </div>
                             <div class="form-actions">
                                 <a href="/room-issues" class="btn btn-secondary">Cancel</a>
@@ -79,32 +87,39 @@
                             <div>
                                 <div class="room-issue-room">Room {{ issue.room_number }}</div>
                                 <div class="room-issue-meta">Logged: {{ issue.created_at }}</div>
-                                {% if issue.resolved_at %}<div class="room-issue-meta">Resolved: {{ issue.resolved_at }}</div>{% endif %}
+                                {% if issue.resolved_at %}<div class="room-issue-meta">Resolved: {{ issue.resolved_at }}
+                                </div>{% endif %}
                             </div>
                             <div class="room-issue-status">
-                                <span class="status-badge {{ issue.status }}">{{ issue.status | replace('_', ' ') }}</span>
+                                <span class="status-badge {{ issue.status }}">{{ issue.status | replace('_', ' ')
+                                    }}</span>
                                 <span class="status-badge {{ issue.state }}">{{ issue.state }}</span>
                             </div>
                         </div>
                         {% if issue.note %}
-                        <div class="room-issue-note">{{ issue.note }}</div>
+                        <div class="room-issue-note text-pre-wrap">{{ issue.note }}</div>
                         {% endif %}
                         <div class="room-issue-actions">
                             <a href="/room-issues?edit={{ issue.id }}" class="btn btn-secondary">Edit</a>
-                            <form method="POST" action="/room-issues/{{ issue.id }}/delete" class="room-issue-form-inline">
+                            <form method="POST" action="/room-issues/{{ issue.id }}/delete"
+                                class="room-issue-form-inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-secondary">Delete</button>
                             </form>
-                            <form method="POST" action="/room-issues/{{ issue.id }}/status" class="room-issue-form-inline">
+                            <form method="POST" action="/room-issues/{{ issue.id }}/status"
+                                class="room-issue-form-inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <label class="visually-hidden" for="room-status-{{ issue.id }}">Update status</label>
                                 <select id="room-status-{{ issue.id }}" name="status">
-                                    <option value="out_of_order" {% if issue.status == 'out_of_order' %}selected{% endif %}>Out of Order</option>
-                                    <option value="use_if_needed" {% if issue.status == 'use_if_needed' %}selected{% endif %}>Use If Needed</option>
+                                    <option value="out_of_order" {% if issue.status=='out_of_order' %}selected{% endif
+                                        %}>Out of Order</option>
+                                    <option value="use_if_needed" {% if issue.status=='use_if_needed' %}selected{% endif
+                                        %}>Use If Needed</option>
                                 </select>
                                 <button type="submit" class="btn btn-secondary">Update Status</button>
                             </form>
-                            <form method="POST" action="/room-issues/{{ issue.id }}/state" class="room-issue-form-inline">
+                            <form method="POST" action="/room-issues/{{ issue.id }}/state"
+                                class="room-issue-form-inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if issue.state == 'active' %}
                                 <input type="hidden" name="state" value="resolved">
@@ -118,54 +133,56 @@
                         {% endif %}
                     </div>
                     {% endfor %}
-                {% else %}
+                    {% else %}
                     <div class="empty-state">
                         <h3>No room issues logged</h3>
                         <p>Use the form on the right to log a room status.</p>
                     </div>
-                {% endif %}
+                    {% endif %}
+                </div>
             </div>
-        </div>
 
-        <div class="quick-action-secondary">
-            <div class="room-issues-form">
-                <h2>Log Room Status</h2>
-                <form method="POST" action="/room-issues">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Room Number *</label>
-                            <input type="text" name="room_number" required placeholder="Room 214">
+            <div class="quick-action-secondary">
+                <div class="room-issues-form">
+                    <h2>Log Room Status</h2>
+                    <form method="POST" action="/room-issues">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Room Number *</label>
+                                <input type="text" name="room_number" required placeholder="Room 214">
+                            </div>
+                            <div class="form-group">
+                                <label for="status-select">Status *</label>
+                                <select id="status-select" name="status" required>
+                                    <option value="out_of_order">Out of Order</option>
+                                    <option value="use_if_needed">Use If Needed</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label for="status-select">Status *</label>
-                            <select id="status-select" name="status" required>
-                                <option value="out_of_order">Out of Order</option>
-                                <option value="use_if_needed">Use If Needed</option>
-                            </select>
+                            <label>Notes</label>
+                            <textarea name="note" placeholder="Brief context for the desk..."></textarea>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Notes</label>
-                        <textarea name="note" placeholder="Brief context for the desk..."></textarea>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Add Room Issue</button>
-                    </div>
-                </form>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Add Room Issue</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Footer -->
-<footer class="footer">
-    <div class="footer-content">
-        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
-        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
-    </div>
-</footer>
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+            <p class="footer-contact">For support or inquiries: <a
+                    href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me"
+                    target="_blank" rel="noopener">taurustech.me</a></p>
+        </div>
+    </footer>
 
 </body>
-</html>
 
+</html>

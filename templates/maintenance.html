@@ -1,50 +1,58 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Maintenance Issues - DNR App</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
+
 <body>
 
-<header>
-    <div class="header-content">
-        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
-        <div class="header-text">
-            <h1>Maintenance Issues</h1>
-            <div class="subtitle">Open Issues and Status Tracking</div>
+    <header>
+        <div class="header-content">
+            <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+            <div class="header-text">
+                <h1>Maintenance Issues</h1>
+                <div class="subtitle">Open Issues and Status Tracking</div>
+            </div>
+            <div class="header-actions">
+                <a href="/overview" class="logout-btn">Overview</a>
+                <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+                <a href="/log-book" class="logout-btn">Shift Notes</a>
+                <a href="/room-issues" class="logout-btn">Room Issues</a>
+                <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
+                <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+                <a href="/settings" class="logout-btn">Settings</a>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
         </div>
-                <div class="header-actions">
-            <a href="/overview" class="logout-btn">Overview</a>
-            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
-            <a href="/log-book" class="logout-btn">Shift Notes</a>
-            <a href="/room-issues" class="logout-btn">Room Issues</a>
-            <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
-            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
-            <a href="/settings" class="logout-btn">Settings</a>
-            <a href="/logout" class="logout-btn">Logout</a>
-        </div>
-    </div>
-</header>
+    </header>
 
-<div class="container">
-    <div class="maintenance-actions">
-        <div class="maintenance-filters">
-            <a class="filter-btn {% if status_filter == 'default' %}active{% endif %}" href="/maintenance">Open + In Progress</a>
-            <a class="filter-btn {% if status_filter == 'open' %}active{% endif %}" href="/maintenance?status=open">Open</a>
-            <a class="filter-btn {% if status_filter == 'in_progress' %}active{% endif %}" href="/maintenance?status=in_progress">In Progress</a>
-            <a class="filter-btn {% if status_filter == 'blocked' %}active{% endif %}" href="/maintenance?status=blocked">Blocked</a>
-            <a class="filter-btn {% if status_filter == 'completed' %}active{% endif %}" href="/maintenance?status=completed">Completed</a>
-            <a class="filter-btn {% if status_filter == 'all' %}active{% endif %}" href="/maintenance?status=all">All</a>
+    <div class="container">
+        <div class="maintenance-actions">
+            <div class="maintenance-filters">
+                <a class="filter-btn {% if status_filter == 'default' %}active{% endif %}" href="/maintenance">Open + In
+                    Progress</a>
+                <a class="filter-btn {% if status_filter == 'open' %}active{% endif %}"
+                    href="/maintenance?status=open">Open</a>
+                <a class="filter-btn {% if status_filter == 'in_progress' %}active{% endif %}"
+                    href="/maintenance?status=in_progress">In Progress</a>
+                <a class="filter-btn {% if status_filter == 'blocked' %}active{% endif %}"
+                    href="/maintenance?status=blocked">Blocked</a>
+                <a class="filter-btn {% if status_filter == 'completed' %}active{% endif %}"
+                    href="/maintenance?status=completed">Completed</a>
+                <a class="filter-btn {% if status_filter == 'all' %}active{% endif %}"
+                    href="/maintenance?status=all">All</a>
+            </div>
         </div>
-    </div>
 
-    <div class="quick-action-layout">
-        <div class="quick-action-primary">
-            <div class="maintenance-list">
-                <h2>Maintenance Items</h2>
-                {% if items %}
+        <div class="quick-action-layout">
+            <div class="quick-action-primary">
+                <div class="maintenance-list">
+                    <h2>Maintenance Items</h2>
+                    {% if items %}
                     {% for item in items %}
                     <div class="maintenance-card">
                         <div class="maintenance-card-header">
@@ -56,11 +64,12 @@
                             </div>
                             <div class="maintenance-meta">
                                 <span class="status-badge {{ item.status }}">{{ item.status }}</span>
-                                <span class="maintenance-priority priority-{{ item.priority }}">{{ item.priority }}</span>
+                                <span class="maintenance-priority priority-{{ item.priority }}">{{ item.priority
+                                    }}</span>
                             </div>
                         </div>
                         {% if item.description %}
-                        <div class="maintenance-description">{{ item.description }}</div>
+                        <div class="maintenance-description text-pre-wrap">{{ item.description }}</div>
                         {% endif %}
                         <div class="maintenance-dates">
                             <span>Created: {{ item.created_at }}</span>
@@ -70,7 +79,8 @@
                         {% if item.is_editable %}
                         <div class="maintenance-edit-actions">
                             <a class="btn btn-secondary" href="/maintenance?edit={{ item.id }}">Edit Details</a>
-                            <button type="button" class="btn btn-danger" onclick="confirmDeleteMaintenance({{ item.id }}, '{{ item.title }}')">Delete</button>
+                            <button type="button" class="btn btn-danger"
+                                onclick="confirmDeleteMaintenance({{ item.id }}, '{{ item.title }}')">Delete</button>
                         </div>
                         {% endif %}
                         {% if editable_id == item.id and item.is_editable %}
@@ -79,27 +89,34 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Title *</label>
-                                    <input type="text" name="title" required value="{{ item.title }}" placeholder="AC not cooling">
+                                    <input type="text" name="title" required value="{{ item.title }}"
+                                        placeholder="AC not cooling">
                                 </div>
                                 <div class="form-group">
                                     <label>Location</label>
-                                    <input type="text" name="location" value="{{ item.location }}" placeholder="Room 214" title="Location">
+                                    <input type="text" name="location" value="{{ item.location }}"
+                                        placeholder="Room 214" title="Location">
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="priority-{{ item.id }}">Priority</label>
                                     <select id="priority-{{ item.id }}" name="priority">
-                                        <option value="low" {% if item.priority == 'low' %}selected{% endif %}>Low</option>
-                                        <option value="medium" {% if item.priority == 'medium' %}selected{% endif %}>Medium</option>
-                                        <option value="high" {% if item.priority == 'high' %}selected{% endif %}>High</option>
-                                        <option value="urgent" {% if item.priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                                        <option value="low" {% if item.priority=='low' %}selected{% endif %}>Low
+                                        </option>
+                                        <option value="medium" {% if item.priority=='medium' %}selected{% endif %}>
+                                            Medium</option>
+                                        <option value="high" {% if item.priority=='high' %}selected{% endif %}>High
+                                        </option>
+                                        <option value="urgent" {% if item.priority=='urgent' %}selected{% endif %}>
+                                            Urgent</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>Description</label>
-                                <textarea name="description" placeholder="Add any helpful details..." title="Description">{{ item.description }}</textarea>
+                                <textarea name="description" placeholder="Add any helpful details..."
+                                    title="Description">{{ item.description }}</textarea>
                             </div>
                             <div class="form-actions">
                                 <a class="btn btn-secondary" href="/maintenance">Cancel</a>
@@ -111,150 +128,160 @@
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <label class="visually-hidden" for="status-{{ item.id }}">Update status</label>
                             <select id="status-{{ item.id }}" name="status">
-                                <option value="open" {% if item.status == 'open' %}selected{% endif %}>Open</option>
-                                <option value="in_progress" {% if item.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                                <option value="blocked" {% if item.status == 'blocked' %}selected{% endif %}>Blocked</option>
-                                <option value="completed" {% if item.status == 'completed' %}selected{% endif %}>Completed</option>
+                                <option value="open" {% if item.status=='open' %}selected{% endif %}>Open</option>
+                                <option value="in_progress" {% if item.status=='in_progress' %}selected{% endif %}>In
+                                    Progress</option>
+                                <option value="blocked" {% if item.status=='blocked' %}selected{% endif %}>Blocked
+                                </option>
+                                <option value="completed" {% if item.status=='completed' %}selected{% endif %}>Completed
+                                </option>
                             </select>
                             <button type="submit" class="btn btn-secondary">Update Status</button>
                         </form>
                     </div>
                     {% endfor %}
-                {% else %}
+                    {% else %}
                     <div class="empty-state">
                         <h3>No maintenance items</h3>
                         <p>Use the form on the right to report the first issue.</p>
                     </div>
-                {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="quick-action-secondary">
+                <div class="maintenance-form">
+                    <h2>Report Maintenance Issue</h2>
+                    <form method="POST" action="/maintenance">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Title *</label>
+                                <input type="text" name="title" required placeholder="AC not cooling">
+                            </div>
+                            <div class="form-group">
+                                <label>Location</label>
+                                <input type="text" name="location" placeholder="Room 214">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="priority-select">Priority</label>
+                                <select id="priority-select" name="priority">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea name="description" placeholder="Add any helpful details..."></textarea>
+                            <small class="form-hint">Details can be adjusted briefly after submission.</small>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Add Maintenance Item</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
+    </div>
 
-        <div class="quick-action-secondary">
-            <div class="maintenance-form">
-                <h2>Report Maintenance Issue</h2>
-                <form method="POST" action="/maintenance">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Title *</label>
-                            <input type="text" name="title" required placeholder="AC not cooling">
-                        </div>
-                        <div class="form-group">
-                            <label>Location</label>
-                            <input type="text" name="location" placeholder="Room 214">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="priority-select">Priority</label>
-                            <select id="priority-select" name="priority">
-                                <option value="low">Low</option>
-                                <option value="medium" selected>Medium</option>
-                                <option value="high">High</option>
-                                <option value="urgent">Urgent</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea name="description" placeholder="Add any helpful details..."></textarea>
-                        <small class="form-hint">Details can be adjusted briefly after submission.</small>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Add Maintenance Item</button>
-                    </div>
-                </form>
-            </div>
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+            <p class="footer-contact">For support or inquiries: <a
+                    href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me"
+                    target="_blank" rel="noopener">taurustech.me</a></p>
+        </div>
+    </footer>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay modal-hidden" id="delete-maintenance-modal">
+        <div class="modal-content">
+            <h2>Confirm Delete</h2>
+            <p>Are you sure you want to permanently delete the maintenance item: <strong
+                    id="delete-maintenance-title"></strong>?</p>
+            <p class="warning-text">This action cannot be undone.</p>
+            <form method="POST" id="delete-maintenance-form" action="">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeDeleteMaintenanceModal()">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete Item</button>
+                </div>
+            </form>
         </div>
     </div>
-</div>
 
-<!-- Footer -->
-<footer class="footer">
-    <div class="footer-content">
-        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
-        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
-    </div>
-</footer>
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
 
-<!-- Delete Confirmation Modal -->
-<div class="modal-overlay modal-hidden" id="delete-maintenance-modal">
-    <div class="modal-content">
-        <h2>Confirm Delete</h2>
-        <p>Are you sure you want to permanently delete the maintenance item: <strong id="delete-maintenance-title"></strong>?</p>
-        <p class="warning-text">This action cannot be undone.</p>
-        <form method="POST" id="delete-maintenance-form" action="">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="closeDeleteMaintenanceModal()">Cancel</button>
-                <button type="submit" class="btn btn-danger">Delete Item</button>
-            </div>
-        </form>
-    </div>
-</div>
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
 
-<style>
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-    .modal-content {
-        background: white;
-        border-radius: 8px;
-        padding: 2rem;
-        max-width: 500px;
-        width: 90%;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-    .modal-content h2 {
-        margin: 0 0 1rem 0;
-    }
-    .warning-text {
-        color: #dc3545;
-        font-weight: 600;
-    }
-    .modal-hidden {
-        display: none;
-    }
-</style>
+        .modal-content h2 {
+            margin: 0 0 1rem 0;
+        }
 
-<script>
-    function confirmDeleteMaintenance(itemId, title) {
-        var modal = document.getElementById('delete-maintenance-modal');
-        var titleDisplay = document.getElementById('delete-maintenance-title');
-        var deleteForm = document.getElementById('delete-maintenance-form');
+        .warning-text {
+            color: #dc3545;
+            font-weight: 600;
+        }
 
-        titleDisplay.textContent = title;
-        deleteForm.action = '/maintenance/' + itemId + '/delete';
-        modal.classList.remove('modal-hidden');
-    }
+        .modal-hidden {
+            display: none;
+        }
+    </style>
 
-    function closeDeleteMaintenanceModal() {
-        var modal = document.getElementById('delete-maintenance-modal');
-        modal.classList.add('modal-hidden');
-    }
+    <script>
+        function confirmDeleteMaintenance(itemId, title) {
+            var modal = document.getElementById('delete-maintenance-modal');
+            var titleDisplay = document.getElementById('delete-maintenance-title');
+            var deleteForm = document.getElementById('delete-maintenance-form');
 
-    // Close modal on background click
-    var maintenanceModal = document.getElementById('delete-maintenance-modal');
-    if (maintenanceModal) {
-        maintenanceModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeDeleteMaintenanceModal();
-            }
-        });
-    }
-</script>
+            titleDisplay.textContent = title;
+            deleteForm.action = '/maintenance/' + itemId + '/delete';
+            modal.classList.remove('modal-hidden');
+        }
+
+        function closeDeleteMaintenanceModal() {
+            var modal = document.getElementById('delete-maintenance-modal');
+            modal.classList.add('modal-hidden');
+        }
+
+        // Close modal on background click
+        var maintenanceModal = document.getElementById('delete-maintenance-modal');
+        if (maintenanceModal) {
+            maintenanceModal.addEventListener('click', function (e) {
+                if (e.target === this) {
+                    closeDeleteMaintenanceModal();
+                }
+            });
+        }
+    </script>
 
 </body>
+
 </html>
-
-

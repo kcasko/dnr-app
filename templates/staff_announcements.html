@@ -1,42 +1,44 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Staff Notices - DNR App</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
+
 <body>
 
-<header>
-    <div class="header-content">
-        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
-        <div class="header-text">
-            <h1>Staff Notices</h1>
-            <div class="subtitle">Front Desk Updates</div>
+    <header>
+        <div class="header-content">
+            <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+            <div class="header-text">
+                <h1>Staff Notices</h1>
+                <div class="subtitle">Front Desk Updates</div>
+            </div>
+            <div class="header-actions">
+                <a href="/overview" class="logout-btn">Overview</a>
+                <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+                <a href="/log-book" class="logout-btn">Shift Notes</a>
+                <a href="/room-issues" class="logout-btn">Room Issues</a>
+                <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
+                <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+                <a href="/settings" class="logout-btn">Settings</a>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
         </div>
-                <div class="header-actions">
-            <a href="/overview" class="logout-btn">Overview</a>
-            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
-            <a href="/log-book" class="logout-btn">Shift Notes</a>
-            <a href="/room-issues" class="logout-btn">Room Issues</a>
-            <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
-            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
-            <a href="/settings" class="logout-btn">Settings</a>
-            <a href="/logout" class="logout-btn">Logout</a>
-        </div>
-    </div>
-</header>
+    </header>
 
-<div class="container">
-    <div class="quick-action-layout">
-        <div class="quick-action-primary">
-            <div class="announcement-list">
-                <h2>Announcement History</h2>
-                {% if error == 'manager' %}
-                <div class="inline-error">Manager password is required to edit or delete an announcement.</div>
-                {% endif %}
-                {% if announcements %}
+    <div class="container">
+        <div class="quick-action-layout">
+            <div class="quick-action-primary">
+                <div class="announcement-list">
+                    <h2>Announcement History</h2>
+                    {% if error == 'manager' %}
+                    <div class="inline-error">Manager password is required to edit or delete an announcement.</div>
+                    {% endif %}
+                    {% if announcements %}
                     {% for announcement in announcements %}
                     <div class="announcement-card {% if announcement.is_active == 0 %}inactive{% endif %}">
                         {% if edit_id == announcement.id %}
@@ -44,21 +46,26 @@
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <div class="form-group">
                                 <label for="edit_message_{{ announcement.id }}">Announcement *</label>
-                                <textarea id="edit_message_{{ announcement.id }}" name="message" required>{{ announcement.message }}</textarea>
+                                <textarea id="edit_message_{{ announcement.id }}" name="message"
+                                    required>{{ announcement.message }}</textarea>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="edit_starts_{{ announcement.id }}">Start Date (optional)</label>
-                                    <input type="datetime-local" id="edit_starts_{{ announcement.id }}" name="starts_at" value="{% if announcement.starts_at %}{{ announcement.starts_at[:16] | replace(' ', 'T') }}{% endif %}">
+                                    <input type="datetime-local" id="edit_starts_{{ announcement.id }}" name="starts_at"
+                                        value="{% if announcement.starts_at %}{{ announcement.starts_at[:16] | replace(' ', 'T') }}{% endif %}">
                                 </div>
                                 <div class="form-group">
                                     <label for="edit_ends_{{ announcement.id }}">End Date (optional)</label>
-                                    <input type="datetime-local" id="edit_ends_{{ announcement.id }}" name="ends_at" value="{% if announcement.ends_at %}{{ announcement.ends_at[:16] | replace(' ', 'T') }}{% endif %}">
+                                    <input type="datetime-local" id="edit_ends_{{ announcement.id }}" name="ends_at"
+                                        value="{% if announcement.ends_at %}{{ announcement.ends_at[:16] | replace(' ', 'T') }}{% endif %}">
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label class="visually-hidden" for="edit_manager_password_{{ announcement.id }}">Manager password</label>
-                                <input type="password" id="edit_manager_password_{{ announcement.id }}" name="manager_password" placeholder="Manager password" required>
+                                <label class="visually-hidden" for="edit_manager_password_{{ announcement.id }}">Manager
+                                    password</label>
+                                <input type="password" id="edit_manager_password_{{ announcement.id }}"
+                                    name="manager_password" placeholder="Manager password" required>
                             </div>
                             <div class="form-actions">
                                 <a href="/staff-announcements" class="btn btn-secondary">Cancel</a>
@@ -66,7 +73,7 @@
                             </div>
                         </form>
                         {% else %}
-                        <div class="announcement-text">{{ announcement.message }}</div>
+                        <div class="announcement-text text-pre-wrap">{{ announcement.message }}</div>
                         <div class="announcement-meta">
                             <span>Posted: {{ announcement.created_at }}</span>
                             {% if announcement.starts_at %}<span>Starts: {{ announcement.starts_at }}</span>{% endif %}
@@ -93,51 +100,54 @@
                         {% endif %}
                     </div>
                     {% endfor %}
-                {% else %}
+                    {% else %}
                     <div class="empty-state">
                         <h3>No announcements yet</h3>
                         <p>Use the form on the right to post a notice.</p>
                     </div>
-                {% endif %}
+                    {% endif %}
+                </div>
             </div>
-        </div>
 
-        <div class="quick-action-secondary">
-            <div class="announcement-form">
-                <h2>Post Announcement</h2>
-                <form method="POST" action="/staff-announcements">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="form-group">
-                        <label>Announcement *</label>
-                        <textarea name="message" required placeholder="Share an update for the desk..."></textarea>
-                    </div>
-                    <div class="form-row">
+            <div class="quick-action-secondary">
+                <div class="announcement-form">
+                    <h2>Post Announcement</h2>
+                    <form method="POST" action="/staff-announcements">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="form-group">
-                            <label>Start Date (optional)</label>
-                            <input type="datetime-local" name="starts_at" placeholder="Select start date and time" title="Start Date (optional)">
+                            <label>Announcement *</label>
+                            <textarea name="message" required placeholder="Share an update for the desk..."></textarea>
                         </div>
-                        <div class="form-group">
-                            <label>End Date (optional)</label>
-                            <input type="datetime-local" name="ends_at" placeholder="Select end date and time">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Start Date (optional)</label>
+                                <input type="datetime-local" name="starts_at" placeholder="Select start date and time"
+                                    title="Start Date (optional)">
+                            </div>
+                            <div class="form-group">
+                                <label>End Date (optional)</label>
+                                <input type="datetime-local" name="ends_at" placeholder="Select end date and time">
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Post Announcement</button>
-                    </div>
-                </form>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Post Announcement</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Footer -->
-<footer class="footer">
-    <div class="footer-content">
-        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
-        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
-    </div>
-</footer>
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+            <p class="footer-contact">For support or inquiries: <a
+                    href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me"
+                    target="_blank" rel="noopener">taurustech.me</a></p>
+        </div>
+    </footer>
 
 </body>
-</html>
 
+</html>

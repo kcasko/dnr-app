@@ -1,42 +1,44 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Important Numbers - DNR App</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
+
 <body>
 
-<header>
-    <div class="header-content">
-        <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
-        <div class="header-text">
-            <h1>Important Numbers</h1>
-            <div class="subtitle">Key contacts for front desk operations</div>
+    <header>
+        <div class="header-content">
+            <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="header-logo">
+            <div class="header-text">
+                <h1>Important Numbers</h1>
+                <div class="subtitle">Key contacts for front desk operations</div>
+            </div>
+            <div class="header-actions">
+                <a href="/overview" class="logout-btn">Overview</a>
+                <a href="/dnr" class="logout-btn">Do Not Rent List</a>
+                <a href="/log-book" class="logout-btn">Shift Notes</a>
+                <a href="/room-issues" class="logout-btn">Room Issues</a>
+                <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
+                <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
+                <a href="/settings" class="logout-btn">Settings</a>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
         </div>
-                <div class="header-actions">
-            <a href="/overview" class="logout-btn">Overview</a>
-            <a href="/dnr" class="logout-btn">Do Not Rent List</a>
-            <a href="/log-book" class="logout-btn">Shift Notes</a>
-            <a href="/room-issues" class="logout-btn">Room Issues</a>
-            <a href="/housekeeping-requests" class="logout-btn">Housekeeping Requests</a>
-            <a href="/maintenance" class="logout-btn">Maintenance Issues</a>
-            <a href="/settings" class="logout-btn">Settings</a>
-            <a href="/logout" class="logout-btn">Logout</a>
-        </div>
-    </div>
-</header>
+    </header>
 
-<div class="container">
-    <div class="quick-action-layout">
-        <div class="quick-action-primary">
-            <div class="reference-list">
-                <h2>Contact List</h2>
-                {% if error == 'manager' %}
-                <div class="inline-error">Manager password is required to edit or delete a number.</div>
-                {% endif %}
-                {% if numbers %}
+    <div class="container">
+        <div class="quick-action-layout">
+            <div class="quick-action-primary">
+                <div class="reference-list">
+                    <h2>Contact List</h2>
+                    {% if error == 'manager' %}
+                    <div class="inline-error">Manager password is required to edit or delete a number.</div>
+                    {% endif %}
+                    {% if numbers %}
                     {% for item in numbers %}
                     <div class="entry-card">
                         {% if edit_id == item.id %}
@@ -45,11 +47,13 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="edit_label_{{ item.id }}">Label *</label>
-                                    <input type="text" id="edit_label_{{ item.id }}" name="label" value="{{ item.label }}" required>
+                                    <input type="text" id="edit_label_{{ item.id }}" name="label"
+                                        value="{{ item.label }}" required>
                                 </div>
                                 <div class="form-group">
                                     <label for="edit_phone_{{ item.id }}">Phone *</label>
-                                    <input type="text" id="edit_phone_{{ item.id }}" name="phone" value="{{ item.phone }}" required>
+                                    <input type="text" id="edit_phone_{{ item.id }}" name="phone"
+                                        value="{{ item.phone }}" required>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -57,8 +61,10 @@
                                 <textarea id="edit_notes_{{ item.id }}" name="notes">{{ item.notes or '' }}</textarea>
                             </div>
                             <div class="form-group">
-                                <label class="visually-hidden" for="edit_manager_password_{{ item.id }}">Manager password</label>
-                                <input type="password" id="edit_manager_password_{{ item.id }}" name="manager_password" placeholder="Manager password" required>
+                                <label class="visually-hidden" for="edit_manager_password_{{ item.id }}">Manager
+                                    password</label>
+                                <input type="password" id="edit_manager_password_{{ item.id }}" name="manager_password"
+                                    placeholder="Manager password" required>
                             </div>
                             <div class="form-actions">
                                 <a href="/important-numbers" class="btn btn-secondary">Cancel</a>
@@ -68,7 +74,7 @@
                         {% else %}
                         <div class="entry-title">{{ item.label }}</div>
                         <div class="entry-body">{{ item.phone }}</div>
-                        {% if item.notes %}<div class="entry-notes">{{ item.notes }}</div>{% endif %}
+                        {% if item.notes %}<div class="entry-notes text-pre-wrap">{{ item.notes }}</div>{% endif %}
                         <div class="entry-actions">
                             <a href="/important-numbers?edit={{ item.id }}" class="btn btn-secondary">Edit</a>
                             <form method="POST" action="/important-numbers/{{ item.id }}/delete">
@@ -80,51 +86,53 @@
                         {% endif %}
                     </div>
                     {% endfor %}
-                {% else %}
+                    {% else %}
                     <div class="empty-state">
                         <h3>No numbers listed</h3>
                         <p>Use the form on the right to add contact numbers.</p>
                     </div>
-                {% endif %}
+                    {% endif %}
+                </div>
             </div>
-        </div>
 
-        <div class="quick-action-secondary">
-            <div class="reference-form">
-                <h2>Add Important Number</h2>
-                <form method="POST" action="/important-numbers">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Label *</label>
-                            <input type="text" name="label" required placeholder="Police non-emergency">
+            <div class="quick-action-secondary">
+                <div class="reference-form">
+                    <h2>Add Important Number</h2>
+                    <form method="POST" action="/important-numbers">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Label *</label>
+                                <input type="text" name="label" required placeholder="Police non-emergency">
+                            </div>
+                            <div class="form-group">
+                                <label>Phone *</label>
+                                <input type="text" name="phone" required placeholder="555-555-5555">
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label>Phone *</label>
-                            <input type="text" name="phone" required placeholder="555-555-5555">
+                            <label>Notes</label>
+                            <textarea name="notes" placeholder="Optional details..."></textarea>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Notes</label>
-                        <textarea name="notes" placeholder="Optional details..."></textarea>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Add Number</button>
-                    </div>
-                </form>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Add Number</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Footer -->
-<footer class="footer">
-    <div class="footer-content">
-        <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
-        <p class="footer-contact">For support or inquiries: <a href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me" target="_blank" rel="noopener">taurustech.me</a></p>
-    </div>
-</footer>
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>
+            <p class="footer-contact">For support or inquiries: <a
+                    href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me"
+                    target="_blank" rel="noopener">taurustech.me</a></p>
+        </div>
+    </footer>
 
 </body>
-</html>
 
+</html>

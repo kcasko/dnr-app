@@ -53,12 +53,17 @@
                             </div>
                             <div class="log-entry-time">{{ entry.created_at }}</div>
                         </div>
-                        <div class="log-entry-note">{{ entry.note }}</div>
+                        <div class="log-entry-note text-pre-wrap">{{ entry.note }}</div>
 
                         {% if entry.is_editable %}
                         <div class="log-entry-actions">
                             <a class="btn btn-secondary" href="/log-book?edit={{ entry.id }}">Edit</a>
-                            <button type="button" class="btn btn-danger" onclick="confirmDeleteLogEntry({{ entry.id }}, '{{ entry.author_name }}')">Delete</button>
+                            <button type="button" class="btn btn-danger"
+                                onclick="confirmDeleteLogEntry({{ entry.id }}, '{{ entry.author_name }}')">Delete</button>
+                        </div>
+                        {% elif not entry.is_system_event %}
+                        <div class="log-entry-status locked">
+                            <span class="lock-icon">🔒</span> Locked - Previous Shift
                         </div>
                         {% endif %}
 
@@ -170,7 +175,8 @@
     <div class="modal-overlay modal-hidden" id="delete-log-modal">
         <div class="modal-content">
             <h2>Confirm Delete</h2>
-            <p>Are you sure you want to permanently delete the log entry by <strong id="delete-log-author"></strong>?</p>
+            <p>Are you sure you want to permanently delete the log entry by <strong id="delete-log-author"></strong>?
+            </p>
             <p class="warning-text">This action cannot be undone.</p>
             <form method="POST" id="delete-log-form" action="">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -195,6 +201,7 @@
             justify-content: center;
             z-index: 1000;
         }
+
         .modal-content {
             background: white;
             border-radius: 8px;
@@ -204,13 +211,16 @@
             max-height: 90vh;
             overflow-y: auto;
         }
+
         .modal-content h2 {
             margin: 0 0 1rem 0;
         }
+
         .warning-text {
             color: #dc3545;
             font-weight: 600;
         }
+
         .modal-hidden {
             display: none;
         }
@@ -235,7 +245,7 @@
         // Close modal on background click
         var logModal = document.getElementById('delete-log-modal');
         if (logModal) {
-            logModal.addEventListener('click', function(e) {
+            logModal.addEventListener('click', function (e) {
                 if (e.target === this) {
                     closeDeleteLogModal();
                 }
