@@ -165,6 +165,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             body TEXT NOT NULL,
+            filename TEXT,
             created_at TIMESTAMP DEFAULT (datetime('now','localtime'))
         )
     """)
