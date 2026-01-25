@@ -364,7 +364,9 @@ def parse_db_timestamp(value: str) -> datetime | None:
     if isinstance(value, datetime):
         return value
     try:
-        return datetime.fromisoformat(value)
+        # Replace space with T for Python 3.10 compatibility (fromisoformat is stricter)
+        normalized = value.replace(" ", "T", 1) if " " in value else value
+        return datetime.fromisoformat(normalized)
     except ValueError:
         try:
             return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
