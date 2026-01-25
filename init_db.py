@@ -166,6 +166,7 @@ def init_db():
             title TEXT NOT NULL,
             body TEXT NOT NULL,
             filename TEXT,
+            original_filename TEXT,
             created_at TIMESTAMP DEFAULT (datetime('now','localtime'))
         )
     """)

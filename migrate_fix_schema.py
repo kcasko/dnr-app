@@ -53,6 +53,12 @@ def main():
         else:
             print("how_to_guides.filename already exists.")
 
+        if not column_exists(cursor, "how_to_guides", "original_filename"):
+            print("Adding original_filename to how_to_guides...")
+            cursor.execute("ALTER TABLE how_to_guides ADD COLUMN original_filename TEXT")
+        else:
+            print("how_to_guides.original_filename already exists.")
+
     # 3. housekeeping_requests: fix frequency constraints
     if table_exists(cursor, "housekeeping_requests"):
         print("Checking housekeeping_requests schema...")
