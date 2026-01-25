@@ -461,7 +461,7 @@ header .subtitle {
 
 .form-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 16px;
 }
 
@@ -957,7 +957,7 @@ header .subtitle {
 }
 
 .filter-section .form-row {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .filter-section .form-actions {
@@ -1633,6 +1633,10 @@ header .subtitle {
     gap: 12px;
     flex-wrap: wrap;
     align-items: flex-end;
+}
+
+.messages-filter .form-group {
+    margin-bottom: 0;
 }
 
 .checkbox-inline label {
