@@ -251,12 +251,13 @@ def allowed_file(filename: str) -> bool:
 def validate_file_type(file_stream) -> str | None:
     """
     Validate file type using magic bytes (file signature).
-    Returns the detected MIME type if valid, None otherwise.
-    Rejects uploads if python-magic is not available for security.
+    Returns the detected MIME type if valid, 'extension_only' for degraded mode, None otherwise.
+    Falls back to extension-only validation if python-magic is not available.
     """
     if not HAS_MAGIC:
-        # Security: reject uploads if magic validation is unavailable
-        return None
+        # Degraded mode: extension-only validation
+        print("WARNING: python-magic not available. File validation is extension-only (degraded mode).")
+        return 'extension_only'
 
     try:
         # Read first 2048 bytes for magic detection
@@ -324,6 +325,36 @@ def connect_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = dict_factory
     return conn
+
+
+def run_transaction(ops):
+    """Execute database operations within a transaction with rollback on error."""
+    conn = connect_db()
+    try:
+        result = ops(conn)
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def verify_login_password(password: str) -> bool:
+    """Verify login password against stored hash (loads from disk to avoid race condition)."""
+    creds = load_credentials()
+    if not creds:
+        return False
+    return verify_password(password, creds['password_hash'])
+
+
+def verify_manager_password(password: str) -> bool:
+    """Verify manager password against stored hash (loads from disk to avoid race condition)."""
+    creds = load_credentials()
+    if not creds:
+        return False
+    return verify_password(password, creds['manager_password_hash'])
 
 
 def login_required(f):
@@ -745,13 +776,14 @@ def login():
             # Return same error as invalid credentials to avoid revealing lockout status
             return render_template("login.html", error="Invalid username or password")
 
-        if username == LOGIN_USERNAME and verify_password(password, LOGIN_PASSWORD_HASH):
+        # Load credentials from disk to avoid race condition
+        creds = load_credentials()
+        if creds and username == creds['username'] and verify_login_password(password):
             reset_login_attempts(lockout_key)
             session['logged_in'] = True
             session.permanent = True
             # Store session version to detect password changes
-            creds = load_credentials()
-            session['session_version'] = creds.get('session_version', 1) if creds else 1
+            session['session_version'] = creds.get('session_version', 1)
             return redirect(url_for('overview'))
         else:
             record_failed_login(lockout_key)
@@ -1341,23 +1373,31 @@ def add_housekeeping_request():
 
     # Generate service dates based on frequency
     service_dates = generate_service_dates(start_date, end_date, frequency, frequency_days)
-
-    # Insert the request
     now = local_timestamp()
-    conn = connect_db()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO housekeeping_requests (room_number, guest_name, start_date, end_date, frequency, frequency_days, notes, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (room_number, guest_name or None, start_date.isoformat(), end_date.isoformat(), frequency, frequency_days, notes or None, now, now))
-    request_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
 
-    # Insert service dates
-    insert_service_dates(request_id, service_dates)
+    def create_housekeeping_request(conn):
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO housekeeping_requests (room_number, guest_name, start_date, end_date, frequency, frequency_days, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (room_number, guest_name or None, start_date.isoformat(), end_date.isoformat(), frequency, frequency_days, notes or None, now, now))
+        request_id = cursor.lastrowid
 
-    return redirect(url_for("housekeeping_requests"))
+        # Insert service dates
+        if service_dates:
+            for service_date in service_dates:
+                conn.execute("""
+                    INSERT INTO housekeeping_service_dates (housekeeping_request_id, service_date, is_active)
+                    VALUES (?, ?, 1)
+                """, (request_id, service_date))
+
+        return request_id
+
+    try:
+        run_transaction(create_housekeeping_request)
+        return redirect(url_for("housekeeping_requests"))
+    except Exception:
+        return redirect(url_for("housekeeping_requests", error="db_error"))
 
 
 @app.post("/housekeeping-requests/<int:request_id>/edit")
@@ -1608,7 +1648,7 @@ def toggle_staff_announcement(announcement_id):
 def delete_staff_announcement(announcement_id):
     password = request.form.get("manager_password", "").strip()
 
-    if not verify_password(password, MANAGER_PASSWORD_HASH):
+    if not verify_manager_password(password):
         return redirect(url_for("staff_announcements_list", error="manager"))
 
     conn = connect_db()
@@ -1854,29 +1894,30 @@ def add_record():
     # Convert reasons array to JSON string
     reasons_json = json.dumps(valid_reasons)
 
-    conn = connect_db()
-    cursor = conn.cursor()
+    def create_record(conn):
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO records
+            (guest_name, status, ban_type, reasons, reason_detail, date_added, incident_date,
+             expiration_type, expiration_date)
+            VALUES (?, 'active', ?, ?, ?, ?, ?, ?, ?)
+        """, (guest_name, ban_type, reasons_json, reason_detail or None, today, incident_date or None,
+              expiration_type or None, expiration_date or None))
+        record_id = cursor.lastrowid
 
-    cursor.execute("""
-        INSERT INTO records
-        (guest_name, status, ban_type, reasons, reason_detail, date_added, incident_date,
-         expiration_type, expiration_date)
-        VALUES (?, 'active', ?, ?, ?, ?, ?, ?, ?)
-    """, (guest_name, ban_type, reasons_json, reason_detail or None, today, incident_date or None,
-          expiration_type or None, expiration_date or None))
+        # Add initial timeline entry
+        cursor.execute("""
+            INSERT INTO timeline_entries (record_id, entry_date, staff_initials, note, is_system)
+            VALUES (?, ?, ?, ?, 1)
+        """, (record_id, today, staff_initials, f"Record created. {ban_type.capitalize()} ban added."))
 
-    record_id = cursor.lastrowid
+        return record_id
 
-    # Add initial timeline entry
-    cursor.execute("""
-        INSERT INTO timeline_entries (record_id, entry_date, staff_initials, note, is_system)
-        VALUES (?, ?, ?, ?, 1)
-    """, (record_id, today, staff_initials, f"Record created. {ban_type.capitalize()} ban added."))
-
-    conn.commit()
-    conn.close()
-
-    return jsonify({"id": record_id, "message": "Record added successfully"}), 201
+    try:
+        record_id = run_transaction(create_record)
+        return jsonify({"id": record_id, "message": "Record added successfully"}), 201
+    except Exception:
+        return jsonify({"error": "Failed to create record. Please try again."}), 500
 
 
 @app.post("/api/records/<int:record_id>/timeline")
@@ -1962,12 +2003,10 @@ def upload_photo(record_id):
         conn.close()
         return jsonify({"error": "Invalid file type. Allowed: PNG, JPG, JPEG, GIF, WEBP"}), 400
 
-    # Validate file content using magic bytes
+    # Validate file content using magic bytes (or extension-only in degraded mode)
     detected_mime = validate_file_type(file.stream)
     if not detected_mime:
         conn.close()
-        if not HAS_MAGIC:
-            return jsonify({"error": "Photo uploads are temporarily unavailable. Please contact support."}), 503
         return jsonify({"error": "Invalid file content. File does not match declared type."}), 400
 
     # Generate unique filename with correct extension based on MIME type
@@ -1975,22 +2014,25 @@ def upload_photo(record_id):
     filename = f"{uuid.uuid4().hex}.{ext}"
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
-    file.save(filepath)
-
-    today = str(date.today())
-
     # Sanitize original filename for storage
     original_name = file.filename[:255] if file.filename else 'unknown'
+    today = str(date.today())
 
-    conn.execute("""
-        INSERT INTO photos (record_id, filename, original_name, upload_date)
-        VALUES (?, ?, ?, ?)
-    """, (record_id, filename, original_name, today))
+    def save_photo(conn):
+        file.save(filepath)
+        conn.execute("""
+            INSERT INTO photos (record_id, filename, original_name, upload_date)
+            VALUES (?, ?, ?, ?)
+        """, (record_id, filename, original_name, today))
 
-    conn.commit()
-    conn.close()
-
-    return jsonify({"message": "Photo uploaded successfully"}), 201
+    try:
+        run_transaction(save_photo)
+        return jsonify({"message": "Photo uploaded successfully"}), 201
+    except Exception:
+        # Clean up file if database operation failed
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        return jsonify({"error": "Failed to upload photo. Please try again."}), 500
 
 
 @app.get("/uploads/<filename>")
@@ -2030,25 +2072,28 @@ def lift_ban(record_id):
         return jsonify({"error": "Record already lifted"}), 400
 
     # Verify password using bcrypt
-    if not verify_password(password, MANAGER_PASSWORD_HASH):
+    if not verify_manager_password(password):
         # Log failed attempt silently
-        today = datetime.now().isoformat()
+        today_iso = datetime.now().isoformat()
+        today_str = str(date.today())
         ip = request.remote_addr or 'unknown'
 
-        conn.execute("""
-            INSERT INTO password_attempts (record_id, attempt_date, ip_address)
-            VALUES (?, ?, ?)
-        """, (record_id, today, ip))
+        def log_failed_attempt(conn):
+            conn.execute("""
+                INSERT INTO password_attempts (record_id, attempt_date, ip_address)
+                VALUES (?, ?, ?)
+            """, (record_id, today_iso, ip))
+            conn.execute("""
+                INSERT INTO timeline_entries (record_id, entry_date, note, is_system)
+                VALUES (?, ?, 'Failed lift attempt logged', 1)
+            """, (record_id, today_str))
 
-        # Add hidden timeline entry for failed attempt
-        conn.execute("""
-            INSERT INTO timeline_entries (record_id, entry_date, note, is_system)
-            VALUES (?, ?, 'Failed lift attempt logged', 1)
-        """, (record_id, str(date.today())))
+        try:
+            run_transaction(log_failed_attempt)
+        except Exception:
+            pass  # Silently ignore logging errors
 
-        conn.commit()
         conn.close()
-
         # Return generic error (don't reveal password was wrong)
         return jsonify({"error": "Unable to process request"}), 400
 
@@ -2064,17 +2109,7 @@ def lift_ban(record_id):
         return jsonify({"error": "Manager initials are required"}), 400
 
     today = str(date.today())
-
-    # Update record
-    conn.execute("""
-        UPDATE records
-        SET status = 'lifted',
-            lifted_date = ?,
-            lifted_type = ?,
-            lifted_reason = ?,
-            lifted_initials = ?
-        WHERE id = ?
-    """, (today, lift_type, lift_reason, initials, record_id))
+    guest_name = record.get('guest_name', 'Unknown')
 
     # Add timeline entry
     lift_type_display = {
@@ -2083,16 +2118,31 @@ def lift_ban(record_id):
         'error_entry': 'Error Entry'
     }.get(lift_type, lift_type)
 
-    conn.execute("""
-        INSERT INTO timeline_entries (record_id, entry_date, staff_initials, note, is_system)
-        VALUES (?, ?, ?, ?, 1)
-    """, (record_id, today, "System", f"Ban lifted. Type: {lift_type_display}. Reason: {lift_reason}"))
+    def perform_lift(conn):
+        conn.execute("""
+            UPDATE records
+            SET status = 'lifted',
+                lifted_date = ?,
+                lifted_type = ?,
+                lifted_reason = ?,
+                lifted_initials = ?
+            WHERE id = ?
+        """, (today, lift_type, lift_reason, initials, record_id))
+        conn.execute("""
+            INSERT INTO timeline_entries (record_id, entry_date, staff_initials, note, is_system)
+            VALUES (?, ?, ?, ?, 1)
+        """, (record_id, today, "System", f"Ban lifted. Type: {lift_type_display}. Reason: {lift_reason}"))
 
-    conn.commit()
+    try:
+        run_transaction(perform_lift)
+    except Exception:
+        conn.close()
+        return jsonify({"error": "Failed to lift ban. Please try again."}), 500
+
     conn.close()
 
     insert_log_entry(
-        f"DNR removed for {record.get('guest_name', 'Unknown')}. Type: {lift_type_display}.",
+        f"DNR removed for {guest_name}. Type: {lift_type_display}.",
         related_record_id=record_id,
         is_system_event=True,
     )
@@ -2121,17 +2171,18 @@ def delete_photo(photo_id):
         conn.close()
         return jsonify({"error": "Cannot delete photos from lifted records"}), 400
 
-    # Delete file
     filepath = os.path.join(UPLOAD_FOLDER, photo['filename'])
-    if os.path.exists(filepath):
-        os.remove(filepath)
 
-    # Delete from database
-    conn.execute("DELETE FROM photos WHERE id = ?", (photo_id,))
-    conn.commit()
-    conn.close()
+    def remove_photo(conn):
+        conn.execute("DELETE FROM photos WHERE id = ?", (photo_id,))
+        if os.path.exists(filepath):
+            os.remove(filepath)
 
-    return jsonify({"message": "Photo deleted"}), 200
+    try:
+        run_transaction(remove_photo)
+        return jsonify({"message": "Photo deleted"}), 200
+    except Exception:
+        return jsonify({"error": "Failed to delete photo. Please try again."}), 500
 
 
 @app.get("/api/reasons")
@@ -2209,7 +2260,7 @@ def add_important_number():
 @limiter.limit("5 per minute")
 def delete_important_number(number_id):
     password = request.form.get("manager_password", "").strip()
-    if not verify_password(password, MANAGER_PASSWORD_HASH):
+    if not verify_manager_password(password):
         return redirect(url_for("important_numbers_page", error="manager"))
 
     conn = connect_db()
@@ -2294,7 +2345,7 @@ def import_how_to_guide():
 @limiter.limit("5 per minute")
 def delete_how_to_guide(guide_id):
     password = request.form.get("manager_password", "").strip()
-    if not verify_password(password, MANAGER_PASSWORD_HASH):
+    if not verify_manager_password(password):
         return redirect(url_for("how_to_guides_page", error="manager"))
 
     conn = connect_db()
@@ -2455,7 +2506,7 @@ def import_cleaning_checklist():
 @limiter.limit("5 per minute")
 def delete_cleaning_checklist(template_id):
     password = request.form.get("manager_password", "").strip()
-    if not verify_password(password, MANAGER_PASSWORD_HASH):
+    if not verify_manager_password(password):
         return redirect(url_for("cleaning_checklists_page", error="manager"))
 
     conn = connect_db()
@@ -2480,7 +2531,7 @@ def update_manager_password():
     current_password = data.get('current_password', '').strip()
 
     # Validate current login password using bcrypt
-    if not verify_password(current_password, LOGIN_PASSWORD_HASH):
+    if not verify_login_password(current_password):
         return jsonify({"error": "Current password is incorrect"}), 401
 
     # Validation
@@ -2499,8 +2550,12 @@ def update_manager_password():
         return jsonify({"error": "Manager password must contain uppercase, lowercase, and numbers"}), 400
 
     # Update manager password with bcrypt
+    creds = load_credentials()
+    if not creds:
+        return jsonify({"error": "Configuration error"}), 500
+
     new_manager_password_hash = hash_password(new_manager_password)
-    save_credentials(LOGIN_USERNAME, LOGIN_PASSWORD_HASH, new_manager_password_hash)
+    save_credentials(creds['username'], creds['password_hash'], new_manager_password_hash)
 
     # Reload credentials
     CREDENTIALS = load_credentials()
@@ -2523,7 +2578,7 @@ def update_login_credentials():
     current_password = data.get('current_password', '').strip()
 
     # Validate current password using bcrypt
-    if not verify_password(current_password, LOGIN_PASSWORD_HASH):
+    if not verify_login_password(current_password):
         return jsonify({"error": "Current password is incorrect"}), 401
 
     # Validation
@@ -2544,8 +2599,12 @@ def update_login_credentials():
         return jsonify({"error": "Password must contain uppercase, lowercase, and numbers"}), 400
 
     # Update credentials with bcrypt and increment session version to invalidate all sessions
+    creds = load_credentials()
+    if not creds:
+        return jsonify({"error": "Configuration error"}), 500
+
     new_password_hash = hash_password(new_password)
-    save_credentials(new_username, new_password_hash, MANAGER_PASSWORD_HASH, increment_session=True)
+    save_credentials(new_username, new_password_hash, creds['manager_password_hash'], increment_session=True)
 
     # Reload credentials
     CREDENTIALS = load_credentials()
