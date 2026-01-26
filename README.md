@@ -1,4 +1,4 @@
-# DNR App - Sleep Inn
+# Shift Dashboard - Sleep Inn
 
 Internal "Do Not Rent" (DNR) system for hotel staff management. Tracks banned guests, restricted lists, maintenance issues, and shift logs.
 

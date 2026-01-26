@@ -16,7 +16,7 @@ class TestHousekeepingRequests:
         authenticated_page.goto(f"{flask_app}/housekeeping-requests")
 
         # Verify page title
-        expect(authenticated_page).to_have_title("Housekeeping Requests - DNR App")
+        expect(authenticated_page).to_have_title("Housekeeping Requests - Shift Dashboard - Sleep Inn")
 
         # Verify main heading
         heading = authenticated_page.locator("header h1")

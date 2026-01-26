@@ -15,7 +15,7 @@ def test_housekeeping_form_interactions(page: Page):
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Housekeeping Requests - DNR App</title>
+            <title>Housekeeping Requests - Shift Dashboard</title>
             <style>
                 .frequency-mode { border: 2px solid #ddd; padding: 10px; cursor: pointer; }
                 .frequency-mode.selected { border-color: #0066cc; background: #e6f2ff; }
@@ -95,7 +95,7 @@ def test_housekeeping_form_interactions(page: Page):
     """)
 
     # Verify page loaded
-    expect(page).to_have_title("Housekeeping Requests - DNR App")
+    expect(page).to_have_title("Housekeeping Requests - Shift Dashboard")
     expect(page.locator("h1")).to_contain_text("Housekeeping Requests")
 
     # Test filling in room number
