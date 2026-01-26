@@ -1,0 +1,65 @@
+2026-01-26 09:49:58,149 - app - WARNING - SECRET_KEY not set in environment. Using generated key.
+2026-01-26 09:49:58,149 - app - WARNING - For production, set SECRET_KEY in .env file or environment variable.
+2026-01-26 09:49:58,149 - app - INFO - Generated key (save this to .env): SECRET_KEY=09ac8509903392d0965081c78046e247d1e913b46274e9f269ab394dbba0bad9
+..E.
+======================================================================
+ERROR: test_schedule_permissions (__main__.TestQASchedule)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Repos\dnr-app\qa_test_schedule.py", line 105, in test_schedule_permissions
+    resp = self.client.post('/schedule/update', data=data, follow_redirects=True)
+  File "C:\Python310\lib\site-packages\werkzeug\test.py", line 1167, in post
+    return self.open(*args, **kw)
+  File "C:\Python310\lib\site-packages\flask\testing.py", line 235, in open
+    response = super().open(
+  File "C:\Python310\lib\site-packages\werkzeug\test.py", line 1116, in open
+    response_parts = self.run_wsgi_app(request.environ, buffered=buffered)
+  File "C:\Python310\lib\site-packages\werkzeug\test.py", line 988, in run_wsgi_app
+    rv = run_wsgi_app(self.application, environ, buffered=buffered)
+  File "C:\Python310\lib\site-packages\werkzeug\test.py", line 1264, in run_wsgi_app
+    app_rv = app(environ, start_response)
+  File "C:\Python310\lib\site-packages\flask\app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+  File "C:\Python310\lib\site-packages\flask\app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+  File "C:\Python310\lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Python310\lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Python310\lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Python310\lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+  File "E:\Repos\dnr-app\app.py", line 305, in decorated_function
+    return render_template('403.html'), 403
+  File "C:\Python310\lib\site-packages\flask\templating.py", line 149, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+  File "C:\Python310\lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+  File "C:\Python310\lib\site-packages\jinja2\environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+  File "C:\Python310\lib\site-packages\jinja2\environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+  File "C:\Python310\lib\site-packages\jinja2\loaders.py", line 126, in load
+    source, filename, uptodate = self.get_source(environment, name)
+  File "C:\Python310\lib\site-packages\flask\templating.py", line 65, in get_source
+    return self._get_source_fast(environment, template)
+  File "C:\Python310\lib\site-packages\flask\templating.py", line 99, in _get_source_fast
+    raise TemplateNotFound(template)
+jinja2.exceptions.TemplateNotFound: 403.html
+
+----------------------------------------------------------------------
+Ran 4 tests in 1.666s
+
+FAILED (errors=1)
+
+--- Testing Current Week Visibility ---
+[Pass] Only current week is visible (Future shifts hidden)
+
+--- Testing Housekeeping Roles ---
+[Pass] Housekeeping appears in Schedule without User Account
+
+--- Testing Schedule Permissions ---
+
+--- Testing Shift Notes ---
+[Pass] Shift notes persist and display correctly

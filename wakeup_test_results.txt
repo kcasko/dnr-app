@@ -1,0 +1,77 @@
+2026-01-26 10:00:54,405 - app - WARNING - SECRET_KEY not set in environment. Using generated key.
+2026-01-26 10:00:54,405 - app - WARNING - For production, set SECRET_KEY in .env file or environment variable.
+2026-01-26 10:00:54,405 - app - INFO - Generated key (save this to .env): SECRET_KEY=950ccddbb3ab22c13dff2fc52a9763ba9a0454ecd52695b24e7b2c011bd59095
+FE.
+======================================================================
+ERROR: test_creation_flow (__main__.TestQAWakeup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Repos\dnr-app\qa_test_wakeup.py", line 53, in test_creation_flow
+    resp = self.client.post('/wakeup-calls', data=data, follow_redirects=True)
+  File "C:\Python310\lib\site-packages\werkzeug\test.py", line 1167, in post
+    return self.open(*args, **kw)
+  File "C:\Python310\lib\site-packages\flask\testing.py", line 235, in open
+    response = super().open(
+  File "C:\Python310\lib\site-packages\werkzeug\test.py", line 1150, in open
+    response = self.resolve_redirect(response, buffered=buffered)
+  File "C:\Python310\lib\site-packages\werkzeug\test.py", line 1056, in resolve_redirect
+    return self.open(builder, buffered=buffered)
+  File "C:\Python310\lib\site-packages\flask\testing.py", line 235, in open
+    response = super().open(
+  File "C:\Python310\lib\site-packages\werkzeug\test.py", line 1116, in open
+    response_parts = self.run_wsgi_app(request.environ, buffered=buffered)
+  File "C:\Python310\lib\site-packages\werkzeug\test.py", line 988, in run_wsgi_app
+    rv = run_wsgi_app(self.application, environ, buffered=buffered)
+  File "C:\Python310\lib\site-packages\werkzeug\test.py", line 1264, in run_wsgi_app
+    app_rv = app(environ, start_response)
+  File "C:\Python310\lib\site-packages\flask\app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+  File "C:\Python310\lib\site-packages\flask\app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+  File "C:\Python310\lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Python310\lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Python310\lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Python310\lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+  File "E:\Repos\dnr-app\app.py", line 288, in decorated_function
+    return f(*args, **kwargs)
+  File "E:\Repos\dnr-app\app.py", line 693, in wakeup_calls_list
+    return render_template("wakeup_calls.html", calls=calls, today=today)
+  File "C:\Python310\lib\site-packages\flask\templating.py", line 150, in render_template
+    return _render(app, template, context)
+  File "C:\Python310\lib\site-packages\flask\templating.py", line 131, in _render
+    rv = template.render(context)
+  File "C:\Python310\lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "C:\Python310\lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "E:\Repos\dnr-app\templates\wakeup_calls.html", line 1, in top-level template code
+    {% extends "base.html" %}
+  File "E:\Repos\dnr-app\templates\base.html", line 139, in top-level template code
+    {% block content %}{% endblock %}
+  File "E:\Repos\dnr-app\templates\wakeup_calls.html", line 40, in block 'content'
+    class="{% if call.call_date < today or (call.call_date == today and call.call_time < now_time) %}overdue-row{% endif %}">
+jinja2.exceptions.UndefinedError: 'now_time' is undefined
+
+======================================================================
+FAIL: test_completion_flow (__main__.TestQAWakeup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Repos\dnr-app\qa_test_wakeup.py", line 127, in test_completion_flow
+    self.assertIn(b'Call updated', resp.data)
+AssertionError: b'Call updated' not found in b'<!DOCTYPE html>\n<html lang="en">\n\n<head>\n    <meta charset="utf-8">\n    <meta name="viewport"\n        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">\n    <title>Wake-up Calls - Sleep Inn</title>\n\n    <!-- PWA / Mobile App Capabilities -->\n    <link rel="manifest" href="/static/manifest.json">\n    <meta name="theme-color" content="#4a2c6a">\n    <meta name="apple-mobile-web-app-capable" content="yes">\n    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n    <link rel="apple-touch-icon" href="/static/sleep_inn_logo.png">\n\n    <link rel="stylesheet" href="/static/styles.css">\n    \n</head>\n\n<body>\n    <a href="#main-content" class="skip-link">Skip to main content</a>\n\n    <!-- Simplified Top Header -->\n    <header class="app-header">\n        <div class="app-header-content">\n            <div class="header-left">\n                <button class="mobile-menu-btn" aria-label="Toggle Navigation">\n                    <span class="bar"></span>\n                    <span class="bar"></span>\n                    <span class="bar"></span>\n                </button>\n                <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="app-header-logo">\n            </div>\n            <div class="app-header-nav">\n                <a href="/overview" class="app-header-link">Overview</a>\n                <a href="/wakeup-calls"\n                    class="app-header-link ">\n                     Calls\n                    \n                </a>\n                <a href="/schedule" class="app-header-link">Schedule</a>\n                <a href="/settings" class="app-header-link">Settings</a>\n                <a href="/logout" class="app-header-link app-header-link-logout">Logout</a>\n            </div>\n        </div>\n    </header>\n\n    <!-- Sidebar Overlay (Mobile) -->\n    <div class="sidebar-overlay"></div>\n\n    <!-- Main Layout: Sidebar + Content -->\n    <div class="app-layout">\n        <!-- Persistent Sidebar Navigation -->\n        <aside class="app-sidebar">\n            <div class="sidebar-header-mobile">\n                <h3>Menu</h3>\n                <button class="sidebar-close-btn">&times;</button>\n            </div>\n            <nav class="sidebar-nav" aria-label="Main navigation">\n                <!-- Operations Section -->\n                <div class="sidebar-section">\n                    <div class="sidebar-section-label">Operations</div>\n                    <a href="/dnr" class="sidebar-link ">\n                        Do Not Rent List\n                    </a>\n                    <a href="/room-issues"\n                        class="sidebar-link ">\n                        Room Issues\n                    </a>\n                    <a href="/maintenance"\n                        class="sidebar-link ">\n                        Maintenance\n                    </a>\n                    <a href="/housekeeping-requests"\n                        class="sidebar-link ">\n                        Housekeeping\n                    </a>\n                </div>\n\n                <!-- Communication Section -->\n                <div class="sidebar-section">\n                    <div class="sidebar-section-label">Communication</div>\n                    <a href="/log-book" class="sidebar-link ">\n                        Shift Notes\n                    </a>\n                    <a href="/staff-announcements"\n                        class="sidebar-link ">\n                        Staff Notices\n                    </a>\n                    <a href="/in-house-messages"\n                        class="sidebar-link ">\n                        In-House Messages\n                    </a>\n                </div>\n\n                <!-- Quick Reference Section -->\n                <div class="sidebar-section">\n                    <div class="sidebar-section-label">Quick Reference</div>\n                    <a href="/important-numbers"\n                        class="sidebar-link ">\n                        Important Numbers\n                    </a>\n                    <a href="/how-to-guides"\n                        class="sidebar-link ">\n                        How-To Guides\n                    </a>\n                    <a href="/food-local-spots"\n                        class="sidebar-link ">\n                        Food & Local Spots\n                    </a>\n                    <a href="/cleaning-checklists"\n                        class="sidebar-link ">\n                        Cleaning Checklists\n                    </a>\n                </div>\n            </nav>\n        </aside>\n\n        <!-- Main Content Area -->\n        <main class="app-main" id="main-content">\n            <!-- Page Header -->\n            <div class="page-header">\n                <div class="page-header-content">\n                    <div class="page-title-section">\n                        <h1 class="page-title">Wake-up Calls</h1>\n                        \n                    </div>\n                    <div class="page-actions">\n                        \n<a href="/wakeup-calls?all=1" class="btn btn-secondary">View All History</a>\n\n                    </div>\n                </div>\n            </div>\n\n            <!-- Page Content -->\n            <div class="page-content">\n                \n<div class="wakeup-container">\n\n    <!-- Pending Calls -->\n    <div class="card">\n        <h3>Pending Calls</h3>\n\n        \n        \n\n        <div class="table-container">\n            <table class="data-table">\n                <thead>\n                    <tr>\n                        <th>Date</th>\n                        <th>Time</th>\n                        <th>Room</th>\n                        <th>Status</th>\n                        <th>Actions</th>\n                    </tr>\n                </thead>\n                <tbody>\n                    \n                    \n                    \n\n                    \n                    \n                    <tr>\n                        <td colspan="5" class="text-center">No pending calls.</td>\n                    </tr>\n                    \n                </tbody>\n            </table>\n        </div>\n    </div>\n\n    <!-- Add New Call -->\n    <div class="card card-mt">\n        <h3>Schedule Wake-up Call</h3>\n        <form action="/wakeup-calls" method="POST" class="inline-form">\n            <input type="hidden" name="csrf_token" value="ImUzOGM4NzI1YmFjOWJiZGNiYmVlOWMwMDJmODkwNTNmMTA0ZTMyZjIi.aXeBpg.qUsM0E_wAcEc6ZsDZwtcOdzJERI">\n\n            <div class="form-group">\n                <label for="room_number">Room Number</label>\n                <input type="text" id="room_number" name="room_number" required placeholder="101">\n            </div>\n\n            <div class="form-group">\n                <label for="call_date">Date</label>\n                <input type="date" id="call_date" name="call_date" required value="2026-01-26">\n            </div>\n\n            <div class="form-group">\n                <label for="call_time">Time</label>\n                <input type="time" id="call_time" name="call_time" required>\n            </div>\n\n            <button type="submit" class="btn btn-primary">Schedule Call</button>\n        </form>\n    </div>\n\n    <!-- Recent History (Completed/Failed) -->\n    <div class="card card-mt">\n        <h3>Recent History</h3>\n        <div class="table-container">\n            <table class="data-table">\n                <thead>\n                    <tr>\n                        <th>Date</th>\n                        <th>Time</th>\n                        <th>Room</th>\n                        <th>Status</th>\n                        <th>Note</th>\n                    </tr>\n                </thead>\n                <tbody>\n                    \n                    \n                    <tr>\n                        <td>2026-01-26</td>\n                        <td>09:00</td>\n                        <td>104</td>\n                        <td>\n                            <span class="status-indicator status-completed">Completed</span>\n                        </td>\n                        <td>Done</td>\n                    </tr>\n                    \n                    \n                </tbody>\n            </table>\n        </div>\n    </div>\n\n</div>\n\n\n            </div>\n        </main>\n    </div>\n\n    <!-- Footer -->\n    <footer class="app-footer">\n        <div class="app-footer-content">\n            <p>&copy; 2026 TaurusTechLLC. All rights reserved.</p>\n            <p class="footer-contact">For support or inquiries: <a\n                    href="mailto:keith@taurustech.me">keith@taurustech.me</a> | <a href="https://taurustech.me"\n                    target="_blank" rel="noopener">taurustech.me</a></p>\n        </div>\n    </footer>\n\n    <script>\n        document.addEventListener(\'DOMContentLoaded\', () => {\n            const menuBtn = document.querySelector(\'.mobile-menu-btn\');\n            const closeBtn = document.querySelector(\'.sidebar-close-btn\');\n            const sidebar = document.querySelector(\'.app-sidebar\');\n            const overlay = document.querySelector(\'.sidebar-overlay\');\n\n            function toggleMenu() {\n                sidebar.classList.toggle(\'active\');\n                overlay.classList.toggle(\'active\');\n            }\n\n            if (menuBtn) menuBtn.addEventListener(\'click\', toggleMenu);\n            if (closeBtn) closeBtn.addEventListener(\'click\', toggleMenu);\n            if (overlay) overlay.addEventListener(\'click\', toggleMenu);\n\n            // Register Service Worker for PWA\n            if (\'serviceWorker\' in navigator) {\n                navigator.serviceWorker.register(\'/static/sw.js\')\n                    .then(reg => console.log(\'Service Worker registered\', reg))\n                    .catch(err => console.log(\'Service Worker registration failed\', err));\n            }\n        });\n    </script>\n\n    \n</body>\n\n</html>'
+
+----------------------------------------------------------------------
+Ran 3 tests in 1.268s
+
+FAILED (failures=1, errors=1)
+
+--- Testing Completion Flow ---
+
+--- Testing Wake-up Call Creation ---
+
+--- Testing Due Window Logic ---
+[Pass] Wake-up call due window logic is correct (Past + Soon included, Future excluded)

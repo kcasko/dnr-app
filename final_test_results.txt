@@ -1,0 +1,24 @@
+2026-01-26 10:07:20,678 - app - WARNING - SECRET_KEY not set in environment. Using generated key.
+2026-01-26 10:07:20,678 - app - WARNING - For production, set SECRET_KEY in .env file or environment variable.
+2026-01-26 10:07:20,678 - app - INFO - Generated key (save this to .env): SECRET_KEY=955c3a2fdd547e8aa040dc53a7528fbeeffb7754437edca208f50827961762f1
+.E.
+======================================================================
+ERROR: test_data_timestamps (__main__.TestQAFinal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Repos\dnr-app\qa_test_final.py", line 95, in test_data_timestamps
+    entry = conn.execute("SELECT created_at FROM shift_notes WHERE note = 'Timestamp Check'").fetchone()
+sqlite3.OperationalError: no such table: shift_notes
+
+----------------------------------------------------------------------
+Ran 3 tests in 1.230s
+
+FAILED (errors=1)
+
+--- Testing Alert with No Schedule ---
+[Pass] Alerts function even when schedule is empty
+
+--- Testing Data Integrity (Timestamps) ---
+
+--- Testing Overlapping Shifts ---
+[Pass] Application handles overlapping shifts gracefully
