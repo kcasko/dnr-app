@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}Overview{% endblock %}
+{% block title %}Shift Dashboard{% endblock %}
 
-{% block page_title %}Overview{% endblock %}
+{% block page_title %}Shift Dashboard{% endblock %}
 
 {% block page_subtitle %}
 <p class="page-subtitle">Operational snapshot - Last updated: {{ last_updated }}</p>
@@ -18,11 +18,11 @@
         <a href="/room-issues" class="alert-card-link" id="card-ooo" {% if room_out_of_order_count==0
             %}style="display: none" {% endif %}>
             <div class="alert-card alert-card-critical">
-                <div class="alert-card-icon">🔴</div>
+                <div class="alert-card-icon"><span class="icon-dot-critical"></span></div>
                 <div class="alert-card-content">
                     <div class="alert-card-label">Rooms Out of Order</div>
-                    <div class="alert-card-count" id="count-ooo">{{ room_out_of_order_count }}</div>
-                    <div class="alert-card-action">Manage Room Issues →</div>
+                    <div class="alert-card-count stat-number-heavy" id="count-ooo">{{ room_out_of_order_count }}</div>
+                    <div class="alert-card-action">Resolve Issues →</div>
                 </div>
             </div>
         </a>
@@ -31,11 +31,11 @@
         <a href="/room-issues" class="alert-card-link" id="card-uin" {% if room_use_if_needed_count==0
             %}style="display: none" {% endif %}>
             <div class="alert-card alert-card-warning">
-                <div class="alert-card-icon">⚠️</div>
+                <div class="alert-card-icon"><span class="icon-dot-warning"></span></div>
                 <div class="alert-card-content">
                     <div class="alert-card-label">Rooms Use If Needed</div>
-                    <div class="alert-card-count" id="count-uin">{{ room_use_if_needed_count }}</div>
-                    <div class="alert-card-action">Manage Room Issues →</div>
+                    <div class="alert-card-count stat-number-heavy" id="count-uin">{{ room_use_if_needed_count }}</div>
+                    <div class="alert-card-action">Prop Release →</div>
                 </div>
             </div>
         </a>
@@ -48,22 +48,22 @@
     <div class="alert-cards-grid">
         <!-- Active DNR Entries -->
         <a href="/dnr" class="alert-card-link">
-            <div class="alert-card alert-card-info">
+            <div class="alert-card alert-card-flat">
                 <div class="alert-card-content">
                     <div class="alert-card-label">Active DNR Records</div>
                     <div class="alert-card-count" id="count-dnr">{{ active_dnr_count }}</div>
-                    <div class="alert-card-action">View DNR List →</div>
+                    <div class="alert-card-action">Search List →</div>
                 </div>
             </div>
         </a>
 
         <!-- Open Maintenance Issues -->
         <a href="/maintenance?status=open" class="alert-card-link">
-            <div class="alert-card alert-card-info">
+            <div class="alert-card alert-card-flat">
                 <div class="alert-card-content">
                     <div class="alert-card-label">Open Maintenance</div>
                     <div class="alert-card-count" id="count-maintenance">{{ open_maintenance_count }}</div>
-                    <div class="alert-card-action">View Maintenance →</div>
+                    <div class="alert-card-action">Track Items →</div>
                 </div>
             </div>
         </a>

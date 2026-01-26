@@ -126,10 +126,10 @@ body {
 .app-sidebar {
     background: var(--bg-white);
     border-right: 1px solid var(--border-light);
-    padding: 24px 0;
+    padding: 32px 0;
+    /* More top padding */
     position: sticky;
     top: 74px;
-    /* height of app-header */
     height: calc(100vh - 74px);
     overflow-y: auto;
 }
@@ -137,21 +137,26 @@ body {
 .sidebar-nav {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 32px;
+    /* Increased separation between groups */
 }
 
 .sidebar-section {
-    padding: 0 16px;
+    padding: 0 24px;
+    /* More horizontal breathing room */
 }
 
 .sidebar-section-label {
-    font-size: 11px;
+    font-size: 12px;
+    /* Slightly larger */
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-    padding: 0 12px;
+    letter-spacing: 1px;
+    /* Better letter spacing */
+    color: #4a4a5e;
+    /* Darker than muted for easier scanning */
+    margin-bottom: 12px;
+    padding: 0 8px;
 }
 
 .sidebar-link {
@@ -172,9 +177,14 @@ body {
 }
 
 .sidebar-link.active {
-    background: rgba(74, 44, 106, 0.1);
+    background: rgba(74, 44, 106, 0.08);
+    /* Softer active background */
     color: var(--primary-purple);
     font-weight: 600;
+    border-left: 3px solid var(--primary-purple);
+    /* Clear active indicator */
+    border-top-left-radius: 2px;
+    border-bottom-left-radius: 2px;
 }
 
 /* Main Content Area */
@@ -203,50 +213,115 @@ body {
     min-width: 0;
 }
 
+/* Page Title Refinement */
 .page-title {
     margin: 0;
-    font-size: 24px;
+    font-size: 28px;
+    /* Increased from 24px */
     font-weight: 700;
-    color: var(--text-dark);
+    color: #000;
+    /* Pure black anchor */
     line-height: 1.2;
 }
 
-.page-subtitle {
-    margin: 4px 0 0 0;
-    font-size: 14px;
-    color: var(--text-muted);
-}
-
-.page-actions {
+/* Alert Card Hierarchy */
+.alert-card {
+    padding: 24px;
+    /* Increased padding */
+    border-radius: 8px;
+    border: 2px solid;
     display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-shrink: 0;
+    gap: 16px;
+    align-items: flex-start;
+    min-height: 140px;
+    /* Taller */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
 }
 
-/* Page Content */
-.page-content {
-    padding: 0 32px 32px 32px;
+.alert-card-critical {
+    background: #fff5f5;
+    border-color: var(--danger);
+    /* Red is authoritative */
 }
 
-/* App Footer */
-.app-footer {
-    background: var(--bg-white);
-    border-top: 1px solid var(--border-light);
-    padding: 20px 24px;
-    margin-top: 40px;
+.alert-card-warning {
+    background: #fffcf0;
+    border-color: rgba(201, 162, 39, 0.4);
+    /* Softer than critical */
 }
 
-.app-footer-content {
-    max-width: 1920px;
-    margin: 0 auto;
-    text-align: center;
+/* Flat Card for Awareness */
+.alert-card-flat {
+    padding: 16px 24px;
+    background: transparent;
+    border-left: 3px solid var(--border-light);
+    display: flex;
+    flex-direction: column;
+    min-height: auto;
 }
 
-.app-footer-content p {
-    margin: 4px 0;
+.alert-card-flat .alert-card-count {
+    font-size: 28px;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+}
+
+.alert-card-flat .alert-card-label {
     font-size: 13px;
     color: var(--text-muted);
+    text-transform: none;
+    /* Sentence case for calm */
+    letter-spacing: 0;
+    font-weight: 500;
+}
+
+/* Icons */
+.icon-dot-critical {
+    display: block;
+    width: 24px;
+    height: 24px;
+    background-color: var(--danger);
+    border-radius: 4px;
+    /* Soft square */
+}
+
+.icon-dot-warning {
+    display: block;
+    width: 24px;
+    height: 24px;
+    background-color: var(--accent-gold);
+    border-radius: 50%;
+    /* Circle */
+    opacity: 0.8;
+}
+
+.alert-card-content {
+    flex: 1;
+}
+
+.alert-card-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.stat-number-heavy {
+    font-weight: 800 !important;
+    /* Command Attention */
+    font-size: 42px;
+    /* Large */
+    line-height: 1;
+    margin-bottom: 12px;
+    color: var(--text-dark);
+}
+
+.alert-card-action {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary-purple);
+    opacity: 0.9;
 }
 
 /* Button Hierarchy Updates */
