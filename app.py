@@ -690,7 +690,7 @@ def wakeup_calls_list():
         """, (today,)).fetchall()
     conn.close()
     
-    return render_template("wakeup_calls.html", calls=calls, today=today)
+    return render_template("wakeup_calls.html", calls=calls, today=today, now_time=datetime.now().strftime('%H:%M'))
 
 @app.post("/wakeup-calls")
 @login_required

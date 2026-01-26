@@ -44,14 +44,15 @@
         </div>
     </div>
 
-    <!-- User Management Tab (Manager Only) -->
     {% if session.role == 'manager' %}
+    <!-- User Management Tab (Manager Only) -->
     <div id="UserManagement" class="tab-content">
 
         <!-- Add User Card -->
         <div class="card">
             <h3>Add New User</h3>
-            <form action="{{ url_for('add_user') }}" method="POST" class="inline-form" onsubmit="return validatePasswordStrength(event)">
+            <form action="{{ url_for('add_user') }}" method="POST" class="inline-form"
+                onsubmit="return validatePasswordStrength(event)">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="form-group">
@@ -70,7 +71,8 @@
 
                 <div class="form-group">
                     <label for="password">Temporary Password</label>
-                    <input type="password" id="password" name="password" required minlength="8" placeholder="********" oninput="validatePassword(this)">
+                    <input type="password" id="password" name="password" required minlength="8" placeholder="********"
+                        oninput="validatePassword(this)">
                     <small class="form-hint">
                         Must be at least 8 characters with uppercase, lowercase, and numbers
                     </small>
