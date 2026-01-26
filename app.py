@@ -16,12 +16,24 @@ import uuid
 import json
 import secrets
 import re
+import logging
 from datetime import date, datetime, timedelta
 from functools import wraps
 from zoneinfo import ZoneInfo
 import shift_utils
 
 TIMEZONE = ZoneInfo("America/New_York")
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 import bcrypt
 try:
@@ -71,9 +83,9 @@ secret_key = os.environ.get('SECRET_KEY')
 if not secret_key:
     # Generate a secure key and warn - in production this should be set in .env
     secret_key = secrets.token_hex(32)
-    print("WARNING: SECRET_KEY not set in environment. Using generated key.")
-    print("For production, set SECRET_KEY in .env file or environment variable.")
-    print(f"Generated key (save this to .env): SECRET_KEY={secret_key}")
+    logger.warning("SECRET_KEY not set in environment. Using generated key.")
+    logger.warning("For production, set SECRET_KEY in .env file or environment variable.")
+    logger.info(f"Generated key (save this to .env): SECRET_KEY={secret_key}")
 app.secret_key = secret_key
 
 # Session security configuration
@@ -138,40 +150,68 @@ IN_HOUSE_MESSAGE_EXPIRY_DAYS = 7
 MAX_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 15
 
-# In-memory login attempt tracking (simple approach for single-instance use)
-_login_attempts = {}  # {username: {'count': int, 'locked_until': datetime or None}}
-
 
 def is_account_locked(username: str) -> bool:
     """Check if an account is currently locked due to failed login attempts."""
-    if username not in _login_attempts:
+    conn = get_db_connection()
+    attempt = conn.execute("SELECT locked_until FROM login_attempts WHERE username = ?", (username,)).fetchone()
+    conn.close()
+
+    if not attempt or not attempt['locked_until']:
         return False
-    attempt_info = _login_attempts[username]
-    if attempt_info.get('locked_until'):
-        if datetime.now() < attempt_info['locked_until']:
+
+    try:
+        locked_until = datetime.fromisoformat(attempt['locked_until'])
+        if datetime.now() < locked_until:
             return True
-        # Lockout expired, reset
-        _login_attempts[username] = {'count': 0, 'locked_until': None}
-    return False
+        else:
+            # Lockout expired, reset
+            conn = get_db_connection()
+            conn.execute("UPDATE login_attempts SET attempt_count = 0, locked_until = NULL WHERE username = ?", (username,))
+            conn.commit()
+            conn.close()
+            return False
+    except (ValueError, TypeError):
+        return False
 
 
 def record_failed_login(username: str):
     """Record a failed login attempt and lock account if threshold reached."""
-    if username not in _login_attempts:
-        _login_attempts[username] = {'count': 0, 'locked_until': None}
+    conn = get_db_connection()
 
-    _login_attempts[username]['count'] += 1
-    count = _login_attempts[username]['count']
+    # Get or create login attempt record
+    attempt = conn.execute("SELECT attempt_count FROM login_attempts WHERE username = ?", (username,)).fetchone()
 
-    if count >= MAX_LOGIN_ATTEMPTS:
-        _login_attempts[username]['locked_until'] = datetime.now() + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
-        print(f"Account locked: {username} (too many failed attempts)")
+    if attempt:
+        new_count = attempt['attempt_count'] + 1
+    else:
+        new_count = 1
+
+    locked_until = None
+    if new_count >= MAX_LOGIN_ATTEMPTS:
+        locked_until = (datetime.now() + timedelta(minutes=LOCKOUT_DURATION_MINUTES)).isoformat()
+        logger.warning(f"Account locked: {username} (too many failed attempts)")
+
+    # Upsert the record
+    conn.execute("""
+        INSERT INTO login_attempts (username, attempt_count, locked_until, last_attempt)
+        VALUES (?, ?, ?, datetime('now','localtime'))
+        ON CONFLICT(username) DO UPDATE SET
+            attempt_count = ?,
+            locked_until = ?,
+            last_attempt = datetime('now','localtime')
+    """, (username, new_count, locked_until, new_count, locked_until))
+
+    conn.commit()
+    conn.close()
 
 
 def reset_login_attempts(username: str):
     """Reset login attempts after successful login."""
-    if username in _login_attempts:
-        _login_attempts[username] = {'count': 0, 'locked_until': None}
+    conn = get_db_connection()
+    conn.execute("UPDATE login_attempts SET attempt_count = 0, locked_until = NULL WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
 
 
 def hash_password(password: str) -> str:
@@ -187,67 +227,93 @@ def verify_password(password: str, hashed: str) -> bool:
         return False
 
 
-def load_credentials():
-    """Load credentials from file. Returns None if setup is required."""
-    if os.path.exists(CREDENTIALS_FILE):
-        try:
-            with open(CREDENTIALS_FILE, 'r') as f:
-                creds = json.load(f)
-                # Validate required fields exist
-                if all(k in creds for k in ['username', 'password_hash', 'manager_password_hash']):
-                    # Ensure session_version exists (for backwards compatibility)
-                    if 'session_version' not in creds:
-                        creds['session_version'] = 1
-                    return creds
-        except (json.JSONDecodeError, IOError):
-            pass
-    return None
+# Database Helper Functions
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
+# User Helpers
+def get_user_by_id(user_id):
+    conn = get_db_connection()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return user
 
-def save_credentials(username: str, password_hash: str, manager_password_hash: str, increment_session: bool = False):
-    """Save credentials to file securely."""
-    existing = load_credentials()
-    session_version = 1
-    if existing:
-        session_version = existing.get('session_version', 1)
-        if increment_session:
-            session_version += 1
+def get_user_by_username(username):
+    conn = get_db_connection()
+    user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    return user
 
-    creds = {
-        'username': username,
-        'password_hash': password_hash,
-        'manager_password_hash': manager_password_hash,
-        'session_version': session_version,
-        'created_at': datetime.now().isoformat()
-    }
-    with open(CREDENTIALS_FILE, 'w') as f:
-        json.dump(creds, f, indent=2)
-    # Attempt to set restrictive file permissions (Unix-like systems)
-    try:
-        os.chmod(CREDENTIALS_FILE, 0o600)
-    except (OSError, AttributeError):
-        import platform
-        if platform.system() == 'Windows':
-            print("WARNING: File permissions cannot be enforced on Windows. Credentials file may be readable by other users.")
-        else:
-            print("WARNING: Could not set restrictive file permissions on credentials file.")
+def verify_user_credentials(username, password):
+    """
+    Verify user credentials with timing-attack resistance.
+    Always performs bcrypt check even if user doesn't exist.
+    """
+    user = get_user_by_username(username)
 
+    # Dummy hash for timing attack prevention
+    # This is a bcrypt hash of "dummy_password_for_timing_attack_prevention"
+    dummy_hash = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYU5x6RqVQy"
 
-def is_setup_required() -> bool:
-    """Check if initial setup is required (no credentials configured)."""
-    return load_credentials() is None
+    if user and user['is_active']:
+        # User exists, verify actual password
+        if verify_password(password, user['password_hash']):
+            return user
+        return None
+    else:
+        # User doesn't exist or is inactive, still perform bcrypt check
+        # to maintain constant time operation
+        verify_password(password, dummy_hash)
+        return None
 
+# Auth Decorators
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login', next=request.url))
+        
+        # Verify user still exists and is active (security check on every request)
+        user = get_user_by_id(session['user_id'])
+        if not user or not user['is_active']:
+            session.clear()
+            return redirect(url_for('login'))
+            
+        # Check if password change required
+        if user['force_password_change'] and request.endpoint != 'change_password' and request.endpoint != 'logout':
+             return redirect(url_for('change_password'))
 
-# Load credentials
-CREDENTIALS = load_credentials()
-if CREDENTIALS:
-    LOGIN_USERNAME = CREDENTIALS['username']
-    LOGIN_PASSWORD_HASH = CREDENTIALS['password_hash']
-    MANAGER_PASSWORD_HASH = CREDENTIALS['manager_password_hash']
-else:
-    LOGIN_USERNAME = None
-    LOGIN_PASSWORD_HASH = None
-    MANAGER_PASSWORD_HASH = None
+        return f(*args, **kwargs)
+    return decorated_function
+
+def manager_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login', next=request.url))
+
+        # Verify user still exists and is active (security check)
+        user = get_user_by_id(session['user_id'])
+        if not user or not user['is_active']:
+            session.clear()
+            return redirect(url_for('login'))
+
+        if session.get('role') != 'manager':
+            # 403 Forbidden for non-managers trying to access admin routes
+            return render_template('403.html'), 403
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Context Processor to inject user into templates
+@app.context_processor
+def inject_user():
+    if 'user_id' in session:
+        user = get_user_by_id(session['user_id'])
+        return dict(current_user=user)
+    return dict(current_user=None)
 
 
 def allowed_file(filename: str) -> bool:
@@ -263,7 +329,7 @@ def validate_file_type(file_stream) -> str | None:
     """
     if not HAS_MAGIC:
         # Degraded mode: extension-only validation
-        print("WARNING: python-magic not available. File validation is extension-only (degraded mode).")
+        logger.warning("python-magic not available. File validation is extension-only (degraded mode).")
         return 'extension_only'
 
     try:
@@ -277,11 +343,11 @@ def validate_file_type(file_stream) -> str | None:
         # Allow if detected mime is in our allowed keys
         if detected_mime in ALLOWED_MIME_TYPES:
             return detected_mime
-            
-        print(f"Magic rejected mime: {detected_mime}")
+
+        logger.warning(f"Magic rejected mime: {detected_mime}")
         return None
     except Exception as e:
-        print(f"Validation error (falling back to extension check): {e}") 
+        logger.warning(f"Validation error (falling back to extension check): {e}")
         # Fallback to extension check on error (e.g. missing libmagic)
         return 'extension_only'
 
@@ -362,52 +428,561 @@ def run_transaction(ops):
         conn.close()
 
 
-def verify_login_password(password: str) -> bool:
-    """Verify login password against stored hash (loads from disk to avoid race condition)."""
-    creds = load_credentials()
-    if not creds:
-        return False
-    return verify_password(password, creds['password_hash'])
-
-
 def verify_manager_password(password: str) -> bool:
-    """Verify manager password against stored hash (loads from disk to avoid race condition)."""
-    creds = load_credentials()
-    if not creds:
-        return False
-    return verify_password(password, creds['manager_password_hash'])
+    """Verify manager password against DB (checks for any active manager account)."""
+    conn = get_db_connection()
+    # Check if there is ANY active manager account that matches this password
+    # This is a slight simplification: ideally we'd check the CURRENT user if they are a manager,
+    # or prompt for a specific manager's credentials. 
+    # For this app's scale (likely 1 manager), checking any valid manager credential is acceptable
+    # to authorize "manager override" actions.
+    managers = conn.execute("SELECT password_hash FROM users WHERE role = 'manager' AND is_active = 1").fetchall()
+    conn.close()
+    
+    for mgr in managers:
+        if verify_password(password, mgr['password_hash']):
+            return True
+            
+    return False
+
+# Settings & User Management Routes
+
+# Settings & User Management Routes
+
+@app.get("/settings")
+@login_required
+def settings_page():
+    conn = get_db_connection()
+    users = []
+    if session.get('role') == 'manager':
+        users = conn.execute("SELECT id, username, role, is_active, last_login FROM users ORDER BY username").fetchall()
+
+    conn.close()
+    return render_template("settings.html", users=users)
+
+@app.post("/settings/users/add")
+@manager_required
+@limiter.limit("10 per hour")
+def add_user():
+    """Create a new user account."""
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '').strip()
+    role = request.form.get('role', '').strip()
+
+    # Validate inputs
+    if not username or len(username) < 3:
+        return redirect(url_for('settings_page', error="Username must be at least 3 characters"))
+
+    if not password or len(password) < 8:
+        return redirect(url_for('settings_page', error="Password must be at least 8 characters"))
+
+    if role not in ('manager', 'front_desk', 'night_audit'):
+        return redirect(url_for('settings_page', error="Invalid role"))
+
+    # Validate password complexity
+    if not re.search(r'[A-Z]', password):
+        return redirect(url_for('settings_page', error="Password must contain at least one uppercase letter"))
+    if not re.search(r'[a-z]', password):
+        return redirect(url_for('settings_page', error="Password must contain at least one lowercase letter"))
+    if not re.search(r'[0-9]', password):
+        return redirect(url_for('settings_page', error="Password must contain at least one number"))
+
+    # Check username doesn't already exist
+    conn = get_db_connection()
+    existing = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    if existing:
+        conn.close()
+        return redirect(url_for('settings_page', error="Username already exists"))
+
+    # Create user
+    hashed = hash_password(password)
+    try:
+        conn.execute("""
+            INSERT INTO users (username, password_hash, role, is_active, force_password_change)
+            VALUES (?, ?, ?, 1, 1)
+        """, (username, hashed, role))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('settings_page', success=f"User {username} created successfully"))
+    except Exception as e:
+        conn.close()
+        logger.error(f"Error creating user: {e}")
+        return redirect(url_for('settings_page', error="Failed to create user"))
+
+# Schedule Routes
+
+@app.get("/schedule")
+@login_required
+def view_schedule():
+    # Calculate start of week (Monday)
+    today = date.today()
+    
+    # Check for week navigation
+    week_start_str = request.args.get('week_start')
+    if week_start_str:
+        try:
+            current_week_start = datetime.strptime(week_start_str, "%Y-%m-%d").date()
+        except ValueError:
+            current_week_start = today - timedelta(days=today.weekday())
+    else:
+        current_week_start = today - timedelta(days=today.weekday())
+        
+    prev_week_start = current_week_start - timedelta(days=7)
+    next_week_start = current_week_start + timedelta(days=7)
+    
+    week_dates = []
+    for i in range(7):
+        week_dates.append(current_week_start + timedelta(days=i))
+        
+    start_str = week_dates[0].isoformat()
+    end_str = week_dates[-1].isoformat()
+    
+    conn = get_db_connection()
+    
+    # Fetch schedules
+    # Join with users table to get role if linked
+    schedules = conn.execute("""
+        SELECT s.*, u.username, u.role as user_role 
+        FROM schedules s
+        LEFT JOIN users u ON s.user_id = u.id
+        WHERE s.shift_date BETWEEN ? AND ?
+        ORDER BY s.shift_date, s.shift_id
+    """, (start_str, end_str)).fetchall()
+    
+    # Structure data: schedule_data[date_iso][shift_id] = list of assignments
+    schedule_data = {d.isoformat(): {1: [], 2: [], 3: []} for d in week_dates}
+    
+    for s in schedules:
+        d = s['shift_date']
+        sid = s['shift_id']
+        if d in schedule_data and sid in schedule_data[d]:
+            # Determine display name and role
+            name = s['staff_name']
+            if s['username']: # Use linked username if available
+                 name = s['username']
+            
+            # Use override role if set, else user role, else default 'Staff'
+            role = s['role']
+            if not role and s['user_role']:
+                role = s['user_role'].replace('_', ' ').title()
+                
+            entry = {
+                'id': s['id'],
+                'name': name,
+                'role': role,
+                'note': s['note'],
+                'user_id': s['user_id']
+            }
+            schedule_data[d][sid].append(entry)
+            
+    # Fetch active users for assignment dropdown (Manager only)
+    all_users = []
+    if session.get('role') == 'manager':
+        all_users = conn.execute("SELECT id, username, role FROM users WHERE is_active = 1 ORDER BY username").fetchall()
+        
+    conn.close()
+    
+    return render_template(
+        "schedule.html",
+        week_dates=week_dates,
+        current_week_start=current_week_start,
+        prev_week_start=prev_week_start,
+        next_week_start=next_week_start,
+        schedule_data=schedule_data,
+        all_users=all_users,
+        today_iso=today.isoformat()
+    )
 
 
-def login_required(f):
-    """Decorator to require login for routes."""
+@app.post("/schedule/update")
+@manager_required
+@limiter.limit("100 per hour")
+def update_schedule():
+    action = request.form.get('action')
+    shift_date = request.form.get('shift_date')
+    shift_id_raw = request.form.get('shift_id')
 
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if is_setup_required():
-            if request.path.startswith("/api/"):
-                return jsonify({"error": "Setup required"}), 401
-            return redirect(url_for('setup'))
+    # Validate shift_date format (YYYY-MM-DD)
+    try:
+        datetime.strptime(shift_date, '%Y-%m-%d')
+    except (ValueError, TypeError):
+        return redirect(url_for('view_schedule', week_start=request.form.get('week_start')))
 
-        if not session.get('logged_in'):
-            if request.path.startswith("/api/"):
-                return jsonify({"error": "Unauthorized"}), 401
-            return redirect(url_for('login'))
+    # Validate shift_id is 1, 2, or 3
+    try:
+        shift_id = int(shift_id_raw)
+        if shift_id not in (1, 2, 3):
+            return redirect(url_for('view_schedule', week_start=request.form.get('week_start')))
+    except (ValueError, TypeError):
+        return redirect(url_for('view_schedule', week_start=request.form.get('week_start')))
 
-        # Check if session is still valid (password may have changed)
-        creds = load_credentials()
-        if creds:
-            current_version = creds.get('session_version', 1)
-            session_version = session.get('session_version', 0)
-            if session_version < current_version:
-                session.clear()
-                if request.path.startswith("/api/"):
-                    return jsonify({"error": "Session expired. Please log in again."}), 401
-                return redirect(url_for('login'))
+    conn = get_db_connection()
 
-        # Refresh session on activity
-        session.modified = True
-        return f(*args, **kwargs)
-    return decorated_function
+    if action == 'add':
+        user_id_raw = request.form.get('user_id')
+        custom_name = request.form.get('custom_name', '').strip()
+        role = request.form.get('role', '').strip()
+        note = request.form.get('note', '').strip()
+
+        # Limit field lengths
+        if len(custom_name) > 100:
+            custom_name = custom_name[:100]
+        if len(role) > 50:
+            role = role[:50]
+        if len(note) > 200:
+            note = note[:200]
+
+        user_id = int(user_id_raw) if user_id_raw and user_id_raw.isdigit() else None
+
+        staff_name = custom_name
+        if user_id:
+            # Get username for staff_name backup
+            u = conn.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+            if u:
+                staff_name = u['username']
+
+        if not staff_name:
+             conn.close()
+             return redirect(url_for('view_schedule', week_start=request.form.get('week_start')))
+
+        try:
+            conn.execute("""
+                INSERT INTO schedules (user_id, staff_name, shift_date, shift_id, role, note)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (user_id, staff_name, shift_date, shift_id, role or None, note or None))
+            conn.commit()
+        except sqlite3.IntegrityError:
+             # Duplicate entry (handled by unique index)
+             pass
+
+    elif action == 'remove':
+        schedule_id_raw = request.form.get('schedule_id')
+        try:
+            schedule_id = int(schedule_id_raw)
+            conn.execute("DELETE FROM schedules WHERE id = ?", (schedule_id,))
+            conn.commit()
+        except (ValueError, TypeError):
+            pass
+
+    conn.close()
+
+    # Redirect back to the same week
+    return redirect(url_for('view_schedule', week_start=request.form.get('week_start')))
+
+# Wake-up Call Routes
+
+@app.get("/wakeup-calls")
+@login_required
+def wakeup_calls_list():
+    today = date.today().isoformat()
+    show_all = request.args.get('all') == '1'
+    
+    conn = get_db_connection()
+    if show_all:
+         calls = conn.execute("SELECT * FROM wakeup_calls ORDER BY call_date DESC, call_time DESC").fetchall()
+    else:
+         # Show pending/active calls for today and future
+         calls = conn.execute("""
+            SELECT * FROM wakeup_calls 
+            WHERE status IN ('pending', 'failed') 
+            OR (call_date >= ? AND status = 'completed') 
+            ORDER BY call_date ASC, call_time ASC
+        """, (today,)).fetchall()
+    conn.close()
+    
+    return render_template("wakeup_calls.html", calls=calls, today=today)
+
+@app.post("/wakeup-calls")
+@login_required
+@limiter.limit("50 per hour")
+def add_wakeup_call():
+    room_number = request.form.get('room_number', '').strip()
+    call_date = request.form.get('call_date')
+    call_time = request.form.get('call_time')
+    frequency = request.form.get('frequency', 'once')
+
+    # Validate inputs
+    if not room_number or not call_date or not call_time:
+         return redirect(url_for('wakeup_calls_list', error="Missing fields"))
+
+    # Validate room_number length
+    if len(room_number) > 20:
+        return redirect(url_for('wakeup_calls_list', error="Room number too long"))
+
+    # Validate date format
+    try:
+        datetime.strptime(call_date, '%Y-%m-%d')
+    except ValueError:
+        return redirect(url_for('wakeup_calls_list', error="Invalid date format"))
+
+    # Validate time format (HH:MM)
+    try:
+        datetime.strptime(call_time, '%H:%M')
+    except ValueError:
+        return redirect(url_for('wakeup_calls_list', error="Invalid time format"))
+
+    # Validate frequency
+    if frequency not in ('once', 'daily'):
+        frequency = 'once'
+
+    conn = get_db_connection()
+    try:
+        conn.execute("""
+            INSERT INTO wakeup_calls (room_number, call_date, call_time, frequency, request_source, logged_by_user_id, status)
+            VALUES (?, ?, ?, ?, 'desktop', ?, 'pending')
+        """, (room_number, call_date, call_time, frequency, session['user_id']))
+        conn.commit()
+    except Exception as e:
+        logger.error(f"Error adding wakeup call: {e}")
+        return redirect(url_for('wakeup_calls_list', error="Database error"))
+    finally:
+        conn.close()
+
+    return redirect(url_for('wakeup_calls_list', success="Call added"))
+
+@app.post("/wakeup-calls/<int:call_id>/update")
+@login_required
+@limiter.limit("100 per hour")
+def update_wakeup_call(call_id):
+    status = request.form.get('status')
+    outcome_note = request.form.get('outcome_note', '').strip()
+
+    # Validate status
+    if status not in ('pending', 'completed', 'failed', 'cancelled'):
+        return redirect(url_for('wakeup_calls_list'))
+
+    # Limit outcome_note length
+    if len(outcome_note) > 500:
+        outcome_note = outcome_note[:500]
+
+    conn = get_db_connection()
+    conn.execute("""
+        UPDATE wakeup_calls
+        SET status = ?, outcome_note = ?, completed_by_user_id = ?, updated_at = ?
+        WHERE id = ?
+    """, (status, outcome_note, session['user_id'], datetime.now().isoformat(), call_id))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('wakeup_calls_list'))
+
+# Helper for Alerts
+def get_due_wakeup_calls():
+    """Get wake-up calls due now (within window) or overdue."""
+    now = datetime.now()
+    today_str = now.date().isoformat()
+    time_str = now.strftime("%H:%M")
+    
+    # Simple check: Date is today. Time is <= now + 10 mins AND status is pending.
+    # Also include past pending calls (overdue).
+    
+    conn = get_db_connection()
+    calls = conn.execute("""
+        SELECT * FROM wakeup_calls 
+        WHERE status = 'pending' 
+        AND call_date <= ? 
+        ORDER BY call_date ASC, call_time ASC
+    """, (today_str,)).fetchall()
+    conn.close()
+    
+    due_calls = []
+    for call in calls:
+        # Check time
+        if call['call_date'] < today_str:
+            due_calls.append(call) # Overdue from previous day
+            continue
+            
+        # Parse time
+        try:
+            c_hour, c_min = map(int, call['call_time'].split(':'))
+            call_dt = now.replace(hour=c_hour, minute=c_min, second=0, microsecond=0)
+            
+            # Due window: 10 mins before to infinity (until handled)
+            # "Appears if 10 mins before/after" -> alert logic.
+            # But we want to show anything PENDING that is due or past due.
+            if call_dt <= now + timedelta(minutes=10):
+                due_calls.append(call)
+        except ValueError:
+            pass
+            
+    return due_calls
+
+@app.context_processor
+def inject_alerts():
+    # Only inject if logged in
+    if 'user_id' not in session:
+        return {}
+        
+    # Check if this user should see notifications
+    # Logic: "Notification Routing"
+    # 1. Is user on schedule now?
+    # 2. Does user have 'wakeup_calls' preference enabled?
+    # If yes to both, show.
+    # If no one is on schedule, show to all Front Desk/Night Audit.
+    
+    # We can't easily calculate "no one is on schedule" cheaply in context processor
+    # Simplification: Show to anyone with role Front Desk/Night Audit/Manager who has preference ON.
+    # And maybe prioritized if on schedule.
+    
+    user = get_user_by_id(session['user_id'])
+    if not user: 
+        return {}
+
+    # Check prefs
+    prefs = {}
+    if user['notification_preferences']:
+        try:
+            prefs = json.loads(user['notification_preferences'])
+        except:
+            pass
+            
+    if not prefs.get('wakeup_calls', True): # Default True
+        return {'wakeup_alert_count': 0}
+        
+    # Get count
+    due_calls = get_due_wakeup_calls()
+    return {'wakeup_alert_count': len(due_calls), 'due_wakeup_calls': due_calls}
+
+@app.post("/settings/users/<int:user_id>/reset")
+@manager_required
+def reset_user_password(user_id):
+    new_password = request.form.get('new_password', '').strip()
+    if len(new_password) < 8:
+         return redirect(url_for('settings_page', error="Password too short"))
+         
+    hashed = hash_password(new_password)
+    
+    conn = get_db_connection()
+    conn.execute("""
+        UPDATE users 
+        SET password_hash = ?, force_password_change = 1
+        WHERE id = ?
+    """, (hashed, user_id))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('settings_page', success="Password reset"))
+
+@app.post("/settings/users/<int:user_id>/toggle")
+@manager_required
+def toggle_user_active(user_id):
+    # Prevent deactivating yourself
+    if user_id == session['user_id']:
+        return redirect(url_for('settings_page', error="Cannot deactivate yourself"))
+
+    conn = get_db_connection()
+    user = conn.execute("SELECT is_active FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user:
+        new_status = 0 if user['is_active'] else 1
+        conn.execute("UPDATE users SET is_active = ? WHERE id = ?", (new_status, user_id))
+        conn.commit()
+    conn.close()
+    
+    return redirect(url_for('settings_page'))
+
+@app.post("/settings/preferences")
+@login_required
+def update_preferences():
+    wakeup_notifications = request.form.get('wakeup_calls') == 'on'
+    
+    prefs = {'wakeup_calls': wakeup_notifications}
+    
+    conn = get_db_connection()
+    conn.execute("UPDATE users SET notification_preferences = ? WHERE id = ?", (json.dumps(prefs), session['user_id']))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('settings_page', success="Preferences updated"))
+
+
+# Routes
+@app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
+def login():
+    # If already logged in, redirect to overview
+    if 'user_id' in session:
+        return redirect(url_for('overview'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        # Check lockout
+        if is_account_locked(username):
+             return render_template('login.html', error="Account is temporarily locked. Please try again later.")
+
+        user = verify_user_credentials(username, password)
+
+        if user:
+            # Success
+            reset_login_attempts(username)
+
+            # Regenerate session to prevent session fixation attacks
+            # Save next_page before clearing session
+            next_page = request.args.get('next')
+            session.clear()
+
+            # Set new session data
+            session.permanent = True
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            session['role'] = user['role']
+
+            # Update last login time
+            conn = get_db_connection()
+            conn.execute("UPDATE users SET last_login = ? WHERE id = ?", (datetime.now().isoformat(), user['id']))
+            conn.commit()
+            conn.close()
+
+            # Force password change check
+            if user['force_password_change']:
+                return redirect(url_for('change_password'))
+
+            return redirect(next_page or url_for('overview'))
+        else:
+            # Failed
+            record_failed_login(username)
+            return render_template('login.html', error="Invalid username or password")
+
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/change-password', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("10 per hour")
+def change_password():
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if new_password != confirm_password:
+             return render_template('change_password.html', error="Passwords do not match")
+
+        if len(new_password) < 8:
+             return render_template('change_password.html', error="Password must be at least 8 characters")
+
+        # Validate password complexity
+        if not re.search(r'[A-Z]', new_password):
+            return render_template('change_password.html', error="Password must contain at least one uppercase letter")
+        if not re.search(r'[a-z]', new_password):
+            return render_template('change_password.html', error="Password must contain at least one lowercase letter")
+        if not re.search(r'[0-9]', new_password):
+            return render_template('change_password.html', error="Password must contain at least one number")
+             
+        # Update password
+        hashed = hash_password(new_password)
+        conn = get_db_connection()
+        conn.execute("UPDATE users SET password_hash = ?, force_password_change = 0 WHERE id = ?", (hashed, session['user_id']))
+        conn.commit()
+        conn.close()
+        
+        return redirect(url_for('overview'))
+        
+    return render_template('change_password.html')
 
 
 def parse_db_timestamp(value: str) -> datetime | None:
@@ -654,8 +1229,8 @@ def warn_if_missing_tables():
     missing = sorted(required_tables - existing)
     if missing:
         missing_list = ", ".join(missing)
-        print("WARNING: Missing tables:", missing_list)
-        print("Run: python migrate_add_log_maintenance.py")
+        logger.warning(f"Missing tables: {missing_list}")
+        logger.warning("Run: python migrate_add_log_maintenance.py")
 
 
 def check_expired_bans():
@@ -795,42 +1370,42 @@ def setup():
 
 
 # Routes
-@app.route("/login", methods=["GET", "POST"])
-@limiter.limit("10 per minute")
-def login():
-    if is_setup_required():
-        return redirect(url_for('setup'))
-
-    if request.method == "POST":
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-
-        # Check if account is locked (use a consistent key for lockout)
-        lockout_key = username.lower() if username else "_anonymous_"
-        if is_account_locked(lockout_key):
-            # Return same error as invalid credentials to avoid revealing lockout status
-            return render_template("login.html", error="Invalid username or password")
-
-        # Load credentials from disk to avoid race condition
-        creds = load_credentials()
-        if creds and username == creds['username'] and verify_login_password(password):
-            reset_login_attempts(lockout_key)
-            session['logged_in'] = True
-            session.permanent = True
-            # Store session version to detect password changes
-            session['session_version'] = creds.get('session_version', 1)
-            return redirect(url_for('overview'))
-        else:
-            record_failed_login(lockout_key)
-            return render_template("login.html", error="Invalid username or password")
-
-    return render_template("login.html")
 
 
-@app.get("/logout")
-def logout():
-    session.clear()  # Clear session data
-    return redirect(url_for('login'))
+
+@app.get("/mobile")
+@login_required
+def mobile_dashboard():
+    todays_date = date.today()
+    today_str = todays_date.isoformat()
+    
+    conn = get_db_connection()
+    
+    # Fetch today's schedule
+    schedules = conn.execute("""
+        SELECT s.*, u.username, u.role as user_role 
+        FROM schedules s
+        LEFT JOIN users u ON s.user_id = u.id
+        WHERE s.shift_date = ?
+        ORDER BY s.shift_id
+    """, (today_str,)).fetchall()
+    
+    today_schedule = {1: [], 2: [], 3: []}
+    for s in schedules:
+        name = s['staff_name'] or s['username']
+        role = s['role'] or (s['user_role'].replace('_', ' ').title() if s['user_role'] else 'Staff')
+        today_schedule[s['shift_id']].append({'name': name, 'role': role})
+        
+    # Fetch today's wake-up calls
+    wakeup_calls = conn.execute("""
+        SELECT * FROM wakeup_calls 
+        WHERE call_date = ?
+        ORDER BY call_time ASC
+    """, (today_str,)).fetchall()
+    
+    conn.close()
+    
+    return render_template("mobile/dashboard.html", today_schedule=today_schedule, wakeup_calls=wakeup_calls)
 
 
 @app.get("/")
@@ -905,6 +1480,31 @@ def get_overview_alerts():
         SELECT COUNT(*) AS count FROM maintenance_items
         WHERE status IN ('open', 'in_progress', 'blocked')
     """).fetchone()["count"]
+
+    # Wake-up calls due (same logic as alert helper)
+    # Due now (status='pending' AND call_date/time has passed or is within 10 mins)
+    # Simplified SQL check for polling
+    now = datetime.now()
+    today_str = now.date().isoformat()
+    # Fetch pending for today/past
+    pending_calls = conn.execute("""
+        SELECT * FROM wakeup_calls 
+        WHERE status = 'pending' 
+        AND call_date <= ?
+    """, (today_str,)).fetchall()
+    
+    wakeup_alert_count = 0
+    for call in pending_calls:
+        if call['call_date'] < today_str:
+            wakeup_alert_count += 1
+            continue
+        try:
+            c_hour, c_min = map(int, call['call_time'].split(':'))
+            call_dt = now.replace(hour=c_hour, minute=c_min, second=0, microsecond=0)
+            if call_dt <= now + timedelta(minutes=10):
+                wakeup_alert_count += 1
+        except:
+            pass
     
     conn.close()
 
@@ -913,6 +1513,7 @@ def get_overview_alerts():
         "room_out_of_order_count": room_out_of_order_count,
         "room_use_if_needed_count": room_use_if_needed_count,
         "open_maintenance_count": open_maintenance_count,
+        "wakeup_alert_count": wakeup_alert_count,
         "last_updated": local_timestamp()
     })
 
@@ -1062,16 +1663,24 @@ def add_log_entry():
     note = request.form.get("note", "").strip()[:2000]
     staff_name = request.form.get("staff_name", "").strip()[:100]
     shift_id_str = request.form.get("shift_id", "").strip()
+    is_mobile = request.form.get("is_mobile") == "1"
 
     if not note or not staff_name:
+        if is_mobile:
+            return redirect(url_for("mobile_dashboard", error="Missing note"))
         return redirect(url_for("log_book"))
 
     shift_id = None
     if shift_id_str in ("1", "2", "3"):
         shift_id = int(shift_id_str)
+        
+    if is_mobile:
+        note += "\n\n(Added via mobile)"
 
     insert_log_entry(note, author_name=staff_name, is_system_event=False, shift_id=shift_id)
 
+    if is_mobile:
+        return redirect(url_for("mobile_dashboard", success="Note added"))
     return redirect(url_for("log_book"))
 
 
@@ -2443,7 +3052,7 @@ def upload_photo(record_id):
                 os.remove(filepath)
             except:
                 pass
-        print(f"Upload error: {e}") # Log to console
+        logger.error(f"Upload error: {e}")
         return jsonify({"error": f"Failed to upload: {str(e)}"}), 500
 
 
@@ -2604,11 +3213,7 @@ def get_reasons():
     return jsonify(BAN_REASONS)
 
 
-@app.get("/settings")
-@login_required
-def settings_page():
-    """Settings page for managing credentials."""
-    return render_template("settings.html")
+
 
 
 @app.get("/important-numbers")
@@ -3062,9 +3667,9 @@ if __name__ == "__main__":
     is_production = os.environ.get('FLASK_ENV') == 'production'
 
     if not is_production:
-        print(f"[DEV MODE] Database: {DB_PATH}")
-        print(f"[DEV MODE] Upload folder: {UPLOAD_FOLDER}")
-        print("[DEV MODE] Debug mode enabled - DO NOT USE IN PRODUCTION")
+        logger.info(f"[DEV MODE] Database: {DB_PATH}")
+        logger.info(f"[DEV MODE] Upload folder: {UPLOAD_FOLDER}")
+        logger.warning("[DEV MODE] Debug mode enabled - DO NOT USE IN PRODUCTION")
         warn_if_missing_tables()
 
     # Only enable debug mode in development

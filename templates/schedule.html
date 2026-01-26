@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly Schedule{% endblock %}
+
+{% block page_title %}Weekly Schedule{% endblock %}
+
+{% block page_actions %}
+<div class="week-nav">
+    <a href="{{ url_for('view_schedule', week_start=prev_week_start.isoformat()) }}" class="btn btn-secondary">&larr;
+        Prev Week</a>
+    <span class="current-week-label">Week of {{ current_week_start.strftime('%b %d, %Y') }}</span>
+    <a href="{{ url_for('view_schedule', week_start=next_week_start.isoformat()) }}" class="btn btn-secondary">Next Week
+        &rarr;</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="schedule-container">
+    <div class="schedule-grid">
+        <!-- Header Row -->
+        <div class="schedule-header-cell">Shift</div>
+        {% for day in week_dates %}
+        <div class="schedule-header-cell {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
+            <div class="dow">{{ day.strftime('%A') }}</div>
+            <div class="date">{{ day.strftime('%b %d') }}</div>
+        </div>
+        {% endfor %}
+
+        <!-- Shifts Rows -->
+        {% for shift_id in [1, 2, 3] %}
+        <div class="schedule-shift-label">
+            {% if shift_id == 1 %}Shift 1<br><small>7am - 3pm</small>
+            {% elif shift_id == 2 %}Shift 2<br><small>3pm - 11pm</small>
+            {% elif shift_id == 3 %}Shift 3<br><small>11pm - 7am</small>{% endif %}
+        </div>
+
+        {% for day in week_dates %}
+        <div class="schedule-cell {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
+            {% set day_iso = day.isoformat() %}
+            {% set assignments = schedule_data[day_iso][shift_id] %}
+
+            <div class="assignments-list">
+                {% for assign in assignments %}
+                <div class="assignment-chip">
+                    <div class="assign-info">
+                        <span class="assign-name">{{ assign.name }}</span>
+                        {% if assign.role %}
+                        <span class="assign-role">{{ assign.role }}</span>
+                        {% endif %}
+                    </div>
+                    {% if session.role == 'manager' %}
+                    <form action="{{ url_for('update_schedule') }}" method="POST" class="remove-form"
+                        onsubmit="return confirm('Remove this assignment?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="remove">
+                        <input type="hidden" name="schedule_id" value="{{ assign.id }}">
+                        <input type="hidden" name="week_start" value="{{ current_week_start.isoformat() }}">
+                        <button type="submit" class="btn-remove" title="Remove">&times;</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if session.role == 'manager' %}
+            <button class="btn-add-staff" onclick="openAddModal('{{ day_iso }}', {{ shift_id }})">+</button>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Add Staff Modal -->
+{% if session.role == 'manager' %}
+<div id="addStaffModal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close" onclick="closeAddModal()">&times;</span>
+        <h3>Assign Staff</h3>
+        <p id="modalDateDisplay"></p>
+
+        <form action="{{ url_for('update_schedule') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="add">
+            <input type="hidden" name="week_start" value="{{ current_week_start.isoformat() }}">
+            <input type="hidden" id="modalDate" name="shift_date">
+            <input type="hidden" id="modalShift" name="shift_id">
+
+            <div class="form-group">
+                <label for="user_id">Select User</label>
+                <select id="user_id" name="user_id" onchange="toggleCustomName()">
+                    <option value="">-- Select Registered User --</option>
+                    {% for user in all_users %}
+                    <option value="{{ user.id }}">{{ user.username }} ({{ user.role|replace('_',' ')|title }})</option>
+                    {% endfor %}
+                    <option value="custom">Other / Housekeeping...</option>
+                </select>
+            </div>
+
+            <div class="form-group hidden" id="customNameGroup">
+                <label for="custom_name">Staff Name (Non-user)</label>
+                <input type="text" id="custom_name" name="custom_name" placeholder="E.g. Housekeeping A">
+            </div>
+
+            <div class="form-group">
+                <label for="role">Role Override (Optional)</label>
+                <input type="text" id="role" name="role" placeholder="E.g. Supervisor, Cleaner">
+            </div>
+
+            <div class="form-group">
+                <label for="note">Note (Optional)</label>
+                <input type="text" id="note" name="note" placeholder="Shift note">
+            </div>
+
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary">Assign</button>
+                <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openAddModal(dateIso, shiftId) {
+        document.getElementById('modalDate').value = dateIso;
+        document.getElementById('modalShift').value = shiftId;
+
+        // Format date for display
+        const dateObj = new Date(dateIso + "T00:00:00"); // Append time to avoid timezone shift
+        const options = { weekday: 'long', month: 'short', day: 'numeric' };
+        document.getElementById('modalDateDisplay').textContent = dateObj.toLocaleDateString(undefined, options) + " - Shift " + shiftId;
+
+        document.getElementById('addStaffModal').classList.add('active');
+        toggleCustomName(); // Reset state
+    }
+
+    function closeAddModal() {
+        document.getElementById('addStaffModal').classList.remove('active');
+    }
+
+    function toggleCustomName() {
+        const select = document.getElementById('user_id');
+        const customGroup = document.getElementById('customNameGroup');
+        if (select.value === 'custom' || select.value === '') {
+            customGroup.classList.remove('hidden');
+        } else {
+            customGroup.classList.add('hidden');
+            document.getElementById('custom_name').value = '';
+        }
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function (event) {
+        var modal = document.getElementById('addStaffModal');
+        if (event.target == modal) {
+            modal.classList.remove('active');
+        }
+    }
+</script>
+{% endif %}
+
+{% endblock %}

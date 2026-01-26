@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Mobile Dashboard{% endblock %}
+
+{% block page_title %}Mobile Dashboard{% endblock %}
+
+{% block content %}
+<div class="mobile-container">
+
+    <!-- Quick Actions -->
+    <div class="card mobile-card">
+        <h3>Add Shift Note</h3>
+        <form action="{{ url_for('add_log_entry') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="is_mobile" value="1">
+            <input type="hidden" name="staff_name" value="{{ current_user.username }}">
+
+            <div class="form-group">
+                <textarea name="note" rows="3" required placeholder="Type note here..." class="mobile-input"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Add Note</button>
+        </form>
+    </div>
+
+    <!-- Today's Schedule -->
+    <div class="card mobile-card">
+        <h3>Today's Schedule</h3>
+        <div class="mobile-schedule-list">
+            {% for shift_id in [1, 2, 3] %}
+            <div class="mobile-shift-item">
+                <div class="shift-header">Shift {{ shift_id }}</div>
+                <div class="shift-staff">
+                    {% if today_schedule[shift_id] %}
+                    {% for staff in today_schedule[shift_id] %}
+                    <div class="staff-chip">{{ staff.name }} ({{ staff.role }})</div>
+                    {% endfor %}
+                    {% else %}
+                    <span class="text-muted">No staff assigned</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="text-center mt-2">
+            <a href="{{ url_for('view_schedule') }}" class="btn-link">View Full Week</a>
+        </div>
+    </div>
+
+    <!-- Wake-up Calls -->
+    <div class="card mobile-card">
+        <h3>Wake-up Calls (Today)</h3>
+        <div class="mobile-list">
+            {% for call in wakeup_calls %}
+            <div class="mobile-list-item {% if call.status == 'pending' %}pending{% endif %}">
+                <div class="item-main">
+                    <span class="item-room">Room {{ call.room_number }}</span>
+                    <span class="item-time">{{ call.call_time }}</span>
+                </div>
+                <div class="item-status">
+                    <span class="status-badge {{ call.status }}">{{ call.status }}</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-muted text-center">No calls for today.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .mobile-container {
+        max-width: 600px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .mobile-card {
+        padding: 16px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .mobile-input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 16px;
+    }
+
+    .btn-block {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px;
+    }
+
+    .mobile-schedule-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .mobile-shift-item {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 8px;
+    }
+
+    .mobile-shift-item:last-child {
+        border-bottom: none;
+    }
+
+    .shift-header {
+        font-weight: bold;
+        font-size: 0.9em;
+        color: #666;
+        margin-bottom: 4px;
+    }
+
+    .staff-chip {
+        background: #e3f2fd;
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.9em;
+        margin-right: 4px;
+        margin-bottom: 4px;
+    }
+
+    .mobile-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .mobile-list-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px;
+        background: #f9f9f9;
+        border-radius: 6px;
+    }
+
+    .mobile-list-item.pending {
+        border-left: 3px solid var(--primary-color);
+        background: #fff;
+        border: 1px solid #eee;
+        border-left: 3px solid var(--primary-color);
+    }
+
+    .item-room {
+        font-weight: bold;
+    }
+
+    .item-time {
+        font-family: monospace;
+        font-size: 1.1em;
+    }
+</style>
+{% endblock %}

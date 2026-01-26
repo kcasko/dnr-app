@@ -2,224 +2,268 @@
 
 {% block title %}Settings{% endblock %}
 
-{% block page_title %}System Settings{% endblock %}
-
-{% block page_subtitle %}
-<div class="page-subtitle">Manage Passwords and Credentials</div>
-{% endblock %}
+{% block page_title %}Settings{% endblock %}
 
 {% block content %}
-<div class="settings-page">
-    <div class="settings-card">
-        <h2>Change Login Credentials</h2>
-        <p class="settings-description">Update the username and password used to access the system.</p>
+<div class="settings-container">
 
-        <form id="loginForm" onsubmit="updateLoginCredentials(event)">
-            <div class="form-group">
-                <label>New Username *</label>
-                <input type="text" name="username" required placeholder="Enter new username" autocomplete="off">
-            </div>
-
-            <div class="form-group">
-                <label>New Password *</label>
-                <input type="password" name="password" required placeholder="Min 8 chars, upper/lower/number" autocomplete="new-password" minlength="8">
-            </div>
-
-            <div class="form-group">
-                <label>Confirm Password *</label>
-                <input type="password" name="confirm_password" required placeholder="Re-enter new password" autocomplete="new-password">
-            </div>
-
-            <div class="form-group">
-                <label>Current Password (to confirm changes) *</label>
-                <input type="password" name="current_password" required placeholder="Enter current password" autocomplete="current-password">
-            </div>
-
-            <button type="submit" class="btn btn-primary">Update Login Credentials</button>
-        </form>
+    <div class="tabs">
+        <button class="tab-link active" onclick="openTab(event, 'MySettings')">My Settings</button>
+        {% if session.role == 'manager' %}
+        <button class="tab-link" onclick="openTab(event, 'UserManagement')">User Management</button>
+        {% endif %}
     </div>
 
-    <div class="settings-card">
-        <h2>Change Manager Password</h2>
-        <p class="settings-description">Update the password required to lift bans. This is separate from login credentials.</p>
+    <!-- My Settings Tab -->
+    <div id="MySettings" class="tab-content active-tab">
+        <div class="card">
+            <h3>Preferences</h3>
+            <form action="{{ url_for('update_preferences') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        <form id="managerForm" onsubmit="updateManagerPassword(event)">
-            <div class="form-group">
-                <label>New Manager Password *</label>
-                <input type="password" name="new_manager_password" required placeholder="Min 8 chars, upper/lower/number" autocomplete="new-password" minlength="8">
-            </div>
+                <div class="form-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" name="wakeup_calls" {% if current_user.notification_preferences
+                            and 'true' in current_user.notification_preferences %}checked{% endif %}>
+                        <span class="checkmark"></span>
+                        Enable Wake-up Call Notifications (on active shift)
+                    </label>
+                    <small class="form-hint">You will only be notified if you are working the current shift.</small>
+                </div>
 
-            <div class="form-group">
-                <label>Confirm Manager Password *</label>
-                <input type="password" name="confirm_manager_password" required placeholder="Re-enter new manager password" autocomplete="new-password">
-            </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Preferences</button>
+                </div>
+            </form>
+        </div>
 
-            <div class="form-group">
-                <label>Current Login Password (to confirm changes) *</label>
-                <input type="password" name="current_password" required placeholder="Enter your login password" autocomplete="current-password">
-            </div>
-
-            <button type="submit" class="btn btn-primary">Update Manager Password</button>
-        </form>
+        <div class="card card-mt">
+            <h3>Security</h3>
+            <p>Update your password regularly to keep your account secure.</p>
+            <a href="{{ url_for('change_password') }}" class="btn btn-secondary">Change Password</a>
+        </div>
     </div>
 
-    <div class="settings-info">
-        <h3>Important Security Notes</h3>
-        <ul>
-            <li><strong>Login Credentials:</strong> Used to access the DNR system. This protects all data and functionality.</li>
-            <li><strong>Manager Password:</strong> Required to lift bans. Keep this separate and secure.</li>
-            <li><strong>Keep passwords secure:</strong> Use strong, unique passwords for both credentials.</li>
-            <li><strong>You will be logged out:</strong> After changing login credentials, you'll need to log in again with the new username and password.</li>
-        </ul>
+    <!-- User Management Tab (Manager Only) -->
+    {% if session.role == 'manager' %}
+    <div id="UserManagement" class="tab-content">
+
+        <!-- Add User Card -->
+        <div class="card">
+            <h3>Add New User</h3>
+            <form action="{{ url_for('add_user') }}" method="POST" class="inline-form" onsubmit="return validatePasswordStrength(event)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required minlength="3" placeholder="jdoe">
+                </div>
+
+                <div class="form-group">
+                    <label for="role">Role</label>
+                    <select id="role" name="role">
+                        <option value="front_desk">Front Desk</option>
+                        <option value="night_audit">Night Audit</option>
+                        <option value="manager">Manager</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Temporary Password</label>
+                    <input type="password" id="password" name="password" required minlength="8" placeholder="********" oninput="validatePassword(this)">
+                    <small class="form-hint">
+                        Must be at least 8 characters with uppercase, lowercase, and numbers
+                    </small>
+                    <div id="password-strength" class="hidden">
+                        <span id="strength-upper" class="strength-req">✗ Uppercase</span>
+                        <span id="strength-lower" class="strength-req">✗ Lowercase</span>
+                        <span id="strength-number" class="strength-req">✗ Number</span>
+                        <span id="strength-length" class="strength-req">✗ 8+ chars</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="create-user-btn">Create User</button>
+            </form>
+        </div>
+
+        <!-- User List -->
+        <div class="card card-mt">
+            <h3>Active Users</h3>
+
+            {% if request.args.get('success') %}
+            <div class="alert alert-success">{{ request.args.get('success') }}</div>
+            {% endif %}
+            {% if request.args.get('error') %}
+            <div class="alert alert-danger">{{ request.args.get('error') }}</div>
+            {% endif %}
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr class="{% if not user.is_active %}inactive-row{% endif %}">
+                            <td>{{ user.username }}</td>
+                            <td><span class="badge badge-role">{{ user.role|replace('_', ' ')|title }}</span></td>
+                            <td>
+                                {% if user.is_active %}
+                                <span class="status-indicator status-active">Active</span>
+                                {% else %}
+                                <span class="status-indicator status-inactive">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.last_login %}
+                                {{ user.last_login[:16].replace('T', ' ') }}
+                                {% else %}
+                                <span class="text-muted">Never</span>
+                                {% endif %}
+                            </td>
+                            <td class="actions-cell">
+                                {% if user.id != session.user_id %}
+                                <form action="{{ url_for('toggle_user_active', user_id=user.id) }}" method="POST"
+                                    class="inline-form" onsubmit="return confirm('Are you sure?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-icon"
+                                        title="{% if user.is_active %}Deactivate{% else %}Activate{% endif %}">
+                                        {% if user.is_active %}❌{% else %}✅{% endif %}
+                                    </button>
+                                </form>
+                                <button type="button" class="btn-icon"
+                                    onclick="openResetModal('{{ user.id }}', '{{ user.username }}')"
+                                    title="Reset Password">
+                                    🔑
+                                </button>
+                                {% else %}
+                                <span class="text-muted">(You)</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Reset Password Modal -->
+<div id="resetModal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close" onclick="closeResetModal()">&times;</span>
+        <h3>Reset Password for <span id="resetUsername"></span></h3>
+        <p>Enter a new temporary password. The user will be forced to change it on next login.</p>
+
+        <form id="resetForm" action="" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="new_password">New Temporary Password</label>
+                <input type="password" id="new_password" name="new_password" required minlength="8">
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-warning">Reset Password</button>
+                <button type="button" class="btn btn-secondary" onclick="closeResetModal()">Cancel</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- Toast Notification -->
-<div class="toast" id="toast"></div>
-{% endblock %}
-
-{% block extra_js %}
 <script>
-let csrfToken = null;
-
-// Get CSRF token on page load
-async function getCsrfToken() {
-    try {
-        const res = await fetch('/api/csrf-token');
-        const data = await res.json();
-        csrfToken = data.csrf_token;
-    } catch (err) {
-        console.error('Failed to get CSRF token');
-    }
-}
-
-// Helper to get headers with CSRF token
-function getHeaders() {
-    const headers = { 'Content-Type': 'application/json' };
-    if (csrfToken) headers['X-CSRFToken'] = csrfToken;
-    return headers;
-}
-
-function showToast(message, type = 'info') {
-    const toast = document.getElementById('toast');
-    toast.textContent = message;
-    toast.className = 'toast ' + type + ' visible';
-    setTimeout(() => {
-        toast.classList.remove('visible');
-    }, 3000);
-}
-
-async function updateManagerPassword(e) {
-    e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
-
-    const newPassword = formData.get('new_manager_password');
-    const confirmPassword = formData.get('confirm_manager_password');
-    const currentPassword = formData.get('current_password');
-
-    if (newPassword !== confirmPassword) {
-        showToast('Manager passwords do not match', 'error');
-        return;
+    function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].classList.remove("active-tab");
+        }
+        tablinks = document.getElementsByClassName("tab-link");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].classList.remove("active");
+        }
+        document.getElementById(tabName).classList.add("active-tab");
+        evt.currentTarget.classList.add("active");
     }
 
-    if (newPassword.length < 8) {
-        showToast('Manager password must be at least 8 characters', 'error');
-        return;
+    function openResetModal(userId, username) {
+        document.getElementById('resetUsername').textContent = username;
+        document.getElementById('resetForm').action = "/settings/users/" + userId + "/reset";
+        document.getElementById('resetModal').classList.add('active');
     }
 
-    // Password strength check
-    const hasUpper = /[A-Z]/.test(newPassword);
-    const hasLower = /[a-z]/.test(newPassword);
-    const hasDigit = /[0-9]/.test(newPassword);
-    if (!hasUpper || !hasLower || !hasDigit) {
-        showToast('Manager password must contain uppercase, lowercase, and numbers', 'error');
-        return;
+    function closeResetModal() {
+        document.getElementById('resetModal').classList.remove('active');
     }
 
-    try {
-        const res = await fetch('/api/settings/manager-password', {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify({
-                new_manager_password: newPassword,
-                confirm_manager_password: confirmPassword,
-                current_password: currentPassword
-            })
-        });
+    // Close modal when clicking outside
+    window.onclick = function (event) {
+        var modal = document.getElementById('resetModal');
+        if (event.target == modal) {
+            modal.classList.remove('active');
+        }
+    }
 
-        const result = await res.json();
+    function validatePassword(input) {
+        const password = input.value;
+        const strengthDiv = document.getElementById('password-strength');
+        const submitBtn = document.getElementById('create-user-btn');
 
-        if (!res.ok) {
-            showToast(result.error || 'Failed to update manager password', 'error');
+        if (password.length === 0) {
+            strengthDiv.classList.add('hidden');
             return;
         }
 
-        showToast('Manager password updated successfully!', 'success');
-        form.reset();
-    } catch (err) {
-        showToast('Failed to update manager password', 'error');
-    }
-}
+        strengthDiv.classList.remove('hidden');
 
-async function updateLoginCredentials(e) {
-    e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
+        // Check requirements
+        const hasUpper = /[A-Z]/.test(password);
+        const hasLower = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasLength = password.length >= 8;
 
-    const username = formData.get('username');
-    const password = formData.get('password');
-    const confirmPassword = formData.get('confirm_password');
-    const currentPassword = formData.get('current_password');
+        // Update UI
+        updateReq('strength-upper', hasUpper);
+        updateReq('strength-lower', hasLower);
+        updateReq('strength-number', hasNumber);
+        updateReq('strength-length', hasLength);
 
-    if (password !== confirmPassword) {
-        showToast('Passwords do not match', 'error');
-        return;
+        // Enable/disable submit
+        const allValid = hasUpper && hasLower && hasNumber && hasLength;
+        submitBtn.disabled = !allValid;
     }
 
-    if (password.length < 8) {
-        showToast('Password must be at least 8 characters', 'error');
-        return;
-    }
-
-    // Password strength check
-    const hasUpper = /[A-Z]/.test(password);
-    const hasLower = /[a-z]/.test(password);
-    const hasDigit = /[0-9]/.test(password);
-    if (!hasUpper || !hasLower || !hasDigit) {
-        showToast('Password must contain uppercase, lowercase, and numbers', 'error');
-        return;
-    }
-
-    try {
-        const res = await fetch('/api/settings/login', {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify({
-                username: username,
-                password: password,
-                confirm_password: confirmPassword,
-                current_password: currentPassword
-            })
-        });
-
-        const result = await res.json();
-
-        if (!res.ok) {
-            showToast(result.error || 'Failed to update credentials', 'error');
-            return;
+    function updateReq(id, valid) {
+        const elem = document.getElementById(id);
+        if (valid) {
+            elem.textContent = elem.textContent.replace('✗', '✓');
+            elem.style.color = 'green';
+        } else {
+            elem.textContent = elem.textContent.replace('✓', '✗');
+            elem.style.color = 'red';
         }
-
-        showToast('Login credentials updated successfully! Redirecting to login...', 'success');
-        setTimeout(() => {
-            window.location.href = '/logout';
-        }, 2000);
-    } catch (err) {
-        showToast('Failed to update credentials', 'error');
     }
-}
 
-// Initialize CSRF token
-getCsrfToken();
+    function validatePasswordStrength(event) {
+        const password = document.getElementById('password').value;
+        const hasUpper = /[A-Z]/.test(password);
+        const hasLower = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasLength = password.length >= 8;
+
+        if (!hasUpper || !hasLower || !hasNumber || !hasLength) {
+            alert('Password must contain uppercase, lowercase, number, and be at least 8 characters');
+            event.preventDefault();
+            return false;
+        }
+        return true;
+    }
 </script>
 {% endblock %}

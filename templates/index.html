@@ -650,7 +650,7 @@
                         </div>
                     </div>
 
-                    <div class="form-group" id="expirationDateField" style="display: none;">
+                    <div class="form-group hidden" id="expirationDateField">
                         <label>Expiration Date</label>
                         <input type="date" name="expiration_date" placeholder="Select expiration date"
                             title="Expiration Date">
@@ -785,7 +785,7 @@
     function openAddModal() {
         document.getElementById('addForm').reset();
         document.getElementById('expirationFields').classList.remove('visible');
-        document.getElementById('expirationDateField').style.display = 'none';
+        document.getElementById('expirationDateField').classList.add('hidden');
         openModal('addModal');
     }
 
@@ -799,7 +799,7 @@
         } else {
             expirationFields.classList.remove('visible');
             document.querySelectorAll('input[name="expiration_type"]').forEach(r => r.checked = false);
-            document.getElementById('expirationDateField').style.display = 'none';
+            document.getElementById('expirationDateField').classList.add('hidden');
         }
     }
 
@@ -808,9 +808,9 @@
         const dateField = document.getElementById('expirationDateField');
 
         if (expType && expType.value === 'date') {
-            dateField.style.display = 'block';
+            dateField.classList.remove('hidden');
         } else {
-            dateField.style.display = 'none';
+            dateField.classList.add('hidden');
         }
     }
 
@@ -1072,7 +1072,7 @@
                     </div>
                     <div class="form-group">
                         <label>Manager Initials *</label>
-                        <input type="text" name="initials" required placeholder="e.g., JD" maxlength="5" style="width: 100px;">
+                        <input type="text" name="initials" required placeholder="e.g., JD" maxlength="5" class="input-initials">
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-destructive">Lift Ban</button>
@@ -1129,7 +1129,7 @@
             <div class="detail-section">
                 <h3>Incident Timeline</h3>
                 <div class="timeline">
-                    ${timelineHtml || '<p style="color: var(--text-muted);">No timeline entries.</p>'}
+                    ${timelineHtml || '<p class="timeline-empty">No timeline entries.</p>'}
                 </div>
                 ${addNoteHtml}
             </div>

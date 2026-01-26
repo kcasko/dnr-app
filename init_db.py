@@ -321,6 +321,79 @@ def init_db():
     cursor.execute("CREATE INDEX idx_how_to_guides_title ON how_to_guides(title)")
     cursor.execute("CREATE INDEX idx_food_local_spots_name ON food_local_spots(name)")
 
+    # ----------------------------------------------------
+    # V2 Tables (Auth, Schedule, Wake-up Calls)
+    # ----------------------------------------------------
+
+    # Users
+    cursor.execute("""
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL CHECK(role IN ('manager', 'front_desk', 'night_audit')),
+            is_active INTEGER DEFAULT 1,
+            force_password_change INTEGER DEFAULT 0,
+            notification_preferences TEXT DEFAULT '{"wakeup_calls": true}',
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
+            last_login TIMESTAMP
+        )
+    """)
+
+    # Schedules
+    cursor.execute("""
+        CREATE TABLE schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            staff_name TEXT,
+            shift_date TEXT NOT NULL,
+            shift_id INTEGER NOT NULL CHECK(shift_id IN (1, 2, 3)),
+            role TEXT,
+            note TEXT,
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+    # Unique constraint on staff name per shift to prevent accidental dupes (e.g. adding 'John' twice to Shift 1)
+    cursor.execute("CREATE UNIQUE INDEX idx_schedules_unique_staff ON schedules(shift_date, shift_id, staff_name)")
+    cursor.execute("CREATE INDEX idx_schedules_date ON schedules(shift_date)")
+
+    # Wake-up Calls
+    cursor.execute("""
+        CREATE TABLE wakeup_calls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            room_number TEXT NOT NULL,
+            call_date TEXT NOT NULL,
+            call_time TEXT NOT NULL,
+            frequency TEXT DEFAULT 'once',
+            request_source TEXT,
+            status TEXT CHECK(status IN ('pending', 'completed', 'failed', 'cancelled')) DEFAULT 'pending',
+            logged_by_user_id INTEGER,
+            completed_by_user_id INTEGER,
+            outcome_note TEXT,
+            is_mobile_entry INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime')),
+            updated_at TIMESTAMP,
+            FOREIGN KEY (logged_by_user_id) REFERENCES users(id),
+            FOREIGN KEY (completed_by_user_id) REFERENCES users(id)
+        )
+    """)
+    cursor.execute("CREATE INDEX idx_wakeup_status ON wakeup_calls(status)")
+    cursor.execute("CREATE INDEX idx_wakeup_date_time ON wakeup_calls(call_date, call_time)")
+
+    # Login attempts tracking
+    cursor.execute("""
+        CREATE TABLE login_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            attempt_count INTEGER DEFAULT 0,
+            locked_until TIMESTAMP,
+            last_attempt TIMESTAMP DEFAULT (datetime('now','localtime')),
+            created_at TIMESTAMP DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    cursor.execute("CREATE UNIQUE INDEX idx_login_attempts_username ON login_attempts(username)")
+
     conn.commit()
     conn.close()
     print(f"Database initialized at: {DB_PATH}")

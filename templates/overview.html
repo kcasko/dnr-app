@@ -14,9 +14,20 @@
 <div class="overview-alerts-section">
     <h2 class="section-heading">Attention Needed</h2>
     <div class="alert-cards-grid">
+        <!-- Urgent: Wake-up Calls -->
+        <a href="/wakeup-calls" class="alert-card-link{% if not wakeup_alert_count or wakeup_alert_count==0 %} hidden{% endif %}" id="card-wakeup">
+            <div class="alert-card alert-card-critical">
+                <div class="alert-card-icon"><span class="icon-dot-critical"></span></div>
+                <div class="alert-card-content">
+                    <div class="alert-card-label">Wake-up Calls Due</div>
+                    <div class="alert-card-count stat-number-heavy" id="count-wakeup">{{ wakeup_alert_count }}</div>
+                    <div class="alert-card-action">View Calls →</div>
+                </div>
+            </div>
+        </a>
+
         <!-- Critical: Rooms Out of Order -->
-        <a href="/room-issues" class="alert-card-link" id="card-ooo" {% if room_out_of_order_count==0
-            %}style="display: none" {% endif %}>
+        <a href="/room-issues" class="alert-card-link{% if room_out_of_order_count==0 %} hidden{% endif %}" id="card-ooo">
             <div class="alert-card alert-card-critical">
                 <div class="alert-card-icon"><span class="icon-dot-critical"></span></div>
                 <div class="alert-card-content">
@@ -28,8 +39,7 @@
         </a>
 
         <!-- Warning: Rooms Use If Needed -->
-        <a href="/room-issues" class="alert-card-link" id="card-uin" {% if room_use_if_needed_count==0
-            %}style="display: none" {% endif %}>
+        <a href="/room-issues" class="alert-card-link{% if room_use_if_needed_count==0 %} hidden{% endif %}" id="card-uin">
             <div class="alert-card alert-card-warning">
                 <div class="alert-card-icon"><span class="icon-dot-warning"></span></div>
                 <div class="alert-card-content">
@@ -129,14 +139,21 @@
             const cardOOO = document.getElementById('card-ooo');
             if (countOOO && cardOOO) {
                 countOOO.textContent = data.room_out_of_order_count;
-                cardOOO.style.display = data.room_out_of_order_count > 0 ? 'block' : 'none';
+                cardOOO.classList.toggle('hidden', data.room_out_of_order_count === 0);
+            }
+
+            const countWakeup = document.getElementById('count-wakeup');
+            const cardWakeup = document.getElementById('card-wakeup');
+            if (countWakeup && cardWakeup) {
+                countWakeup.textContent = data.wakeup_alert_count;
+                cardWakeup.classList.toggle('hidden', data.wakeup_alert_count === 0);
             }
 
             const countUIN = document.getElementById('count-uin');
             const cardUIN = document.getElementById('card-uin');
             if (countUIN && cardUIN) {
                 countUIN.textContent = data.room_use_if_needed_count;
-                cardUIN.style.display = data.room_use_if_needed_count > 0 ? 'block' : 'none';
+                cardUIN.classList.toggle('hidden', data.room_use_if_needed_count === 0);
             }
 
             const countDNR = document.getElementById('count-dnr');
@@ -165,171 +182,4 @@
 </script>
 {% endblock %}
 
-{% block extra_css %}
-<style>
-    /* Overview Page Specific Styles */
-    .overview-alerts-section,
-    .overview-awareness-section,
-    .overview-feed-section,
-    .overview-notices-section {
-        background: var(--bg-white);
-        border-radius: 8px;
-        padding: 24px;
-        margin-bottom: 24px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    }
-
-    .section-heading {
-        margin: 0 0 12px 0;
-        font-size: 18px;
-        font-weight: 700;
-        color: var(--text-dark);
-    }
-
-    .section-description {
-        margin: 0 0 16px 0;
-        font-size: 14px;
-        color: var(--text-muted);
-    }
-
-    /* Alert Cards Grid */
-    .alert-cards-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 16px;
-    }
-
-    .alert-card-link {
-        text-decoration: none;
-        display: block;
-        transition: transform 0.2s;
-    }
-
-    .alert-card-link:hover {
-        transform: translateY(-2px);
-    }
-
-    .alert-card {
-        padding: 20px;
-        border-radius: 8px;
-        border: 2px solid;
-        display: flex;
-        gap: 16px;
-        align-items: flex-start;
-        min-height: 120px;
-    }
-
-    .alert-card-critical {
-        background: rgba(196, 69, 54, 0.05);
-        border-color: rgba(196, 69, 54, 0.4);
-    }
-
-    .alert-card-warning {
-        background: rgba(201, 162, 39, 0.08);
-        border-color: rgba(201, 162, 39, 0.5);
-    }
-
-    .alert-card-info {
-        background: var(--bg-light);
-        border-color: var(--border-light);
-    }
-
-    .alert-card-icon {
-        font-size: 32px;
-        line-height: 1;
-    }
-
-    .alert-card-content {
-        flex: 1;
-    }
-
-    .alert-card-label {
-        font-size: 13px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
-    }
-
-    .alert-card-critical .alert-card-label {
-        color: #7a2017;
-    }
-
-    .alert-card-warning .alert-card-label {
-        color: #7a5e00;
-    }
-
-    .alert-card-info .alert-card-label {
-        color: var(--text-muted);
-    }
-
-    .alert-card-count {
-        font-size: 36px;
-        font-weight: 700;
-        line-height: 1;
-        margin-bottom: 12px;
-    }
-
-    .alert-card-critical .alert-card-count {
-        color: var(--danger);
-    }
-
-    .alert-card-warning .alert-card-count {
-        color: var(--accent-gold);
-    }
-
-    .alert-card-info .alert-card-count {
-        color: var(--primary-purple);
-    }
-
-    .alert-card-action {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--primary-purple);
-    }
-
-    /* Feed Styles */
-    .overview-feed,
-    .notices-feed {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-    }
-
-    .feed-item,
-    .notice-item {
-        padding: 16px;
-        background: var(--bg-light);
-        border-radius: 6px;
-        border-left: 3px solid var(--primary-purple);
-    }
-
-    .feed-item-time,
-    .notice-item-meta {
-        font-size: 12px;
-        color: var(--text-muted);
-        margin-bottom: 6px;
-    }
-
-    .feed-item-text,
-    .notice-item-text {
-        font-size: 14px;
-        color: var(--text-dark);
-    }
-
-    .feed-action {
-        margin-top: 8px;
-        text-align: center;
-    }
-
-    .empty-state-compact {
-        text-align: center;
-        padding: 40px 20px;
-        color: var(--text-muted);
-    }
-
-    .empty-state-compact p {
-        margin: 0;
-    }
-</style>
 {% endblock %}
