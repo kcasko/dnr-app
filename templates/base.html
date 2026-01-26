@@ -24,6 +24,7 @@
                 <img src="/static/sleep_inn_logo.png" alt="Sleep Inn Logo" class="app-header-logo">
             </div>
             <div class="app-header-nav">
+                <a href="/overview" class="app-header-link">Overview</a>
                 <a href="/wakeup-calls"
                     class="app-header-link {% if wakeup_alert_count and wakeup_alert_count > 0 %}alert-link{% endif %}">
                     {% if wakeup_alert_count and wakeup_alert_count > 0 %}🔔{% endif %} Calls
@@ -32,7 +33,6 @@
                     {% endif %}
                 </a>
                 <a href="/schedule" class="app-header-link">Schedule</a>
-                <a href="/overview" class="app-header-link">Overview</a>
                 <a href="/settings" class="app-header-link">Settings</a>
                 <a href="/logout" class="app-header-link app-header-link-logout">Logout</a>
             </div>
