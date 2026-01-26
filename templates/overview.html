@@ -15,7 +15,9 @@
     <h2 class="section-heading">Attention Needed</h2>
     <div class="alert-cards-grid">
         <!-- Urgent: Wake-up Calls -->
-        <a href="/wakeup-calls" class="alert-card-link{% if not wakeup_alert_count or wakeup_alert_count==0 %} hidden{% endif %}" id="card-wakeup">
+        <a href="/wakeup-calls"
+            class="alert-card-link{% if not wakeup_alert_count or wakeup_alert_count==0 %} hidden{% endif %}"
+            id="card-wakeup">
             <div class="alert-card alert-card-critical">
                 <div class="alert-card-icon"><span class="icon-dot-critical"></span></div>
                 <div class="alert-card-content">
@@ -27,7 +29,8 @@
         </a>
 
         <!-- Critical: Rooms Out of Order -->
-        <a href="/room-issues" class="alert-card-link{% if room_out_of_order_count==0 %} hidden{% endif %}" id="card-ooo">
+        <a href="/room-issues" class="alert-card-link{% if room_out_of_order_count==0 %} hidden{% endif %}"
+            id="card-ooo">
             <div class="alert-card alert-card-critical">
                 <div class="alert-card-icon"><span class="icon-dot-critical"></span></div>
                 <div class="alert-card-content">
@@ -39,7 +42,8 @@
         </a>
 
         <!-- Warning: Rooms Use If Needed -->
-        <a href="/room-issues" class="alert-card-link{% if room_use_if_needed_count==0 %} hidden{% endif %}" id="card-uin">
+        <a href="/room-issues" class="alert-card-link{% if room_use_if_needed_count==0 %} hidden{% endif %}"
+            id="card-uin">
             <div class="alert-card alert-card-warning">
                 <div class="alert-card-icon"><span class="icon-dot-warning"></span></div>
                 <div class="alert-card-content">
@@ -180,6 +184,4 @@
     // Start polling
     setInterval(updateOverviewStats, REFRESH_INTERVAL_MS);
 </script>
-{% endblock %}
-
 {% endblock %}

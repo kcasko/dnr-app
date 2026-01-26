@@ -1379,19 +1379,27 @@ def setup():
 def overview():
     conn = get_db_connection()
     
-    # 1. Room Issues Counts
+    # 1. Alert Counts
+    # Wakeups
+    today_str = date.today().isoformat()
+    wakeup_alert_count = conn.execute("""
+        SELECT COUNT(*) FROM wakeup_calls 
+        WHERE call_date = ? AND status = 'pending'
+    """, (today_str,)).fetchone()[0]
+
+    # Room Issues
     ooo_count = conn.execute("SELECT COUNT(*) FROM room_issues WHERE status = 'out_of_order' AND state = 'active'").fetchone()[0]
     uin_count = conn.execute("SELECT COUNT(*) FROM room_issues WHERE status = 'use_if_needed' AND state = 'active'").fetchone()[0]
     
-    # 2. Maintenance High Priority Count
-    maint_count = conn.execute("SELECT COUNT(*) FROM maintenance_items WHERE status IN ('open', 'in_progress') AND priority IN ('high', 'urgent')").fetchone()[0]
+    # DNR
+    active_dnr_count = conn.execute("SELECT COUNT(*) FROM records WHERE status = 'active'").fetchone()[0]
+
+    # Maintenance (Open)
+    open_maintenance_count = conn.execute("SELECT COUNT(*) FROM maintenance_items WHERE status IN ('open', 'in_progress', 'blocked')").fetchone()[0]
     
-    # 3. Active Announcements
+    # 2. Active Announcements
     now = datetime.now()
-    # Handle both string and datetime objects for comparison binding if needed, 
-    # but SQLite usually expects strings for timestamps.
     now_str = now.isoformat()
-    
     announcements = conn.execute("""
         SELECT * FROM staff_announcements 
         WHERE is_active = 1 
@@ -1400,15 +1408,17 @@ def overview():
         ORDER BY created_at DESC
     """, (now_str, now_str)).fetchall()
     
-    # 4. Recent Activity Feed (Logs + System Events)
-    feed = conn.execute("""
+    # 3. Recent Activity Feed (Logs)
+    # Filter for non-system events if that's what the template expects? 
+    # Template calls it 'recent_notes' and iterates.
+    recent_notes = conn.execute("""
         SELECT * FROM log_entries 
+        WHERE is_system_event = 0
         ORDER BY created_at DESC 
         LIMIT 20
     """).fetchall()
     
-    # 5. Shift Schedule for Today
-    today_str = date.today().isoformat()
+    # 4. Shift Schedule (if used, but template doesn't seem to use 'shifts' variable in the section I saw, but let's keep it just in case)
     shifts = conn.execute("""
         SELECT s.*, u.username 
         FROM schedules s
@@ -1421,12 +1431,20 @@ def overview():
     
     return render_template(
         "overview.html",
+        # Alerts
+        wakeup_alert_count=wakeup_alert_count,
         room_out_of_order_count=ooo_count,
         room_use_if_needed_count=uin_count,
-        maintenance_critical_count=maint_count,
+        
+        # Awareness
+        active_dnr_count=active_dnr_count,
+        open_maintenance_count=open_maintenance_count,
+        
+        # Content
         announcements=announcements,
-        feed=feed,
-        shifts=shifts
+        recent_notes=recent_notes,
+        shifts=shifts,
+        last_updated=now.strftime("%Y-%m-%d %H:%M:%S")
     )
 
 
