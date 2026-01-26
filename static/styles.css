@@ -214,7 +214,7 @@ body {
 /* Page Header Pattern */
 .page-header {
     background: var(--bg-white);
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 2px solid var(--border-light);
     padding: 20px 32px;
     margin-bottom: 24px;
 }
@@ -236,7 +236,7 @@ body {
     margin: 0;
     font-size: 28px;
     /* Increased from 24px */
-    font-weight: 700;
+    font-weight: 800;
     color: #000;
     /* Pure black anchor */
     line-height: 1.2;
@@ -272,7 +272,7 @@ body {
 .alert-card-flat {
     padding: 16px 24px;
     background: transparent;
-    border-left: 3px solid var(--border-light);
+    border-left: 3px solid rgba(224, 220, 230, 0.6);
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -296,21 +296,22 @@ body {
 /* Icons */
 .icon-dot-critical {
     display: block;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     background-color: var(--danger);
     border-radius: 4px;
     /* Soft square */
+    opacity: 0.8;
 }
 
 .icon-dot-warning {
     display: block;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     background-color: var(--accent-gold);
     border-radius: 50%;
     /* Circle */
-    opacity: 0.8;
+    opacity: 0.6;
 }
 
 .alert-card-content {
@@ -2666,13 +2667,14 @@ body {
 }
 
 .alert-card-critical {
-    background: rgba(196, 69, 54, 0.05);
-    border-color: rgba(196, 69, 54, 0.4);
+    background: rgba(196, 69, 54, 0.08);
+    border-color: var(--danger);
+    border-width: 3px;
 }
 
 .alert-card-warning {
-    background: rgba(201, 162, 39, 0.08);
-    border-color: rgba(201, 162, 39, 0.5);
+    background: rgba(201, 162, 39, 0.06);
+    border-color: rgba(201, 162, 39, 0.4);
 }
 
 .alert-card-info {
@@ -2681,8 +2683,9 @@ body {
 }
 
 .alert-card-icon {
-    font-size: 32px;
+    font-size: 28px;
     line-height: 1;
+    opacity: 0.7;
 }
 
 .alert-card-content {
@@ -2710,8 +2713,8 @@ body {
 }
 
 .alert-card-count {
-    font-size: 36px;
-    font-weight: 700;
+    font-size: 48px;
+    font-weight: 800;
     line-height: 1;
     margin-bottom: 12px;
 }
