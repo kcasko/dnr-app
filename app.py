@@ -1373,6 +1373,63 @@ def setup():
 
 
 
+@app.get("/")
+@app.get("/overview")
+@login_required
+def overview():
+    conn = get_db_connection()
+    
+    # 1. Room Issues Counts
+    ooo_count = conn.execute("SELECT COUNT(*) FROM room_issues WHERE status = 'out_of_order' AND state = 'active'").fetchone()[0]
+    uin_count = conn.execute("SELECT COUNT(*) FROM room_issues WHERE status = 'use_if_needed' AND state = 'active'").fetchone()[0]
+    
+    # 2. Maintenance High Priority Count
+    maint_count = conn.execute("SELECT COUNT(*) FROM maintenance_items WHERE status IN ('open', 'in_progress') AND priority IN ('high', 'urgent')").fetchone()[0]
+    
+    # 3. Active Announcements
+    now = datetime.now()
+    # Handle both string and datetime objects for comparison binding if needed, 
+    # but SQLite usually expects strings for timestamps.
+    now_str = now.isoformat()
+    
+    announcements = conn.execute("""
+        SELECT * FROM staff_announcements 
+        WHERE is_active = 1 
+        AND (starts_at IS NULL OR starts_at <= ?)
+        AND (ends_at IS NULL OR ends_at >= ?)
+        ORDER BY created_at DESC
+    """, (now_str, now_str)).fetchall()
+    
+    # 4. Recent Activity Feed (Logs + System Events)
+    feed = conn.execute("""
+        SELECT * FROM log_entries 
+        ORDER BY created_at DESC 
+        LIMIT 20
+    """).fetchall()
+    
+    # 5. Shift Schedule for Today
+    today_str = date.today().isoformat()
+    shifts = conn.execute("""
+        SELECT s.*, u.username 
+        FROM schedules s
+        LEFT JOIN users u ON s.user_id = u.id
+        WHERE shift_date = ?
+        ORDER BY shift_id
+    """, (today_str,)).fetchall()
+    
+    conn.close()
+    
+    return render_template(
+        "overview.html",
+        room_out_of_order_count=ooo_count,
+        room_use_if_needed_count=uin_count,
+        maintenance_critical_count=maint_count,
+        announcements=announcements,
+        feed=feed,
+        shifts=shifts
+    )
+
+
 @app.get("/mobile")
 @login_required
 def mobile_dashboard():
@@ -1409,51 +1466,7 @@ def mobile_dashboard():
 
 
 @app.get("/")
-@app.get("/overview")
-@login_required
-def overview():
-    conn = connect_db()
-    active_dnr_count = conn.execute("""
-        SELECT COUNT(*) AS count FROM records WHERE status = 'active'
-    """).fetchone()["count"]
-    room_out_of_order_count = conn.execute("""
-        SELECT COUNT(*) AS count FROM room_issues
-        WHERE state = 'active' AND status = 'out_of_order'
-    """).fetchone()["count"]
-    room_use_if_needed_count = conn.execute("""
-        SELECT COUNT(*) AS count FROM room_issues
-        WHERE state = 'active' AND status = 'use_if_needed'
-    """).fetchone()["count"]
-    open_maintenance_count = conn.execute("""
-        SELECT COUNT(*) AS count FROM maintenance_items
-        WHERE status IN ('open', 'in_progress', 'blocked')
-    """).fetchone()["count"]
-    recent_notes = conn.execute("""
-        SELECT * FROM log_entries
-        WHERE is_system_event = 0
-        ORDER BY created_at DESC, id DESC
-        LIMIT 5
-    """).fetchall()
-    now = local_timestamp()
-    announcements = conn.execute("""
-        SELECT * FROM staff_announcements
-        WHERE is_active = 1
-        AND (starts_at IS NULL OR starts_at <= ?)
-        AND (ends_at IS NULL OR ends_at >= ?)
-        ORDER BY created_at DESC, id DESC
-    """, (now, now)).fetchall()
-    conn.close()
 
-    return render_template(
-        "overview.html",
-        active_dnr_count=active_dnr_count,
-        room_out_of_order_count=room_out_of_order_count,
-        room_use_if_needed_count=room_use_if_needed_count,
-        open_maintenance_count=open_maintenance_count,
-        recent_notes=recent_notes,
-        announcements=announcements,
-        last_updated=now,
-    )
 
 
 @app.get("/api/overview-alerts")
