@@ -126,21 +126,6 @@ def add_sample_schedule():
             }
         },
         {
-            'name': 'Stacie',
-            'department': 'HOUSEKEEPING',
-            'phone': None,
-            'schedule': {
-                # Live-in housekeepers: no set schedule, shown as ON all week
-                0: 'ON',
-                1: 'ON',
-                2: 'ON',
-                3: 'ON',
-                4: 'ON',
-                5: 'ON',
-                6: 'ON',
-            }
-        },
-        {
             'name': 'Stephanie',
             'department': 'HOUSEKEEPING',
             'phone': None,
@@ -171,7 +156,7 @@ def add_sample_schedule():
         # Breakfast
         {
             'name': 'Pam',
-            'department': 'BREAKFAST BAR / Laundry',
+            'department': 'BREAKFAST ATTENDANT',
             'phone': '269-999-4871',
             'schedule': {
                 0: None,                  # Monday

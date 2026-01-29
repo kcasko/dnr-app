@@ -23,9 +23,9 @@
 
         <div class="view-toggle">
             <button class="toggle-btn {% if request.args.get('view') != 'paper' %}active{% endif %}"
-                    onclick="switchView('shift')">Shift View</button>
+                    onclick="switchView('shift')">Shift Layout</button>
             <button class="toggle-btn {% if request.args.get('view') == 'paper' %}active{% endif %}"
-                    onclick="switchView('paper')">Paper View</button>
+                    onclick="switchView('paper')">Paper Layout</button>
         </div>
     </div>
 </div>
@@ -57,34 +57,52 @@
             {% for day in week_dates %}
             <div class="schedule-cell {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
                 {% set day_iso = day.isoformat() %}
-                {% set assignments = schedule_data[day_iso][shift_id] %}
 
-                <div class="assignments-list">
-                    {% for assign in assignments %}
-                    <div class="assignment-chip">
-                        <div class="assign-info">
-                            <span class="assign-name">{{ assign.name }}</span>
-                            {% if assign.role %}
-                            <span class="assign-role">{{ assign.role }}</span>
+                {% set dept_groups = schedule_data_by_dept[day_iso][shift_id] %}
+                <div class="assignments-list grouped-assignments">
+                    {% for department in schedule_department_order %}
+                    {% set dept_assignments = dept_groups.get(department, []) %}
+                    {% if dept_assignments or session.role == 'manager' %}
+                    <div class="schedule-group">
+                        <div class="schedule-group-header">
+                            <span class="schedule-group-title">{{ department }}</span>
+                            {% if session.role == 'manager' and department in assignable_departments %}
+                            <button type="button" class="btn-group-add"
+                                onclick="openAddModal('{{ day_iso }}', {{ shift_id }}, '{{ department }}')">+</button>
                             {% endif %}
                         </div>
-                        {% if session.role == 'manager' %}
-                        <form action="{{ url_for('update_schedule') }}" method="POST" class="remove-form"
-                            onsubmit="return confirm('Remove this assignment?');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="action" value="remove">
-                            <input type="hidden" name="schedule_id" value="{{ assign.id }}">
-                            <input type="hidden" name="week_start" value="{{ current_week_start.isoformat() }}">
-                            <button type="submit" class="btn-remove" title="Remove">&times;</button>
-                        </form>
-                        {% endif %}
+                        <div class="schedule-group-body">
+                            {% for assign in dept_assignments %}
+                            <div class="assignment-chip">
+                                <div class="assign-info">
+                                    <span class="assign-name">{{ assign.name }}</span>
+                                    {% if assign.shift_time %}
+                                    <span class="assign-role">{{ assign.shift_time }}</span>
+                                    {% endif %}
+                                    {% if assign.role %}
+                                    <span class="assign-role">{{ assign.role }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if session.role == 'manager' %}
+                                <form action="{{ url_for('update_schedule') }}" method="POST" class="remove-form"
+                                    onsubmit="return confirm('Remove this assignment?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="remove">
+                                    <input type="hidden" name="schedule_id" value="{{ assign.id }}">
+                                    <input type="hidden" name="week_start" value="{{ current_week_start.isoformat() }}">
+                                    <button type="submit" class="btn-remove" title="Remove">&times;</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                            {% if not dept_assignments %}
+                            <div class="assignment-empty">—</div>
+                            {% endif %}
+                        </div>
                     </div>
+                    {% endif %}
                     {% endfor %}
                 </div>
-
-                {% if session.role == 'manager' %}
-                <button type="button" class="btn-add-staff" onclick="openAddModal('{{ day_iso }}', {{ shift_id }})">+</button>
-                {% endif %}
             </div>
             {% endfor %}
             {% endfor %}
@@ -92,7 +110,7 @@
     </div>
 </div>
 
-<!-- Paper-Style View (New) -->
+<!-- Paper-Style Layout (Embedded) -->
 <div id="paper-view" class="schedule-view {% if request.args.get('view') != 'paper' %}hidden{% endif %}">
     <div class="paper-schedule-container">
         <h2 class="paper-schedule-title">SLEEP INN & SUITES KALAMAZOO</h2>
@@ -112,7 +130,7 @@
             </thead>
 
             <tbody>
-                {% for department in ['FRONT DESK', 'HOUSEKEEPING', 'BREAKFAST BAR / Laundry', 'MAINTENANCE', 'INSPECTING'] %}
+                {% for department in ['FRONT DESK', 'HOUSEKEEPING', 'BREAKFAST ATTENDANT', 'LAUNDRY', 'MAINTENANCE', 'INSPECTING'] %}
                 {% set dept_staff = paper_schedule_data.get(department, {}) %}
                 {% if dept_staff %}
                 <!-- Department Header -->
@@ -207,9 +225,8 @@
                 <select id="department" name="department">
                     <option value="FRONT DESK">Front Desk</option>
                     <option value="HOUSEKEEPING">Housekeeping</option>
-                    <option value="BREAKFAST BAR / Laundry">Breakfast / Laundry</option>
-                    <option value="MAINTENANCE">Maintenance</option>
-                    <option value="INSPECTING">Inspecting</option>
+                    <option value="BREAKFAST ATTENDANT">Breakfast Attendant</option>
+                    <option value="LAUNDRY">Laundry</option>
                 </select>
             </div>
 
@@ -219,7 +236,6 @@
                     <option value="7am-3pm">7am - 3pm</option>
                     <option value="3pm-11pm">3pm - 11pm</option>
                     <option value="11pm-7am">11pm - 7am</option>
-                    <option value="8:45am-12:45pm">8:45am - 12:45pm</option>
                     <option value="ON">ON (On-Call)</option>
                     <option value="custom">Custom Time...</option>
                 </select>
@@ -250,6 +266,7 @@
         url.searchParams.set('view', view);
         window.location.href = url.toString();
     }
+
 
     // Upload Modal
     function openUploadModal() {
@@ -295,13 +312,28 @@
     });
 
     // Add Staff Modal
-    function openAddModal(dateIso, shiftId) {
+    function openAddModal(dateIso, shiftId, department) {
         document.getElementById('modalDate').value = dateIso;
         document.getElementById('modalShift').value = shiftId || 1;
 
         const dateObj = new Date(dateIso + "T00:00:00");
         const options = { weekday: 'long', month: 'short', day: 'numeric' };
         document.getElementById('modalDateDisplay').textContent = dateObj.toLocaleDateString(undefined, options);
+
+        if (department) {
+            const deptSelect = document.getElementById('department');
+            deptSelect.value = department;
+        }
+
+        // Default shift time to the selected shift in shift view
+        const shiftTimeSelect = document.getElementById('shift_time');
+        if (shiftId === 1) {
+            shiftTimeSelect.value = '7am-3pm';
+        } else if (shiftId === 2) {
+            shiftTimeSelect.value = '3pm-11pm';
+        } else if (shiftId === 3) {
+            shiftTimeSelect.value = '11pm-7am';
+        }
 
         document.getElementById('addStaffModal').classList.add('active');
         toggleCustomName();

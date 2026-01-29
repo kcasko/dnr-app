@@ -32,8 +32,8 @@ class ScheduleParseError(Exception):
 DEPARTMENT_KEYWORDS = {
     'front desk': 'FRONT DESK',
     'housekeeping': 'HOUSEKEEPING',
-    'breakfast': 'BREAKFAST BAR / Laundry',
-    'laundry': 'BREAKFAST BAR / Laundry',
+    'breakfast': 'BREAKFAST ATTENDANT',
+    'laundry': 'LAUNDRY',
     'maintenance': 'MAINTENANCE',
     'inspecting': 'INSPECTING',
 }

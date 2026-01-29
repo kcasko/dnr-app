@@ -511,6 +511,21 @@ def add_user():
 
 # Schedule Routes
 
+def normalize_schedule_department(department: str) -> str:
+    """Normalize schedule department labels for consistent display."""
+    if not department:
+        return 'FRONT DESK'
+
+    dept = department.strip()
+    if not dept:
+        return 'FRONT DESK'
+
+    # Legacy combined label mapped to new categories
+    if dept.upper() == 'BREAKFAST BAR / LAUNDRY':
+        return 'BREAKFAST ATTENDANT'
+
+    return dept
+
 @app.get("/schedule")
 @login_required
 def view_schedule():
@@ -551,6 +566,8 @@ def view_schedule():
     
     # Structure data for shift-based view: schedule_data[date_iso][shift_id] = list of assignments
     schedule_data = {d.isoformat(): {1: [], 2: [], 3: []} for d in week_dates}
+    # Structure data for shift-based view grouped by department
+    schedule_data_by_dept = {d.isoformat(): {1: {}, 2: {}, 3: {}} for d in week_dates}
 
     # Structure data for paper-style view: paper_schedule_data[department][staff_name] = {phone, days{date: time}}
     paper_schedule_data = {}
@@ -569,6 +586,10 @@ def view_schedule():
         if not role and s['user_role']:
             role = s['user_role'].replace('_', ' ').title()
 
+        # Normalize department early for grouping
+        department = s['department'] or 'FRONT DESK'
+        department = normalize_schedule_department(department)
+
         # Populate shift-based view data (backward compatibility)
         if sid and d in schedule_data and sid in schedule_data[d]:
             entry = {
@@ -576,12 +597,19 @@ def view_schedule():
                 'name': name,
                 'role': role,
                 'note': s['note'],
-                'user_id': s['user_id']
+                'user_id': s['user_id'],
+                'department': department,
+                'shift_time': s['shift_time'] or ''
             }
             schedule_data[d][sid].append(entry)
 
+            # Grouped by department for shift view
+            dept_group = schedule_data_by_dept[d][sid]
+            if department not in dept_group:
+                dept_group[department] = []
+            dept_group[department].append(entry)
+
         # Populate paper-style view data
-        department = s['department'] or 'FRONT DESK'
         shift_time = s['shift_time'] or ''
         phone = s['phone_number']
 
@@ -604,6 +632,15 @@ def view_schedule():
 
     conn.close()
 
+    # Department ordering for shift view (show extra departments if present)
+    base_departments = ['FRONT DESK', 'HOUSEKEEPING', 'BREAKFAST ATTENDANT', 'LAUNDRY']
+    dept_set = set()
+    for day_data in schedule_data_by_dept.values():
+        for shift_group in day_data.values():
+            dept_set.update(shift_group.keys())
+    extra_departments = sorted(d for d in dept_set if d not in base_departments)
+    schedule_department_order = base_departments + extra_departments
+
     return render_template(
         "schedule.html",
         week_dates=week_dates,
@@ -611,6 +648,9 @@ def view_schedule():
         prev_week_start=prev_week_start,
         next_week_start=next_week_start,
         schedule_data=schedule_data,
+        schedule_data_by_dept=schedule_data_by_dept,
+        schedule_department_order=schedule_department_order,
+        assignable_departments=base_departments,
         paper_schedule_data=paper_schedule_data,
         all_users=all_users,
         today_iso=today.isoformat()
@@ -847,6 +887,7 @@ def preview_schedule_upload(upload_id):
     entries_by_dept = {}
     for entry in parsed_data['entries']:
         dept = entry.get('department', 'UNCATEGORIZED')
+        dept = normalize_schedule_department(dept)
         if dept not in entries_by_dept:
             entries_by_dept[dept] = {}
 

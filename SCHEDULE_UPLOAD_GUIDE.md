@@ -35,7 +35,7 @@ Intelligent parser that extracts schedule data from PDF and DOCX files:
 - DOCX schedules (using python-docx)
 
 **Extraction Capabilities:**
-- Department headers (FRONT DESK, HOUSEKEEPING, BREAKFAST BAR / Laundry, MAINTENANCE, INSPECTING)
+- Department headers (FRONT DESK, HOUSEKEEPING, BREAKFAST ATTENDANT, LAUNDRY, MAINTENANCE, INSPECTING)
 - Staff names and phone numbers
 - Shift times for each day (MON-SUN)
 - Handles "ON" flags for on-call status
@@ -180,7 +180,8 @@ HOUSEKEEPING
 Stacia        ON       ON        ON       ON        ON       ON
 331-492-9753
 
-BREAKFAST BAR / Laundry
+BREAKFAST ATTENDANT
+LAUNDRY
 Pam           8:45am-
               12:45pm
 ```
