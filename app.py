@@ -1703,7 +1703,15 @@ def overview():
 
     # Room Issues
     ooo_count = conn.execute("SELECT COUNT(*) FROM room_issues WHERE status = 'out_of_order' AND state = 'active'").fetchone()[0]
-    uin_count = conn.execute("SELECT COUNT(*) FROM room_issues WHERE status = 'use_if_needed' AND state = 'active'").fetchone()[0]
+    limited_use_count = conn.execute("SELECT COUNT(*) FROM room_issues WHERE status = 'limited_use' AND state = 'active'").fetchone()[0]
+    hot_water_count = conn.execute("SELECT COUNT(*) FROM room_issues WHERE issue_type = 'Hot Water' AND state = 'active'").fetchone()[0]
+
+    # Get active room issues with hot water problems for display
+    active_room_issues = conn.execute("""
+        SELECT room_number, issue_type, status FROM room_issues
+        WHERE state = 'active'
+        ORDER BY issue_type, room_number
+    """).fetchall()
     
     # DNR
     active_dnr_count = conn.execute("SELECT COUNT(*) FROM records WHERE status = 'active'").fetchone()[0]
@@ -1748,16 +1756,18 @@ def overview():
         # Alerts
         wakeup_alert_count=wakeup_alert_count,
         room_out_of_order_count=ooo_count,
-        room_use_if_needed_count=uin_count,
-        
+        room_limited_use_count=limited_use_count,
+        hot_water_issue_count=hot_water_count,
+
         # Awareness
         active_dnr_count=active_dnr_count,
         open_maintenance_count=open_maintenance_count,
-        
+
         # Content
         announcements=announcements,
         recent_notes=recent_notes,
         shifts=shifts,
+        active_room_issues=active_room_issues,
         last_updated=now.strftime("%Y-%m-%d %H:%M:%S")
     )
 
@@ -1816,11 +1826,16 @@ def get_overview_alerts():
         WHERE state = 'active' AND status = 'out_of_order'
     """).fetchone()["count"]
     
-    room_use_if_needed_count = conn.execute("""
+    room_limited_use_count = conn.execute("""
         SELECT COUNT(*) AS count FROM room_issues
-        WHERE state = 'active' AND status = 'use_if_needed'
+        WHERE state = 'active' AND status = 'limited_use'
     """).fetchone()["count"]
-    
+
+    hot_water_issue_count = conn.execute("""
+        SELECT COUNT(*) AS count FROM room_issues
+        WHERE state = 'active' AND issue_type = 'Hot Water'
+    """).fetchone()["count"]
+
     open_maintenance_count = conn.execute("""
         SELECT COUNT(*) AS count FROM maintenance_items
         WHERE status IN ('open', 'in_progress', 'blocked')
@@ -1856,7 +1871,8 @@ def get_overview_alerts():
     return jsonify({
         "active_dnr_count": active_dnr_count,
         "room_out_of_order_count": room_out_of_order_count,
-        "room_use_if_needed_count": room_use_if_needed_count,
+        "room_limited_use_count": room_limited_use_count,
+        "hot_water_issue_count": hot_water_issue_count,
         "open_maintenance_count": open_maintenance_count,
         "wakeup_alert_count": wakeup_alert_count,
         "last_updated": local_timestamp()
@@ -2326,20 +2342,23 @@ def room_issues_list():
 @limiter.limit("10 per minute")
 def add_room_issue():
     room_number = request.form.get("room_number", "").strip()[:20]
+    issue_type = request.form.get("issue_type", "").strip()
     status = request.form.get("status", "").strip()
     note = request.form.get("note", "").strip()[:1000]
 
     if not room_number:
         return redirect(url_for("room_issues_list"))
-    if status not in {"out_of_order", "use_if_needed"}:
+    if issue_type not in {"Hot Water", "HVAC", "Plumbing", "Other"}:
+        issue_type = "Other"
+    if status not in {"out_of_order", "limited_use", "monitor"}:
         return redirect(url_for("room_issues_list"))
 
     now = local_timestamp()
     conn = connect_db()
     conn.execute("""
-        INSERT INTO room_issues (room_number, status, note, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?)
-    """, (room_number, status, note or None, now, now))
+        INSERT INTO room_issues (room_number, issue_type, status, note, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (room_number, issue_type, status, note or None, now, now))
     conn.commit()
     conn.close()
 
@@ -2351,7 +2370,7 @@ def add_room_issue():
 @limiter.limit("10 per minute")
 def update_room_issue_status(issue_id):
     status = request.form.get("status", "").strip()
-    if status not in {"out_of_order", "use_if_needed"}:
+    if status not in {"out_of_order", "limited_use", "monitor"}:
         return redirect(url_for("room_issues_list"))
 
     now = local_timestamp()
@@ -2394,19 +2413,24 @@ def update_room_issue_state(issue_id):
 @limiter.limit("10 per minute")
 def edit_room_issue(issue_id):
     room_number = request.form.get("room_number", "").strip()[:20]
+    issue_type = request.form.get("issue_type", "").strip()
     status = request.form.get("status", "").strip()
     note = request.form.get("note", "").strip()[:1000]
 
-    if not room_number or status not in {"out_of_order", "use_if_needed"}:
+    if not room_number:
+        return redirect(url_for("room_issues_list", edit=issue_id))
+    if issue_type not in {"Hot Water", "HVAC", "Plumbing", "Other"}:
+        issue_type = "Other"
+    if status not in {"out_of_order", "limited_use", "monitor"}:
         return redirect(url_for("room_issues_list", edit=issue_id))
 
     now = local_timestamp()
     conn = connect_db()
     conn.execute("""
         UPDATE room_issues
-        SET room_number = ?, status = ?, note = ?, updated_at = ?
+        SET room_number = ?, issue_type = ?, status = ?, note = ?, updated_at = ?
         WHERE id = ?
-    """, (room_number, status, note or None, now, issue_id))
+    """, (room_number, issue_type, status, note or None, now, issue_id))
     conn.commit()
     conn.close()
 

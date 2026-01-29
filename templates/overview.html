@@ -41,19 +41,57 @@
             </div>
         </a>
 
-        <!-- Warning: Rooms Use If Needed -->
-        <a href="/room-issues" class="alert-card-link{% if room_use_if_needed_count==0 %} hidden{% endif %}"
-            id="card-uin">
+        <!-- Warning: Hot Water Issues -->
+        <a href="/room-issues" class="alert-card-link{% if hot_water_issue_count==0 %} hidden{% endif %}"
+            id="card-hot-water">
+            <div class="alert-card alert-card-hot-water">
+                <div class="alert-card-icon"><span class="icon-hot-water">💧</span></div>
+                <div class="alert-card-content">
+                    <div class="alert-card-label">Hot Water Issues</div>
+                    <div class="alert-card-count stat-number-heavy" id="count-hot-water">{{ hot_water_issue_count }}</div>
+                    <div class="alert-card-action">View Rooms →</div>
+                </div>
+            </div>
+        </a>
+
+        <!-- Warning: Rooms Limited Use -->
+        <a href="/room-issues" class="alert-card-link{% if room_limited_use_count==0 %} hidden{% endif %}"
+            id="card-limited-use">
             <div class="alert-card alert-card-warning">
                 <div class="alert-card-icon"><span class="icon-dot-warning"></span></div>
                 <div class="alert-card-content">
-                    <div class="alert-card-label">Rooms Use If Needed</div>
-                    <div class="alert-card-count stat-number-heavy" id="count-uin">{{ room_use_if_needed_count }}</div>
+                    <div class="alert-card-label">Rooms Limited Use</div>
+                    <div class="alert-card-count stat-number-heavy" id="count-limited-use">{{ room_limited_use_count }}</div>
                     <div class="alert-card-action">View Rooms →</div>
                 </div>
             </div>
         </a>
     </div>
+
+    <!-- Active Room Issues List (compact display) -->
+    {% if active_room_issues %}
+    <div class="room-issues-summary">
+        <h3 class="summary-heading">Active Room Issues</h3>
+        <div class="room-issues-grid">
+            {% for issue in active_room_issues %}
+            <span class="room-issue-chip {% if issue.issue_type == 'Hot Water' %}hot-water-chip{% endif %}">
+                <span class="room-number">{{ issue.room_number }}</span>
+                <span class="issue-indicator">
+                    {% if issue.issue_type == 'Hot Water' %}💧
+                    {% elif issue.issue_type == 'HVAC' %}🌡️
+                    {% elif issue.issue_type == 'Plumbing' %}🔧
+                    {% else %}⚠️
+                    {% endif %}
+                </span>
+                <span class="issue-type-label">{{ issue.issue_type }}</span>
+            </span>
+            {% endfor %}
+        </div>
+        <div class="summary-action">
+            <a href="/room-issues" class="btn-link">View all room issues →</a>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Awareness Section -->
@@ -126,6 +164,84 @@
 
 {% endblock %}
 
+{% block extra_css %}
+<style>
+/* Room Issues Summary */
+.room-issues-summary {
+    background: var(--bg-white);
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.summary-heading {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin: 0 0 16px 0;
+}
+
+.room-issues-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.room-issue-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-light);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.room-issue-chip.hot-water-chip {
+    background: #E3F2FD;
+    border-color: #2196F3;
+}
+
+.room-issue-chip .room-number {
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.room-issue-chip .issue-indicator {
+    font-size: 14px;
+}
+
+.room-issue-chip .issue-type-label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.summary-action {
+    margin-top: 12px;
+    text-align: right;
+}
+
+/* Hot Water Alert Card */
+.alert-card-hot-water {
+    background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+    border: 2px solid #2196F3;
+}
+
+.icon-hot-water {
+    font-size: 24px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+</style>
+{% endblock %}
+
 {% block extra_js %}
 <script>
     // Overview Auto-Refresh Logic
@@ -146,6 +262,20 @@
                 cardOOO.classList.toggle('hidden', data.room_out_of_order_count === 0);
             }
 
+            const countHotWater = document.getElementById('count-hot-water');
+            const cardHotWater = document.getElementById('card-hot-water');
+            if (countHotWater && cardHotWater) {
+                countHotWater.textContent = data.hot_water_issue_count;
+                cardHotWater.classList.toggle('hidden', data.hot_water_issue_count === 0);
+            }
+
+            const countLimitedUse = document.getElementById('count-limited-use');
+            const cardLimitedUse = document.getElementById('card-limited-use');
+            if (countLimitedUse && cardLimitedUse) {
+                countLimitedUse.textContent = data.room_limited_use_count;
+                cardLimitedUse.classList.toggle('hidden', data.room_limited_use_count === 0);
+            }
+
             const countWakeup = document.getElementById('count-wakeup');
             const cardWakeup = document.getElementById('card-wakeup');
             if (countWakeup && cardWakeup) {
@@ -153,31 +283,18 @@
                 cardWakeup.classList.toggle('hidden', data.wakeup_alert_count === 0);
             }
 
-            const countUIN = document.getElementById('count-uin');
-            const cardUIN = document.getElementById('card-uin');
-            if (countUIN && cardUIN) {
-                countUIN.textContent = data.room_use_if_needed_count;
-                cardUIN.classList.toggle('hidden', data.room_use_if_needed_count === 0);
-            }
-
             const countDNR = document.getElementById('count-dnr');
             if (countDNR) {
                 countDNR.textContent = data.active_dnr_count;
             }
 
-            const countMaint = document.getElementById('count-maintenance');
-            if (countMaint) {
-                countMaint.textContent = data.open_maintenance_count;
-            }
-
-            // Update timestamp subtitle if possible (requires adding ID to base template or just replacing text content)
-            const subtitle = document.querySelector('.page-subtitle');
-            if (subtitle) {
-                subtitle.textContent = `Operational snapshot - Last updated: ${data.last_updated}`;
+            const countMaintenance = document.getElementById('count-maintenance');
+            if (countMaintenance) {
+                countMaintenance.textContent = data.open_maintenance_count;
             }
 
         } catch (error) {
-            console.error('Failed to refresh overview stats:', error);
+            console.error('Failed to update overview stats:', error);
         }
     }
 

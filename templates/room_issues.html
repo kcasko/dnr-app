@@ -5,7 +5,7 @@
 {% block page_title %}Room Issues{% endblock %}
 
 {% block page_subtitle %}
-<p class="page-subtitle">Out of Order and Use If Needed rooms</p>
+<p class="page-subtitle">Track room problems including hot water, HVAC, plumbing, and other issues</p>
 {% endblock %}
 
 {% block page_actions %}
@@ -18,7 +18,7 @@
 <div class="management-section">
     {% if issues %}
         {% for issue in issues %}
-        <div class="management-card {% if issue.state == 'resolved' %}management-card-dimmed{% endif %}">
+        <div class="management-card {% if issue.state == 'resolved' %}management-card-dimmed{% endif %} {% if issue.issue_type == 'Hot Water' %}hot-water-issue{% endif %}">
             {% if edit_id == issue.id %}
             <!-- Edit Mode -->
             <form method="POST" action="/room-issues/{{ issue.id }}/edit" class="edit-form">
@@ -30,6 +30,7 @@
                         {% if issue.resolved_at %}<div class="card-meta">Resolved: {{ issue.resolved_at }}</div>{% endif %}
                     </div>
                     <div class="card-badges">
+                        <span class="status-badge issue-type-badge {{ issue.issue_type | lower | replace(' ', '-') }}">{{ issue.issue_type }}</span>
                         <span class="status-badge {{ issue.status }}">{{ issue.status | replace('_', ' ') }}</span>
                         <span class="status-badge {{ issue.state }}">{{ issue.state }}</span>
                     </div>
@@ -40,10 +41,20 @@
                         <input type="text" id="edit_room_number_{{ issue.id }}" name="room_number" value="{{ issue.room_number }}" required>
                     </div>
                     <div class="form-group">
+                        <label for="edit_issue_type_{{ issue.id }}">Issue Type *</label>
+                        <select id="edit_issue_type_{{ issue.id }}" name="issue_type" required>
+                            <option value="Hot Water" {% if issue.issue_type=='Hot Water' %}selected{% endif %}>Hot Water</option>
+                            <option value="HVAC" {% if issue.issue_type=='HVAC' %}selected{% endif %}>HVAC</option>
+                            <option value="Plumbing" {% if issue.issue_type=='Plumbing' %}selected{% endif %}>Plumbing</option>
+                            <option value="Other" {% if issue.issue_type=='Other' %}selected{% endif %}>Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="edit_status_{{ issue.id }}">Status *</label>
                         <select id="edit_status_{{ issue.id }}" name="status" required>
                             <option value="out_of_order" {% if issue.status=='out_of_order' %}selected{% endif %}>Out of Order</option>
-                            <option value="use_if_needed" {% if issue.status=='use_if_needed' %}selected{% endif %}>Use If Needed</option>
+                            <option value="limited_use" {% if issue.status=='limited_use' %}selected{% endif %}>Limited Use</option>
+                            <option value="monitor" {% if issue.status=='monitor' %}selected{% endif %}>Monitor</option>
                         </select>
                     </div>
                 </div>
@@ -60,11 +71,17 @@
             <!-- View Mode -->
             <div class="card-header">
                 <div>
-                    <div class="card-title">Room {{ issue.room_number }}</div>
+                    <div class="card-title">
+                        Room {{ issue.room_number }}
+                        {% if issue.issue_type == 'Hot Water' and issue.state == 'active' %}
+                        <span class="hot-water-indicator" title="Hot Water Issue">💧</span>
+                        {% endif %}
+                    </div>
                     <div class="card-meta">Logged: {{ issue.created_at }}</div>
                     {% if issue.resolved_at %}<div class="card-meta">Resolved: {{ issue.resolved_at }}</div>{% endif %}
                 </div>
                 <div class="card-badges">
+                    <span class="status-badge issue-type-badge {{ issue.issue_type | lower | replace(' ', '-') }}">{{ issue.issue_type }}</span>
                     <span class="status-badge {{ issue.status }}">{{ issue.status | replace('_', ' ') }}</span>
                     <span class="status-badge {{ issue.state }}">{{ issue.state }}</span>
                 </div>
@@ -80,7 +97,8 @@
                     <label class="visually-hidden" for="room-status-{{ issue.id }}">Update status</label>
                     <select id="room-status-{{ issue.id }}" name="status" class="inline-select">
                         <option value="out_of_order" {% if issue.status=='out_of_order' %}selected{% endif %}>Out of Order</option>
-                        <option value="use_if_needed" {% if issue.status=='use_if_needed' %}selected{% endif %}>Use If Needed</option>
+                        <option value="limited_use" {% if issue.status=='limited_use' %}selected{% endif %}>Limited Use</option>
+                        <option value="monitor" {% if issue.status=='monitor' %}selected{% endif %}>Monitor</option>
                     </select>
                     <button type="submit" class="btn btn-secondary">Update Status</button>
                 </form>
@@ -124,10 +142,20 @@
                 <input type="text" id="room-number" name="room_number" required placeholder="Room 214">
             </div>
             <div class="form-group">
+                <label for="issue-type-select">Issue Type *</label>
+                <select id="issue-type-select" name="issue_type" required>
+                    <option value="Hot Water">Hot Water</option>
+                    <option value="HVAC">HVAC</option>
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="status-select">Status *</label>
                 <select id="status-select" name="status" required>
                     <option value="out_of_order">Out of Order</option>
-                    <option value="use_if_needed">Use If Needed</option>
+                    <option value="limited_use">Limited Use</option>
+                    <option value="monitor">Monitor</option>
                 </select>
             </div>
         </div>
@@ -165,6 +193,28 @@
     opacity: 0.6;
 }
 
+/* Hot Water Issue Highlighting */
+.management-card.hot-water-issue {
+    border-left: 4px solid #2196F3;
+    background: #E3F2FD;
+}
+
+.management-card.hot-water-issue.management-card-dimmed {
+    border-left-color: #90CAF9;
+    opacity: 0.7;
+}
+
+.hot-water-indicator {
+    font-size: 18px;
+    margin-left: 8px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
 .card-header {
     display: flex;
     justify-content: space-between;
@@ -178,6 +228,8 @@
     font-weight: 700;
     color: var(--text-dark);
     margin-bottom: 4px;
+    display: flex;
+    align-items: center;
 }
 
 .card-meta {
@@ -191,6 +243,31 @@
     gap: 8px;
     flex-wrap: wrap;
     align-items: flex-start;
+}
+
+/* Issue Type Badges */
+.issue-type-badge {
+    font-weight: 600;
+}
+
+.issue-type-badge.hot-water {
+    background: #2196F3;
+    color: white;
+}
+
+.issue-type-badge.hvac {
+    background: #FF9800;
+    color: white;
+}
+
+.issue-type-badge.plumbing {
+    background: #00BCD4;
+    color: white;
+}
+
+.issue-type-badge.other {
+    background: #9E9E9E;
+    color: white;
 }
 
 .card-content {
