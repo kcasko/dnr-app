@@ -3053,6 +3053,17 @@ body {
     border: 1px solid #ddd;
 }
 
+.schedule-department-header {
+    grid-column: 1 / -1;
+    background: var(--text-dark);
+    color: white;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 8px 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
 .schedule-header-cell,
 .schedule-shift-label,
 .schedule-cell {

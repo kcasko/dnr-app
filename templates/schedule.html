@@ -46,7 +46,10 @@
             </div>
             {% endfor %}
 
-            <!-- Shifts Rows -->
+            <!-- Department Groups -->
+            {% for department in schedule_department_order %}
+            <div class="schedule-department-header">{{ department }}</div>
+
             {% for shift_id in [1, 2, 3] %}
             <div class="schedule-shift-label">
                 {% if shift_id == 1 %}Shift 1<br><small>7am - 3pm</small>
@@ -57,53 +60,41 @@
             {% for day in week_dates %}
             <div class="schedule-cell {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
                 {% set day_iso = day.isoformat() %}
-
                 {% set dept_groups = schedule_data_by_dept[day_iso][shift_id] %}
-                <div class="assignments-list grouped-assignments">
-                    {% for department in schedule_department_order %}
-                    {% set dept_assignments = dept_groups.get(department, []) %}
-                    {% if dept_assignments or session.role == 'manager' %}
-                    <div class="schedule-group">
-                        <div class="schedule-group-header">
-                            <span class="schedule-group-title">{{ department }}</span>
-                            {% if session.role == 'manager' and department in assignable_departments %}
-                            <button type="button" class="btn-group-add"
-                                onclick="openAddModal('{{ day_iso }}', {{ shift_id }}, '{{ department }}')">+</button>
+                {% set assignments = dept_groups.get(department, []) %}
+
+                <div class="assignments-list">
+                    {% for assign in assignments %}
+                    <div class="assignment-chip">
+                        <div class="assign-info">
+                            <span class="assign-name">{{ assign.name }}</span>
+                            {% if assign.shift_time %}
+                            <span class="assign-role">{{ assign.shift_time }}</span>
+                            {% endif %}
+                            {% if assign.role %}
+                            <span class="assign-role">{{ assign.role }}</span>
                             {% endif %}
                         </div>
-                        <div class="schedule-group-body">
-                            {% for assign in dept_assignments %}
-                            <div class="assignment-chip">
-                                <div class="assign-info">
-                                    <span class="assign-name">{{ assign.name }}</span>
-                                    {% if assign.shift_time %}
-                                    <span class="assign-role">{{ assign.shift_time }}</span>
-                                    {% endif %}
-                                    {% if assign.role %}
-                                    <span class="assign-role">{{ assign.role }}</span>
-                                    {% endif %}
-                                </div>
-                                {% if session.role == 'manager' %}
-                                <form action="{{ url_for('update_schedule') }}" method="POST" class="remove-form"
-                                    onsubmit="return confirm('Remove this assignment?');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <input type="hidden" name="action" value="remove">
-                                    <input type="hidden" name="schedule_id" value="{{ assign.id }}">
-                                    <input type="hidden" name="week_start" value="{{ current_week_start.isoformat() }}">
-                                    <button type="submit" class="btn-remove" title="Remove">&times;</button>
-                                </form>
-                                {% endif %}
-                            </div>
-                            {% endfor %}
-                            {% if not dept_assignments %}
-                            <div class="assignment-empty">—</div>
-                            {% endif %}
-                        </div>
+                        {% if session.role == 'manager' %}
+                        <form action="{{ url_for('update_schedule') }}" method="POST" class="remove-form"
+                            onsubmit="return confirm('Remove this assignment?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="remove">
+                            <input type="hidden" name="schedule_id" value="{{ assign.id }}">
+                            <input type="hidden" name="week_start" value="{{ current_week_start.isoformat() }}">
+                            <button type="submit" class="btn-remove" title="Remove">&times;</button>
+                        </form>
+                        {% endif %}
                     </div>
-                    {% endif %}
                     {% endfor %}
                 </div>
+
+                {% if session.role == 'manager' and department in assignable_departments %}
+                <button type="button" class="btn-add-staff"
+                    onclick="openAddModal('{{ day_iso }}', {{ shift_id }}, '{{ department }}')">+</button>
+                {% endif %}
             </div>
+            {% endfor %}
             {% endfor %}
             {% endfor %}
         </div>
