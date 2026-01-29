@@ -46,8 +46,12 @@ def run_qa():
                  print("ERROR: Schedule page not loaded")
                  sys.exit(1)
             
-            if not page.is_visible("text=Edit Schedule"):
-                 print("ERROR: Manager 'Edit Schedule' button not found")
+            # Verify Department Headers (New Layout)
+            if not page.is_visible("text=FRONT DESK") or not page.is_visible("text=HOUSEKEEPING"):
+                 print("ERROR: Department headers (Front Desk/Housekeeping) not found in new layout")
+                 sys.exit(1)
+            
+            print("   -> Schedule Page Verified (Departments Visible)")
                  
             # Verify Wake-up Calls
             print("5. Verifying Wake-up Calls...")

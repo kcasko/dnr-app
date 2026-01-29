@@ -561,21 +561,22 @@ def view_schedule():
         FROM schedules s
         LEFT JOIN users u ON s.user_id = u.id
         WHERE s.shift_date BETWEEN ? AND ?
-        ORDER BY s.shift_date, s.shift_id
+        ORDER BY s.shift_date, s.shift_time
     """, (start_str, end_str)).fetchall()
-    
-    # Structure data for shift-based view: schedule_data[date_iso][shift_id] = list of assignments
-    schedule_data = {d.isoformat(): {1: [], 2: [], 3: []} for d in week_dates}
-    # Structure data for shift-based view grouped by department
-    schedule_data_by_dept = {d.isoformat(): {1: {}, 2: {}, 3: {}} for d in week_dates}
 
-    # Structure data for paper-style view: paper_schedule_data[department][staff_name] = {phone, days{date: time}}
+    # Structure data for paper-style view (keep existing logic for paper view stability)
     paper_schedule_data = {}
 
+    # Department Grid Structure:
+    # department_grid[department][day_iso] = list of staff_entries
+    # staff_entries is a sorted list of dicts: {'name': '...', 'role': '...', 'shifts': [list of shifts]}
+    
+    target_departments = ['FRONT DESK', 'HOUSEKEEPING', 'BREAKFAST ATTENDANT', 'LAUNDRY']
+    department_grid = {dept: {d.isoformat(): {} for d in week_dates} for dept in target_departments}
+    
     for s in schedules:
         d = s['shift_date']
-        sid = s['shift_id']
-
+        
         # Determine display name
         name = s['staff_name']
         if s['username']:
@@ -586,31 +587,65 @@ def view_schedule():
         if not role and s['user_role']:
             role = s['user_role'].replace('_', ' ').title()
 
-        # Normalize department early for grouping
+        # Normalize department
         department = s['department'] or 'FRONT DESK'
         department = normalize_schedule_department(department)
 
-        # Populate shift-based view data (backward compatibility)
-        if sid and d in schedule_data and sid in schedule_data[d]:
-            entry = {
-                'id': s['id'],
-                'name': name,
-                'role': role,
-                'note': s['note'],
-                'user_id': s['user_id'],
-                'department': department,
-                'shift_time': s['shift_time'] or ''
-            }
-            schedule_data[d][sid].append(entry)
-
-            # Grouped by department for shift view
-            dept_group = schedule_data_by_dept[d][sid]
-            if department not in dept_group:
-                dept_group[department] = []
-            dept_group[department].append(entry)
-
-        # Populate paper-style view data
         shift_time = s['shift_time'] or ''
+
+        # --- Populate Main Department Grid ---
+        if department in target_departments:
+            day_iso = d
+            
+            # We group by staff name within the cell
+            # Using a dict initially for easy lookup: temp_staff_map[name] = data
+            cell_data = department_grid[department].get(day_iso)
+            if cell_data is not None: # Should be valid dict
+                if name not in cell_data:
+                    cell_data[name] = {
+                        'name': name,
+                        'role': role, # Use role from first shift found (or most active)
+                        'shifts': [],
+                        'earliest_start': None # For sorting
+                    }
+                
+                # Parse start time for sorting (rough heuristic)
+                # Formats: "7am-3pm", "11pm-7am", "ON"
+                start_sort_val = 9999
+                try:
+                    if shift_time and shift_time != 'ON':
+                        time_part = shift_time.split('-')[0].lower().strip()
+                        # Convert to 24h int
+                        is_pm = 'pm' in time_part
+                        time_val = int(re.sub(r'[^0-9]', '', time_part))
+                        if is_pm and time_val != 12:
+                            time_val += 12
+                        elif not is_pm and time_val == 12:
+                            time_val = 0
+                        start_sort_val = time_val * 100 + (0 if '30' not in time_part else 30)
+                    elif shift_time == 'ON':
+                         start_sort_val = 2400 # End of list
+                except:
+                    pass
+
+                # Add shift info
+                shift_entry = {
+                    'id': s['id'],
+                    'time': shift_time,
+                    'role': role, # Specific shift role override?
+                    'note': s['note'],
+                    'start_sort': start_sort_val,
+                    'user_id': s['user_id']
+                }
+                cell_data[name]['shifts'].append(shift_entry)
+
+                # Update earliest start for the person
+                current_earliest = cell_data[name]['earliest_start']
+                if current_earliest is None or start_sort_val < current_earliest:
+                    cell_data[name]['earliest_start'] = start_sort_val
+
+
+        # --- Populate Paper View Data (Existing Logic) ---
         phone = s['phone_number']
 
         if department not in paper_schedule_data:
@@ -621,9 +656,29 @@ def view_schedule():
                 'phone': phone,
                 'days': {}
             }
-
-        # Add shift time for this day
         paper_schedule_data[department][name]['days'][d] = shift_time
+
+
+    # --- Finalize Department Grid (Convert dicts to sorted lists) ---
+    final_department_grid = {dept: {} for dept in target_departments}
+    
+    for dept in target_departments:
+        for day in week_dates:
+            day_iso = day.isoformat()
+            staff_map = department_grid[dept][day_iso]
+            
+            # List of staff objects
+            staff_list = list(staff_map.values())
+            
+            # Sort shifts for each person
+            for staff in staff_list:
+                staff['shifts'].sort(key=lambda x: x['start_sort'])
+            
+            # Sort staff by earliest start time
+            staff_list.sort(key=lambda x: (x['earliest_start'] if x['earliest_start'] is not None else 9999, x['name']))
+            
+            final_department_grid[dept][day_iso] = staff_list
+
 
     # Fetch active users for assignment dropdown (Manager only)
     all_users = []
@@ -632,25 +687,14 @@ def view_schedule():
 
     conn.close()
 
-    # Department ordering for shift view (show extra departments if present)
-    base_departments = ['FRONT DESK', 'HOUSEKEEPING', 'BREAKFAST ATTENDANT', 'LAUNDRY']
-    dept_set = set()
-    for day_data in schedule_data_by_dept.values():
-        for shift_group in day_data.values():
-            dept_set.update(shift_group.keys())
-    extra_departments = sorted(d for d in dept_set if d not in base_departments)
-    schedule_department_order = base_departments + extra_departments
-
     return render_template(
         "schedule.html",
         week_dates=week_dates,
         current_week_start=current_week_start,
         prev_week_start=prev_week_start,
         next_week_start=next_week_start,
-        schedule_data=schedule_data,
-        schedule_data_by_dept=schedule_data_by_dept,
-        schedule_department_order=schedule_department_order,
-        assignable_departments=base_departments,
+        departments=target_departments,
+        department_grid=final_department_grid, # The new main data structure
         paper_schedule_data=paper_schedule_data,
         all_users=all_users,
         today_iso=today.isoformat()
