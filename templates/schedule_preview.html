@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Schedule Upload Preview{% endblock %}
+
+{% block page_title %}Preview Uploaded Schedule{% endblock %}
+
+{% block page_actions %}
+<div class="preview-actions">
+    <span class="preview-badge">Preview Mode</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="preview-container">
+    <!-- Upload Info Card -->
+    <div class="alert-card alert-info">
+        <h3>Upload Information</h3>
+        <p><strong>File:</strong> {{ upload.filename }}</p>
+        <p><strong>Week of:</strong> {{ week_dates[0].strftime('%B %d, %Y') }}</p>
+        <p><strong>Total Entries:</strong> {{ metadata.total_entries }}</p>
+        <p><strong>Departments:</strong> {{ metadata.departments|join(', ') }}</p>
+        <p><strong>Staff:</strong> {{ metadata.staff_count }} people</p>
+    </div>
+
+    <!-- Warnings (if any) -->
+    {% if warnings %}
+    <div class="alert-card alert-warning">
+        <h3>Parsing Warnings</h3>
+        <ul>
+            {% for warning in warnings %}
+            <li>{{ warning }}</li>
+            {% endfor %}
+        </ul>
+        <p><small>Review these warnings before confirming. You can still proceed if the schedule looks correct.</small></p>
+    </div>
+    {% endif %}
+
+    <!-- Paper-Style Schedule Preview -->
+    <div class="schedule-paper-preview">
+        <h2 class="paper-schedule-title">SLEEP INN & SUITES KALAMAZOO</h2>
+
+        <table class="paper-schedule-table">
+            <!-- Header Row -->
+            <thead>
+                <tr>
+                    <th class="staff-column">Staff</th>
+                    {% for day in week_dates %}
+                    <th class="day-column {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
+                        <div class="day-name">{{ day.strftime('%a').upper() }}</div>
+                        <div class="day-date">{{ day.strftime('%m/%d') }}</div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for department, staff_dict in entries_by_dept.items() %}
+                <!-- Department Header -->
+                <tr class="department-header">
+                    <td colspan="8">{{ department }}</td>
+                </tr>
+
+                <!-- Staff Rows -->
+                {% for staff_name, staff_data in staff_dict.items() %}
+                <tr class="staff-row">
+                    <td class="staff-cell">
+                        <div class="staff-name">{{ staff_name }}</div>
+                        {% if staff_data.phone %}
+                        <div class="staff-phone">{{ staff_data.phone }}</div>
+                        {% endif %}
+                    </td>
+                    {% for day in week_dates %}
+                    {% set day_abbr = day.strftime('%A').upper()[:3] %}
+                    <td class="shift-cell {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
+                        {{ staff_data.shifts.get(day_abbr, '') }}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Confirmation Actions -->
+    <div class="preview-confirmation">
+        <div class="confirmation-options">
+            <label class="checkbox-label">
+                <input type="checkbox" id="clear_existing" name="clear_existing" checked>
+                <span>Replace existing schedule for this week</span>
+            </label>
+            <p class="help-text">If checked, all current schedule entries for this week will be cleared before importing.</p>
+        </div>
+
+        <div class="confirmation-buttons">
+            <form action="{{ url_for('confirm_schedule_upload', upload_id=upload_id) }}" method="POST" class="confirm-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" id="clear_existing_input" name="clear_existing" value="true">
+                <button type="submit" class="btn btn-primary">
+                    <span>✓ Confirm & Import Schedule</span>
+                </button>
+            </form>
+
+            <form action="{{ url_for('cancel_schedule_upload', upload_id=upload_id) }}" method="POST" class="cancel-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-secondary" onclick="return confirm('Cancel this upload? Parsed data will be lost.');">
+                    <span>✕ Cancel</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Update hidden input based on checkbox
+    document.getElementById('clear_existing').addEventListener('change', function() {
+        document.getElementById('clear_existing_input').value = this.checked ? 'true' : 'false';
+    });
+</script>
+
+{% endblock %}

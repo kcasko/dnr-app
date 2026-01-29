@@ -5,74 +5,174 @@
 {% block page_title %}Weekly Schedule{% endblock %}
 
 {% block page_actions %}
-<div class="week-nav">
-    <a href="{{ url_for('view_schedule', week_start=prev_week_start.isoformat()) }}" class="btn btn-secondary">&larr;
-        Prev Week</a>
-    <span class="current-week-label">Week of {{ current_week_start.strftime('%b %d, %Y') }}</span>
-    <a href="{{ url_for('view_schedule', week_start=next_week_start.isoformat()) }}" class="btn btn-secondary">Next Week
-        &rarr;</a>
+<div class="schedule-top-controls">
+    <!-- Week Navigation -->
+    <div class="week-nav">
+        <a href="{{ url_for('view_schedule', week_start=prev_week_start.isoformat(), view=request.args.get('view', 'shift')) }}" class="btn btn-secondary">&larr; Prev Week</a>
+        <span class="current-week-label">Week of {{ current_week_start.strftime('%b %d, %Y') }}</span>
+        <a href="{{ url_for('view_schedule', week_start=next_week_start.isoformat(), view=request.args.get('view', 'shift')) }}" class="btn btn-secondary">Next Week &rarr;</a>
+    </div>
+
+    <!-- View Toggle & Upload -->
+    <div class="schedule-actions">
+        {% if session.role == 'manager' %}
+        <button type="button" class="btn btn-primary" onclick="openUploadModal()">
+            📄 Upload Schedule
+        </button>
+        {% endif %}
+
+        <div class="view-toggle">
+            <button class="toggle-btn {% if request.args.get('view') != 'paper' %}active{% endif %}"
+                    onclick="switchView('shift')">Shift View</button>
+            <button class="toggle-btn {% if request.args.get('view') == 'paper' %}active{% endif %}"
+                    onclick="switchView('paper')">Paper View</button>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block content %}
-<div class="schedule-container">
-    <div class="schedule-grid">
-        <!-- Header Row -->
-        <div class="schedule-header-cell">Shift</div>
-        {% for day in week_dates %}
-        <div class="schedule-header-cell {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
-            <div class="dow">{{ day.strftime('%A') }}</div>
-            <div class="date">{{ day.strftime('%b %d') }}</div>
-        </div>
-        {% endfor %}
 
-        <!-- Shifts Rows -->
-        {% for shift_id in [1, 2, 3] %}
-        <div class="schedule-shift-label">
-            {% if shift_id == 1 %}Shift 1<br><small>7am - 3pm</small>
-            {% elif shift_id == 2 %}Shift 2<br><small>3pm - 11pm</small>
-            {% elif shift_id == 3 %}Shift 3<br><small>11pm - 7am</small>{% endif %}
-        </div>
+<!-- Shift-Based View (Original) -->
+<div id="shift-view" class="schedule-view {% if request.args.get('view') == 'paper' %}hidden{% endif %}">
+    <div class="schedule-container">
+        <div class="schedule-grid">
+            <!-- Header Row -->
+            <div class="schedule-header-cell">Shift</div>
+            {% for day in week_dates %}
+            <div class="schedule-header-cell {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
+                <div class="dow">{{ day.strftime('%A') }}</div>
+                <div class="date">{{ day.strftime('%b %d') }}</div>
+            </div>
+            {% endfor %}
 
-        {% for day in week_dates %}
-        <div class="schedule-cell {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
-            {% set day_iso = day.isoformat() %}
-            {% set assignments = schedule_data[day_iso][shift_id] %}
-
-            <div class="assignments-list">
-                {% for assign in assignments %}
-                <div class="assignment-chip">
-                    <div class="assign-info">
-                        <span class="assign-name">{{ assign.name }}</span>
-                        {% if assign.role %}
-                        <span class="assign-role">{{ assign.role }}</span>
-                        {% endif %}
-                    </div>
-                    {% if session.role == 'manager' %}
-                    <form action="{{ url_for('update_schedule') }}" method="POST" class="remove-form"
-                        onsubmit="return confirm('Remove this assignment?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="action" value="remove">
-                        <input type="hidden" name="schedule_id" value="{{ assign.id }}">
-                        <input type="hidden" name="week_start" value="{{ current_week_start.isoformat() }}">
-                        <button type="submit" class="btn-remove" title="Remove">&times;</button>
-                    </form>
-                    {% endif %}
-                </div>
-                {% endfor %}
+            <!-- Shifts Rows -->
+            {% for shift_id in [1, 2, 3] %}
+            <div class="schedule-shift-label">
+                {% if shift_id == 1 %}Shift 1<br><small>7am - 3pm</small>
+                {% elif shift_id == 2 %}Shift 2<br><small>3pm - 11pm</small>
+                {% elif shift_id == 3 %}Shift 3<br><small>11pm - 7am</small>{% endif %}
             </div>
 
-            {% if session.role == 'manager' %}
-            <button class="btn-add-staff" onclick="openAddModal('{{ day_iso }}', {{ shift_id }})">+</button>
-            {% endif %}
+            {% for day in week_dates %}
+            <div class="schedule-cell {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
+                {% set day_iso = day.isoformat() %}
+                {% set assignments = schedule_data[day_iso][shift_id] %}
+
+                <div class="assignments-list">
+                    {% for assign in assignments %}
+                    <div class="assignment-chip">
+                        <div class="assign-info">
+                            <span class="assign-name">{{ assign.name }}</span>
+                            {% if assign.role %}
+                            <span class="assign-role">{{ assign.role }}</span>
+                            {% endif %}
+                        </div>
+                        {% if session.role == 'manager' %}
+                        <form action="{{ url_for('update_schedule') }}" method="POST" class="remove-form"
+                            onsubmit="return confirm('Remove this assignment?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="remove">
+                            <input type="hidden" name="schedule_id" value="{{ assign.id }}">
+                            <input type="hidden" name="week_start" value="{{ current_week_start.isoformat() }}">
+                            <button type="submit" class="btn-remove" title="Remove">&times;</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if session.role == 'manager' %}
+                <button type="button" class="btn-add-staff" onclick="openAddModal('{{ day_iso }}', {{ shift_id }})">+</button>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endfor %}
         </div>
-        {% endfor %}
-        {% endfor %}
     </div>
 </div>
 
-<!-- Add Staff Modal -->
+<!-- Paper-Style View (New) -->
+<div id="paper-view" class="schedule-view {% if request.args.get('view') != 'paper' %}hidden{% endif %}">
+    <div class="paper-schedule-container">
+        <h2 class="paper-schedule-title">SLEEP INN & SUITES KALAMAZOO</h2>
+
+        <table class="paper-schedule-table">
+            <!-- Header Row -->
+            <thead>
+                <tr>
+                    <th class="staff-column">Staff</th>
+                    {% for day in week_dates %}
+                    <th class="day-column {% if day.isoformat() == today_iso %}today-highlight{% endif %}">
+                        <div class="day-name">{{ day.strftime('%a').upper() }}</div>
+                        <div class="day-date">{{ day.strftime('%m/%d') }}</div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for department in ['FRONT DESK', 'HOUSEKEEPING', 'BREAKFAST BAR / Laundry', 'MAINTENANCE', 'INSPECTING'] %}
+                {% set dept_staff = paper_schedule_data.get(department, {}) %}
+                {% if dept_staff %}
+                <!-- Department Header -->
+                <tr class="department-header">
+                    <td colspan="8">{{ department }}</td>
+                </tr>
+
+                <!-- Staff Rows -->
+                {% for staff_name, staff_info in dept_staff.items() %}
+                <tr class="staff-row">
+                    <td class="staff-cell">
+                        <div class="staff-name">{{ staff_name }}</div>
+                        {% if staff_info.phone %}
+                        <div class="staff-phone">{{ staff_info.phone }}</div>
+                        {% endif %}
+                    </td>
+                    {% for day in week_dates %}
+                    {% set day_iso = day.isoformat() %}
+                    <td class="shift-cell {% if day_iso == today_iso %}today-highlight{% endif %}">
+                        {{ staff_info.days.get(day_iso, '') }}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Upload Schedule Modal (Manager Only) -->
 {% if session.role == 'manager' %}
+<div id="uploadScheduleModal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close" onclick="closeUploadModal()">&times;</span>
+        <h3>Upload Schedule</h3>
+        <p>Upload a PDF or DOCX file containing your weekly schedule.</p>
+
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="week_start" value="{{ current_week_start.isoformat() }}">
+
+            <div class="form-group">
+                <label for="schedule_file">Select File (PDF or DOCX)</label>
+                <input type="file" id="schedule_file" name="schedule_file" accept=".pdf,.docx" required>
+                <small>Maximum file size: 16MB</small>
+            </div>
+
+            <div id="uploadStatus" class="upload-status"></div>
+
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary" id="uploadBtn">Upload & Preview</button>
+                <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Staff Modal (Updated for Paper Format) -->
 <div id="addStaffModal" class="modal-overlay">
     <div class="modal-content">
         <span class="close" onclick="closeAddModal()">&times;</span>
@@ -84,7 +184,7 @@
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="week_start" value="{{ current_week_start.isoformat() }}">
             <input type="hidden" id="modalDate" name="shift_date">
-            <input type="hidden" id="modalShift" name="shift_id">
+            <input type="hidden" id="modalShift" name="shift_id" value="1">
 
             <div class="form-group">
                 <label for="user_id">Select User</label>
@@ -93,23 +193,46 @@
                     {% for user in all_users %}
                     <option value="{{ user.id }}">{{ user.username }} ({{ user.role|replace('_',' ')|title }})</option>
                     {% endfor %}
-                    <option value="custom">Other / Housekeeping...</option>
+                    <option value="custom">Other Staff...</option>
                 </select>
             </div>
 
             <div class="form-group hidden" id="customNameGroup">
-                <label for="custom_name">Staff Name (Non-user)</label>
-                <input type="text" id="custom_name" name="custom_name" placeholder="E.g. Housekeeping A">
+                <label for="custom_name">Staff Name</label>
+                <input type="text" id="custom_name" name="custom_name" placeholder="E.g. Maria, John">
             </div>
 
             <div class="form-group">
-                <label for="role">Role Override (Optional)</label>
-                <input type="text" id="role" name="role" placeholder="E.g. Supervisor, Cleaner">
+                <label for="department">Department</label>
+                <select id="department" name="department">
+                    <option value="FRONT DESK">Front Desk</option>
+                    <option value="HOUSEKEEPING">Housekeeping</option>
+                    <option value="BREAKFAST BAR / Laundry">Breakfast / Laundry</option>
+                    <option value="MAINTENANCE">Maintenance</option>
+                    <option value="INSPECTING">Inspecting</option>
+                </select>
             </div>
 
             <div class="form-group">
-                <label for="note">Note (Optional)</label>
-                <input type="text" id="note" name="note" placeholder="Shift note">
+                <label for="shift_time">Shift Time</label>
+                <select id="shift_time" name="shift_time">
+                    <option value="7am-3pm">7am - 3pm</option>
+                    <option value="3pm-11pm">3pm - 11pm</option>
+                    <option value="11pm-7am">11pm - 7am</option>
+                    <option value="8:45am-12:45pm">8:45am - 12:45pm</option>
+                    <option value="ON">ON (On-Call)</option>
+                    <option value="custom">Custom Time...</option>
+                </select>
+            </div>
+
+            <div class="form-group hidden" id="customTimeGroup">
+                <label for="custom_time">Custom Time</label>
+                <input type="text" id="custom_time" name="custom_time" placeholder="E.g. 9am-5pm">
+            </div>
+
+            <div class="form-group">
+                <label for="phone_number">Phone Number (Optional)</label>
+                <input type="text" id="phone_number" name="phone_number" placeholder="555-123-4567">
             </div>
 
             <div class="modal-actions">
@@ -121,17 +244,68 @@
 </div>
 
 <script>
+    // View Toggle
+    function switchView(view) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('view', view);
+        window.location.href = url.toString();
+    }
+
+    // Upload Modal
+    function openUploadModal() {
+        document.getElementById('uploadScheduleModal').classList.add('active');
+    }
+
+    function closeUploadModal() {
+        document.getElementById('uploadScheduleModal').classList.remove('active');
+        document.getElementById('uploadForm').reset();
+        document.getElementById('uploadStatus').innerHTML = '';
+    }
+
+    // Handle upload form submission
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const statusDiv = document.getElementById('uploadStatus');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        uploadBtn.disabled = true;
+        statusDiv.innerHTML = '<p class="status-loading">Uploading and parsing schedule...</p>';
+
+        try {
+            const response = await fetch('{{ url_for("upload_schedule") }}', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Redirect to preview page
+                window.location.href = result.preview_url;
+            } else {
+                statusDiv.innerHTML = `<p class="status-error">Error: ${result.error}</p>`;
+                uploadBtn.disabled = false;
+            }
+        } catch (error) {
+            statusDiv.innerHTML = '<p class="status-error">Upload failed. Please try again.</p>';
+            uploadBtn.disabled = false;
+        }
+    });
+
+    // Add Staff Modal
     function openAddModal(dateIso, shiftId) {
         document.getElementById('modalDate').value = dateIso;
-        document.getElementById('modalShift').value = shiftId;
+        document.getElementById('modalShift').value = shiftId || 1;
 
-        // Format date for display
-        const dateObj = new Date(dateIso + "T00:00:00"); // Append time to avoid timezone shift
+        const dateObj = new Date(dateIso + "T00:00:00");
         const options = { weekday: 'long', month: 'short', day: 'numeric' };
-        document.getElementById('modalDateDisplay').textContent = dateObj.toLocaleDateString(undefined, options) + " - Shift " + shiftId;
+        document.getElementById('modalDateDisplay').textContent = dateObj.toLocaleDateString(undefined, options);
 
         document.getElementById('addStaffModal').classList.add('active');
-        toggleCustomName(); // Reset state
+        toggleCustomName();
+        toggleCustomTime();
     }
 
     function closeAddModal() {
@@ -149,11 +323,29 @@
         }
     }
 
-    // Close modal when clicking outside
+    function toggleCustomTime() {
+        const select = document.getElementById('shift_time');
+        const customGroup = document.getElementById('customTimeGroup');
+        if (select.value === 'custom') {
+            customGroup.classList.remove('hidden');
+        } else {
+            customGroup.classList.add('hidden');
+            document.getElementById('custom_time').value = '';
+        }
+    }
+
+    document.getElementById('shift_time').addEventListener('change', toggleCustomTime);
+
+    // Close modals when clicking outside
     window.onclick = function (event) {
-        var modal = document.getElementById('addStaffModal');
-        if (event.target == modal) {
-            modal.classList.remove('active');
+        const addModal = document.getElementById('addStaffModal');
+        const uploadModal = document.getElementById('uploadScheduleModal');
+
+        if (event.target == addModal) {
+            addModal.classList.remove('active');
+        }
+        if (event.target == uploadModal) {
+            closeUploadModal();
         }
     }
 </script>

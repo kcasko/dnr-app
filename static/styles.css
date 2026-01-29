@@ -3283,3 +3283,335 @@ body {
 .timeline-empty {
     color: var(--text-muted);
 }
+/* ========================================
+   SCHEDULE UPLOAD & PAPER VIEW STYLES
+   ======================================== */
+
+/* Schedule Top Controls */
+.schedule-top-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.schedule-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* View Toggle Buttons */
+.view-toggle {
+    display: flex;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    background: white;
+}
+
+.toggle-btn {
+    padding: 8px 16px;
+    border: none;
+    background: white;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+    background: var(--bg-light);
+}
+
+.toggle-btn.active {
+    background: var(--primary-purple);
+    color: white;
+}
+
+.toggle-btn:not(:last-child) {
+    border-right: 1px solid var(--border-color);
+}
+
+/* Paper Schedule Container */
+.paper-schedule-container {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+.paper-schedule-title {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 0 0 20px 0;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--text-dark);
+}
+
+/* Paper Schedule Table */
+.paper-schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 800px;
+}
+
+.paper-schedule-table thead th {
+    background: var(--bg-light);
+    border: 1px solid var(--border-color);
+    padding: 10px 8px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.paper-schedule-table .staff-column {
+    text-align: left;
+    min-width: 150px;
+}
+
+.paper-schedule-table .day-column {
+    min-width: 90px;
+}
+
+.paper-schedule-table .day-name {
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--text-dark);
+}
+
+.paper-schedule-table .day-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* Department Header Row */
+.paper-schedule-table .department-header td {
+    background: var(--text-dark);
+    color: white;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Staff Rows */
+.paper-schedule-table .staff-row:nth-child(even) {
+    background: #fafafa;
+}
+
+.paper-schedule-table .staff-row:hover {
+    background: #f0f0f0;
+}
+
+.paper-schedule-table .staff-cell {
+    border: 1px solid var(--border-color);
+    padding: 10px 8px;
+}
+
+.paper-schedule-table .staff-name {
+    font-weight: 600;
+    color: var(--text-dark);
+    font-size: 13px;
+}
+
+.paper-schedule-table .staff-phone {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.paper-schedule-table .shift-cell {
+    border: 1px solid var(--border-color);
+    padding: 10px 8px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dark);
+    vertical-align: middle;
+}
+
+.paper-schedule-table .shift-cell:empty::after {
+    content: '-';
+    color: var(--text-muted);
+}
+
+.paper-schedule-table .today-highlight {
+    background: #fff9e6 !important;
+    border-left: 2px solid #ffc107;
+    border-right: 2px solid #ffc107;
+}
+
+/* Upload Modal Styles */
+.upload-status {
+    min-height: 20px;
+    margin: 12px 0;
+}
+
+.status-loading {
+    color: var(--primary-purple);
+    font-style: italic;
+}
+
+.status-error {
+    color: #c62828;
+    font-weight: 500;
+}
+
+.status-success {
+    color: #2e7d32;
+    font-weight: 500;
+}
+
+/* Preview Page Styles */
+.preview-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.preview-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+}
+
+.preview-badge {
+    background: #ffc107;
+    color: #000;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.paper-schedule-preview {
+    margin: 24px 0;
+}
+
+.preview-confirmation {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-top: 24px;
+}
+
+.confirmation-options {
+    margin-bottom: 20px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.help-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 8px 0 0 26px;
+}
+
+.confirmation-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.confirm-form, .cancel-form {
+    display: inline-block;
+}
+
+/* Alert Cards */
+.alert-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.alert-card h3 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.alert-card p {
+    margin: 6px 0;
+    font-size: 14px;
+}
+
+.alert-card ul {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.alert-card li {
+    margin: 4px 0;
+    font-size: 14px;
+}
+
+.alert-info {
+    border-left: 4px solid var(--primary-purple);
+}
+
+.alert-warning {
+    border-left: 4px solid #ff9800;
+    background: #fff9e6;
+}
+
+.alert-warning h3 {
+    color: #f57c00;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .schedule-top-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .schedule-actions {
+        flex-direction: column;
+    }
+
+    .view-toggle {
+        width: 100%;
+    }
+
+    .toggle-btn {
+        flex: 1;
+    }
+
+    .paper-schedule-container {
+        padding: 16px;
+    }
+
+    .paper-schedule-table {
+        font-size: 11px;
+    }
+
+    .paper-schedule-table .staff-column {
+        min-width: 120px;
+    }
+
+    .paper-schedule-table .day-column {
+        min-width: 70px;
+    }
+}

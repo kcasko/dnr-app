@@ -549,23 +549,28 @@ def view_schedule():
         ORDER BY s.shift_date, s.shift_id
     """, (start_str, end_str)).fetchall()
     
-    # Structure data: schedule_data[date_iso][shift_id] = list of assignments
+    # Structure data for shift-based view: schedule_data[date_iso][shift_id] = list of assignments
     schedule_data = {d.isoformat(): {1: [], 2: [], 3: []} for d in week_dates}
-    
+
+    # Structure data for paper-style view: paper_schedule_data[department][staff_name] = {phone, days{date: time}}
+    paper_schedule_data = {}
+
     for s in schedules:
         d = s['shift_date']
         sid = s['shift_id']
-        if d in schedule_data and sid in schedule_data[d]:
-            # Determine display name and role
-            name = s['staff_name']
-            if s['username']: # Use linked username if available
-                 name = s['username']
-            
-            # Use override role if set, else user role, else default 'Staff'
-            role = s['role']
-            if not role and s['user_role']:
-                role = s['user_role'].replace('_', ' ').title()
-                
+
+        # Determine display name
+        name = s['staff_name']
+        if s['username']:
+            name = s['username']
+
+        # Use override role if set, else user role
+        role = s['role']
+        if not role and s['user_role']:
+            role = s['user_role'].replace('_', ' ').title()
+
+        # Populate shift-based view data (backward compatibility)
+        if sid and d in schedule_data and sid in schedule_data[d]:
             entry = {
                 'id': s['id'],
                 'name': name,
@@ -574,14 +579,31 @@ def view_schedule():
                 'user_id': s['user_id']
             }
             schedule_data[d][sid].append(entry)
-            
+
+        # Populate paper-style view data
+        department = s['department'] or 'FRONT DESK'
+        shift_time = s['shift_time'] or ''
+        phone = s['phone_number']
+
+        if department not in paper_schedule_data:
+            paper_schedule_data[department] = {}
+
+        if name not in paper_schedule_data[department]:
+            paper_schedule_data[department][name] = {
+                'phone': phone,
+                'days': {}
+            }
+
+        # Add shift time for this day
+        paper_schedule_data[department][name]['days'][d] = shift_time
+
     # Fetch active users for assignment dropdown (Manager only)
     all_users = []
     if session.get('role') == 'manager':
         all_users = conn.execute("SELECT id, username, role FROM users WHERE is_active = 1 ORDER BY username").fetchall()
-        
+
     conn.close()
-    
+
     return render_template(
         "schedule.html",
         week_dates=week_dates,
@@ -589,6 +611,7 @@ def view_schedule():
         prev_week_start=prev_week_start,
         next_week_start=next_week_start,
         schedule_data=schedule_data,
+        paper_schedule_data=paper_schedule_data,
         all_users=all_users,
         today_iso=today.isoformat()
     )
@@ -624,6 +647,18 @@ def update_schedule():
         role = request.form.get('role', '').strip()
         note = request.form.get('note', '').strip()
 
+        # Paper-style fields
+        department = request.form.get('department', 'FRONT DESK').strip()
+        shift_time_select = request.form.get('shift_time', '').strip()
+        custom_time = request.form.get('custom_time', '').strip()
+        phone_number = request.form.get('phone_number', '').strip()
+
+        # Determine final shift_time
+        if shift_time_select == 'custom':
+            shift_time = custom_time
+        else:
+            shift_time = shift_time_select
+
         # Limit field lengths
         if len(custom_name) > 100:
             custom_name = custom_name[:100]
@@ -631,6 +666,12 @@ def update_schedule():
             role = role[:50]
         if len(note) > 200:
             note = note[:200]
+        if len(department) > 50:
+            department = department[:50]
+        if len(shift_time) > 50:
+            shift_time = shift_time[:50]
+        if len(phone_number) > 20:
+            phone_number = phone_number[:20]
 
         user_id = int(user_id_raw) if user_id_raw and user_id_raw.isdigit() else None
 
@@ -647,9 +688,10 @@ def update_schedule():
 
         try:
             conn.execute("""
-                INSERT INTO schedules (user_id, staff_name, shift_date, shift_id, role, note)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (user_id, staff_name, shift_date, shift_id, role or None, note or None))
+                INSERT INTO schedules
+                (user_id, staff_name, shift_date, shift_id, shift_time, department, phone_number, role, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (user_id, staff_name, shift_date, shift_id, shift_time, department, phone_number or None, role or None, note or None))
             conn.commit()
         except sqlite3.IntegrityError:
              # Duplicate entry (handled by unique index)
@@ -668,6 +710,278 @@ def update_schedule():
 
     # Redirect back to the same week
     return redirect(url_for('view_schedule', week_start=request.form.get('week_start')))
+
+
+# Schedule Upload Routes
+
+@app.post("/schedule/upload")
+@manager_required
+@limiter.limit("10 per hour")
+def upload_schedule():
+    """Upload PDF or DOCX schedule file for parsing and preview."""
+    from schedule_parser import parse_pdf_schedule, parse_docx_schedule, validate_parsed_schedule, ScheduleParseError
+
+    if 'schedule_file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    file = request.files['schedule_file']
+    if not file or file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    # Get week_start from form
+    week_start_str = request.form.get('week_start')
+    try:
+        week_start_date = datetime.strptime(week_start_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        # Default to current week
+        today = date.today()
+        week_start_date = today - timedelta(days=today.weekday())
+
+    # Validate file extension
+    filename = file.filename.lower()
+    if not (filename.endswith('.pdf') or filename.endswith('.docx')):
+        return jsonify({'error': 'Only PDF and DOCX files are supported'}), 400
+
+    # Check file size (16MB max, configured in app config)
+    file.seek(0, 2)  # Seek to end
+    file_size = file.tell()
+    file.seek(0)  # Reset to beginning
+
+    if file_size > app.config['MAX_CONTENT_LENGTH']:
+        return jsonify({'error': 'File too large (max 16MB)'}), 400
+
+    # Save uploaded file temporarily
+    upload_id = str(uuid.uuid4())
+    safe_filename = f"{upload_id}_{os.path.basename(file.filename)}"
+    file_path = os.path.join(UPLOAD_FOLDER, safe_filename)
+
+    try:
+        file.save(file_path)
+
+        # Parse the file
+        if filename.endswith('.pdf'):
+            if not HAS_PDF:
+                os.remove(file_path)
+                return jsonify({'error': 'PDF parsing not available (pdfplumber not installed)'}), 500
+            parsed_data = parse_pdf_schedule(file_path, week_start_date)
+        else:  # .docx
+            if not HAS_DOCX:
+                os.remove(file_path)
+                return jsonify({'error': 'DOCX parsing not available (python-docx not installed)'}), 500
+            parsed_data = parse_docx_schedule(file_path, week_start_date)
+
+        # Validate parsed data
+        warnings = validate_parsed_schedule(parsed_data)
+
+        # Store upload record in database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO schedule_uploads
+            (id, filename, file_path, week_start_date, uploaded_by_user_id, parsed_entries_count, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending')
+        """, (
+            upload_id,
+            file.filename,
+            safe_filename,
+            week_start_date.isoformat(),
+            session.get('user_id'),
+            parsed_data['metadata']['total_entries']
+        ))
+        conn.commit()
+
+        # Store parsed data in session for preview
+        session[f'upload_preview_{upload_id}'] = parsed_data
+        session[f'upload_warnings_{upload_id}'] = warnings
+
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'upload_id': upload_id,
+            'metadata': parsed_data['metadata'],
+            'warnings': warnings,
+            'preview_url': url_for('preview_schedule_upload', upload_id=upload_id)
+        })
+
+    except ScheduleParseError as e:
+        # Clean up file on parse error
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        return jsonify({'error': f'Failed to parse schedule: {str(e)}'}), 400
+
+    except Exception as e:
+        # Clean up file on unexpected error
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        logger.error(f"Schedule upload error: {e}")
+        return jsonify({'error': 'Failed to process upload'}), 500
+
+
+@app.get("/schedule/preview/<upload_id>")
+@manager_required
+def preview_schedule_upload(upload_id):
+    """Preview parsed schedule data before confirmation."""
+    # Get parsed data from session
+    preview_key = f'upload_preview_{upload_id}'
+    warnings_key = f'upload_warnings_{upload_id}'
+
+    parsed_data = session.get(preview_key)
+    warnings = session.get(warnings_key, [])
+
+    if not parsed_data:
+        return "Preview expired or not found", 404
+
+    # Get upload record
+    conn = get_db_connection()
+    upload = conn.execute(
+        "SELECT * FROM schedule_uploads WHERE id = ?",
+        (upload_id,)
+    ).fetchone()
+    conn.close()
+
+    if not upload:
+        return "Upload not found", 404
+
+    # Organize entries by department and staff for paper-style display
+    entries_by_dept = {}
+    for entry in parsed_data['entries']:
+        dept = entry.get('department', 'UNCATEGORIZED')
+        if dept not in entries_by_dept:
+            entries_by_dept[dept] = {}
+
+        staff = entry['staff_name']
+        if staff not in entries_by_dept[dept]:
+            entries_by_dept[dept][staff] = {
+                'phone': entry.get('phone_number'),
+                'shifts': {}
+            }
+
+        # Map shift_date to day name
+        shift_date_obj = datetime.strptime(entry['shift_date'], '%Y-%m-%d').date()
+        day_name = shift_date_obj.strftime('%A').upper()[:3]  # MON, TUE, etc.
+
+        entries_by_dept[dept][staff]['shifts'][day_name] = entry.get('shift_time', '')
+
+    # Calculate week dates
+    week_start = datetime.strptime(parsed_data['metadata']['week_start'], '%Y-%m-%d').date()
+    week_dates = [week_start + timedelta(days=i) for i in range(7)]
+
+    return render_template(
+        'schedule_preview.html',
+        upload_id=upload_id,
+        upload=upload,
+        entries_by_dept=entries_by_dept,
+        week_dates=week_dates,
+        metadata=parsed_data['metadata'],
+        warnings=warnings
+    )
+
+
+@app.post("/schedule/confirm/<upload_id>")
+@manager_required
+@limiter.limit("20 per hour")
+def confirm_schedule_upload(upload_id):
+    """Confirm and save parsed schedule data to database."""
+    # Get parsed data from session
+    preview_key = f'upload_preview_{upload_id}'
+    parsed_data = session.get(preview_key)
+
+    if not parsed_data:
+        return redirect(url_for('view_schedule', error='Preview expired'))
+
+    conn = get_db_connection()
+
+    try:
+        # Clear existing schedule entries for this week (optional - ask user?)
+        clear_existing = request.form.get('clear_existing') == 'true'
+        week_start = parsed_data['metadata']['week_start']
+
+        if clear_existing:
+            # Calculate week end date
+            week_start_obj = datetime.strptime(week_start, '%Y-%m-%d').date()
+            week_end = (week_start_obj + timedelta(days=6)).isoformat()
+
+            conn.execute("""
+                DELETE FROM schedules
+                WHERE shift_date >= ? AND shift_date <= ?
+            """, (week_start, week_end))
+
+        # Insert all parsed entries
+        for entry in parsed_data['entries']:
+            try:
+                conn.execute("""
+                    INSERT INTO schedules
+                    (staff_name, shift_date, shift_time, department, phone_number, shift_id)
+                    VALUES (?, ?, ?, ?, ?, NULL)
+                """, (
+                    entry['staff_name'],
+                    entry['shift_date'],
+                    entry['shift_time'],
+                    entry.get('department'),
+                    entry.get('phone_number')
+                ))
+            except sqlite3.IntegrityError:
+                # Skip duplicates
+                continue
+
+        # Update upload status
+        conn.execute("""
+            UPDATE schedule_uploads
+            SET status = 'confirmed'
+            WHERE id = ?
+        """, (upload_id,))
+
+        conn.commit()
+
+        # Clean up session data
+        session.pop(preview_key, None)
+        session.pop(f'upload_warnings_{upload_id}', None)
+
+        conn.close()
+
+        return redirect(url_for('view_schedule', week_start=week_start, success='Schedule uploaded successfully'))
+
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        logger.error(f"Failed to confirm schedule upload: {e}")
+        return redirect(url_for('preview_schedule_upload', upload_id=upload_id, error='Failed to save schedule'))
+
+
+@app.post("/schedule/cancel/<upload_id>")
+@manager_required
+def cancel_schedule_upload(upload_id):
+    """Cancel schedule upload and clean up."""
+    # Clean up session data
+    session.pop(f'upload_preview_{upload_id}', None)
+    session.pop(f'upload_warnings_{upload_id}', None)
+
+    # Mark upload as cancelled and delete file
+    conn = get_db_connection()
+    upload = conn.execute(
+        "SELECT file_path FROM schedule_uploads WHERE id = ?",
+        (upload_id,)
+    ).fetchone()
+
+    if upload:
+        # Delete physical file
+        file_path = os.path.join(UPLOAD_FOLDER, upload['file_path'])
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+        # Update status
+        conn.execute("""
+            UPDATE schedule_uploads
+            SET status = 'cancelled'
+            WHERE id = ?
+        """, (upload_id,))
+        conn.commit()
+
+    conn.close()
+
+    return redirect(url_for('view_schedule'))
+
 
 # Wake-up Call Routes
 
