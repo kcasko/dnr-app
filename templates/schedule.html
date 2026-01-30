@@ -8,24 +8,20 @@
 <div class="schedule-top-controls">
     <!-- Week Navigation -->
     <div class="week-nav">
-        <a href="{{ url_for('view_schedule', week_start=prev_week_start.isoformat(), view=request.args.get('view', 'shift')) }}" class="btn btn-secondary">&larr; Prev Week</a>
+        <a href="{{ url_for('view_schedule', week_start=prev_week_start.isoformat(), view=request.args.get('view', 'shift')) }}"
+            class="btn btn-secondary">&larr; Prev Week</a>
         <span class="current-week-label">Week of {{ current_week_start.strftime('%b %d, %Y') }}</span>
-        <a href="{{ url_for('view_schedule', week_start=next_week_start.isoformat(), view=request.args.get('view', 'shift')) }}" class="btn btn-secondary">Next Week &rarr;</a>
+        <a href="{{ url_for('view_schedule', week_start=next_week_start.isoformat(), view=request.args.get('view', 'shift')) }}"
+            class="btn btn-secondary">Next Week &rarr;</a>
     </div>
 
-    <!-- View Toggle & Upload -->
+    <!-- View Toggle -->
     <div class="schedule-actions">
-        {% if session.role == 'manager' %}
-        <button type="button" class="btn btn-primary" onclick="openUploadModal()">
-            📄 Upload Schedule
-        </button>
-        {% endif %}
-
         <div class="view-toggle">
             <button class="toggle-btn {% if request.args.get('view') != 'paper' %}active{% endif %}"
-                    onclick="switchView('shift')">Shift Layout</button>
+                onclick="switchView('shift')">Edit Schedule</button>
             <button class="toggle-btn {% if request.args.get('view') == 'paper' %}active{% endif %}"
-                    onclick="switchView('paper')">Paper Layout</button>
+                onclick="switchView('paper')">View Schedule</button>
         </div>
     </div>
 </div>
@@ -49,10 +45,10 @@
 
             <!-- Department Rows -->
             {% for department in departments %}
-            
+
             <!-- Department Label Column -->
             <div class="schedule-department-header">{{ department }}</div>
-            
+
             <!-- Days Columns -->
             {% for day in week_dates %}
             {% set day_iso = day.isoformat() %}
@@ -63,7 +59,7 @@
                     {% for staff in staff_list %}
                     <div class="assignment-chip-group">
                         <div class="assign-name-header"><strong>{{ staff.name }}</strong></div>
-                        
+
                         {% for shift in staff.shifts %}
                         <div class="assignment-chip">
                             <div class="assign-info">
@@ -126,7 +122,8 @@
             </thead>
 
             <tbody>
-                {% for department in ['FRONT DESK', 'HOUSEKEEPING', 'BREAKFAST ATTENDANT', 'LAUNDRY', 'MAINTENANCE', 'INSPECTING'] %}
+                {% for department in ['FRONT DESK', 'HOUSEKEEPING', 'BREAKFAST ATTENDANT', 'LAUNDRY', 'MAINTENANCE',
+                'INSPECTING'] %}
                 {% set dept_staff = paper_schedule_data.get(department, {}) %}
                 {% if dept_staff %}
                 <!-- Department Header -->
@@ -276,7 +273,7 @@
     }
 
     // Handle upload form submission
-    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
         e.preventDefault();
 
         const formData = new FormData(this);

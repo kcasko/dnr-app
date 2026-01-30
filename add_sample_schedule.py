@@ -1,5 +1,5 @@
 """
-Add schedule data based on schedule.jpg to test paper view.
+Add schedule data based on user-provided text to test paper view.
 """
 import sqlite3
 import os
@@ -13,86 +13,57 @@ def add_sample_schedule():
     cursor = conn.cursor()
 
     print("=" * 60)
-    print("ADDING SAMPLE SCHEDULE DATA")
+    print("ADDING SAMPLE SCHEDULE DATA (USER VERIFIED)")
     print("=" * 60)
 
-    # Get current week (Monday - Sunday)
-    today = date.today()
-    current_week_start = today - timedelta(days=today.weekday())
+    # Target specific week per user request: Feb 2, 2026
+    current_week_start = date(2026, 2, 2)
 
     print(f"\nAdding schedule for week of: {current_week_start.strftime('%B %d, %Y')}")
 
-    # Staff and schedule derived from schedule2.jpg (OCR-assisted + manual verification)
+    # Data Source: User provided text on 2026-01-29
     sample_staff = [
-        # Front Desk
-        {
-            'name': 'Katelee',
-            'department': 'FRONT DESK',
-            'phone': '616-888-9297',
-            'schedule': {
-                0: None,                 # Monday
-                1: '7am-3pm',             # Tuesday
-                2: '9:30am-7pm',          # Wednesday
-                3: '7am-3pm',             # Thursday
-                4: '7am-3pm',             # Friday
-                5: '7am-6pm',             # Saturday
-                6: '3pm-8pm',             # Sunday
-            }
-        },
+        # --- FRONT DESK ---
         {
             'name': 'Amber',
             'department': 'FRONT DESK',
             'phone': '269-251-8354',
             'schedule': {
-                0: '7am-6pm',             # Monday
-                1: '3pm-11pm',            # Tuesday
-                2: '7pm-11pm',            # Wednesday
-                3: '3pm-11pm',            # Thursday
-                4: '3pm-11pm',            # Friday
-                5: None,                  # Saturday
-                6: '7am-3pm',             # Sunday
+                0: '7am-6pm',         # Monday
+                1: '3pm-11pm',        # Tuesday
+                2: '7pm-11pm',        # Wednesday
+                3: '3pm-11pm',        # Thursday
+                4: '3pm-11pm',        # Friday
+                5: None,              # Saturday: OFF
+                6: '7am-3pm',         # Sunday
+            }
+        },
+        {
+            'name': 'Katelee',
+            'department': 'FRONT DESK',
+            'phone': '616-888-9297',
+            'schedule': {
+                0: '7am-3pm',         # Monday
+                1: '9:30am-7pm',      # Tuesday
+                2: '7am-3pm',         # Wednesday
+                3: '7am-3pm',         # Thursday
+                4: '7am-3pm',         # Friday
+                5: '7am-6pm',         # Saturday
+                6: '3pm-8pm',         # Sunday
             }
         },
         {
             'name': 'Pam',
             'department': 'FRONT DESK',
-            'phone': None,
+            'phone': '269-999-4871', # Using phone from previous script if available
             'schedule': {
-                0: None,                  # Monday
-                1: '6pm-11pm',            # Tuesday
-                2: '7am-9:30am / 11pm-7am',  # Wednesday
-                3: None,                  # Thursday
-                4: None,                  # Friday
-                5: '6pm-11pm',            # Saturday
-                6: None,                  # Sunday
-            }
-        },
-        {
-            'name': 'New Hire',
-            'department': 'FRONT DESK',
-            'phone': None,
-            'schedule': {
-                0: None,
-                1: None,
-                2: None,
-                3: None,
-                4: None,
-                5: '6pm-11pm',
-                6: None,
-            }
-        },
-        {
-            'name': 'Kristi',
-            'department': 'FRONT DESK',
-            'phone': '269-599-2057',
-            'schedule': {
-                0: None,                  # Monday
-                1: None,                  # Tuesday
-                2: None,                  # Wednesday
-                3: '11pm-7am',            # Thursday
-                4: '11pm-7am',            # Friday
-                5: '11pm-7am',            # Saturday
-                6: '11pm-7am',            # Sunday
+                0: '6pm-11pm',        # Monday
+                1: '8:45am-12:45pm',  # Tuesday
+                2: '7am-9:30am / 11pm-7am', # Wednesday (Double shift)
+                3: None,              # Thursday: OFF
+                4: '6pm-11pm',        # Friday
+                5: None,              # Saturday: OFF
+                6: None,              # Sunday: OFF
             }
         },
         {
@@ -100,74 +71,40 @@ def add_sample_schedule():
             'department': 'FRONT DESK',
             'phone': '269-716-6216',
             'schedule': {
-                0: '11pm-7am',            # Monday
-                1: '11pm-7am',            # Tuesday
-                2: None,                  # Wednesday
-                3: '11pm-7am',            # Thursday
-                4: '11pm-7am',            # Friday
-                5: '11pm-7am',            # Saturday
-                6: '11pm-7am',            # Sunday
+                0: '11pm-7am',        # Monday
+                1: '11pm-7am',        # Tuesday
+                2: None,              # Wed: OFF
+                3: None,              # Thu: OFF
+                4: None,              # Fri: OFF
+                5: None,              # Sat: OFF
+                6: None,              # Sun: OFF
             }
         },
-        # Housekeeping
+        {
+            'name': 'Kristi',
+            'department': 'FRONT DESK',
+            'phone': '269-599-2057',
+            'schedule': {
+                0: None,              # Mon: OFF
+                1: None,              # Tue: OFF
+                2: '11pm-7am',        # Wednesday
+                3: '11pm-7am',        # Thursday
+                4: '11pm-7am',        # Friday
+                5: '11pm-7am',        # Saturday
+                6: '11pm-7am',        # Sunday
+            }
+        },
+        
+        # --- HOUSEKEEPING (Preserved) ---
         {
             'name': 'Peresh/Poonam',
             'department': 'HOUSEKEEPING',
             'phone': '331-425-9753',
             'schedule': {
-                # Live-in housekeepers: no set schedule, shown as ON all week
-                0: 'ON',
-                1: 'ON',
-                2: 'ON',
-                3: 'ON',
-                4: 'ON',
-                5: 'ON',
-                6: 'ON',
+                0: 'ON', 1: 'ON', 2: 'ON', 3: 'ON', 4: 'ON', 5: 'ON', 6: 'ON'
             }
         },
-        {
-            'name': 'Stephanie',
-            'department': 'HOUSEKEEPING',
-            'phone': None,
-            'schedule': {
-                0: None,
-                1: None,
-                2: None,
-                3: None,
-                4: None,
-                5: None,
-                6: None,
-            }
-        },
-        {
-            'name': 'Ellison',
-            'department': 'HOUSEKEEPING',
-            'phone': '269-910-3171',
-            'schedule': {
-                0: None,
-                1: None,
-                2: None,
-                3: None,
-                4: None,
-                5: None,
-                6: None,
-            }
-        },
-        # Breakfast
-        {
-            'name': 'Pam',
-            'department': 'BREAKFAST ATTENDANT',
-            'phone': '269-999-4871',
-            'schedule': {
-                0: None,                  # Monday
-                1: '8:45am-12:45pm',      # Tuesday
-                2: None,                  # Wednesday
-                3: None,                  # Thursday
-                4: None,                  # Friday
-                5: None,                  # Saturday
-                6: None,                  # Sunday
-            }
-        },
+        # (Stephanie and Ellison had empty schedules in previous version, keeping them implies check-in/out logic or ad-hoc)
     ]
 
     # Clear existing schedule for current week
@@ -219,12 +156,7 @@ def add_sample_schedule():
     conn.close()
 
     print("\n" + "=" * 60)
-    print("SAMPLE DATA ADDED SUCCESSFULLY!")
-    print("=" * 60)
-    print("\nNow you can:")
-    print("  1. Start the app: flask run")
-    print("  2. Go to Schedule page")
-    print("  3. Click 'Paper View' to see the department-grouped layout")
+    print("SAMPLE DATA UPDATED SUCCESSFULLY!")
     print("=" * 60)
 
 if __name__ == "__main__":
