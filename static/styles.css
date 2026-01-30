@@ -3521,11 +3521,17 @@ body {
     align-items: stretch;
     gap: 6px;
     min-height: 72px;
+    justify-content: flex-start;
 }
 
 .paper-schedule-table .shift-cell:empty::after {
     content: '-';
     color: var(--text-muted);
+}
+
+.paper-schedule-table .shift-cell .btn-add-staff {
+    margin-top: auto;
+    align-self: stretch;
 }
 
 .paper-schedule-table .today-highlight {
