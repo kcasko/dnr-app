@@ -3516,11 +3516,29 @@ body {
     color: var(--text-dark);
     vertical-align: top;
     background: #fff;
+    position: relative;
+    min-height: 80px;
+    padding-bottom: 42px; /* reserve space for add button */
+    overflow: visible;
 }
 
 .paper-schedule-table .shift-cell:empty::after {
     content: '-';
     color: var(--text-muted);
+}
+
+.paper-schedule-table .shift-cell .shift-line {
+    margin-bottom: 6px;
+}
+
+.paper-schedule-table .shift-cell .btn-add-staff {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    margin-top: 0;
+    width: calc(100% - 16px);
+    box-sizing: border-box;
 }
 
 .paper-schedule-table .today-highlight {
