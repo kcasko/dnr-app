@@ -31,7 +31,7 @@ def add_sample_schedule():
             'schedule': {
                 0: '7am-6pm',         # Monday
                 1: '3pm-11pm',        # Tuesday
-                2: '7pm-11pm',        # Wednesday
+                2: '7am-11pm',        # Wednesday (clarified by user)
                 3: '3pm-11pm',        # Thursday
                 4: '3pm-11pm',        # Friday
                 5: None,              # Saturday: OFF
@@ -58,12 +58,26 @@ def add_sample_schedule():
             'phone': '269-999-4871', # Using phone from previous script if available
             'schedule': {
                 0: '6pm-11pm',        # Monday
-                1: '8:45am-12:45pm',  # Tuesday
-                2: '7am-9:30am / 11pm-7am', # Wednesday (Double shift)
+                1: None,              # Tuesday: OFF for Front Desk (has Breakfast shift)
+                2: ['7am-9:30am', '11pm-7am'], # Wednesday (Double shift)
                 3: None,              # Thursday: OFF
                 4: '6pm-11pm',        # Friday
                 5: None,              # Saturday: OFF
                 6: None,              # Sunday: OFF
+            }
+        },
+        {
+            'name': 'Pam',
+            'department': 'BREAKFAST ATTENDANT',
+            'phone': '269-999-4871',
+            'schedule': {
+                0: None,
+                1: '8:45am-12:45pm',  # Tuesday breakfast shift
+                2: None,
+                3: None,
+                4: None,
+                5: None,
+                6: None,
             }
         },
         {
@@ -120,7 +134,16 @@ def add_sample_schedule():
     entries_added = 0
     for staff in sample_staff:
         for day_offset, shift_time in staff['schedule'].items():
-            if shift_time:  # Only add if there's a shift
+            if not shift_time:
+                continue
+
+            # Allow multiple shifts per day (list) or single string
+            shift_values = shift_time if isinstance(shift_time, list) else [shift_time]
+
+            for shift_val in shift_values:
+                if not shift_val:
+                    continue
+
                 shift_date = current_week_start + timedelta(days=day_offset)
 
                 cursor.execute("""
@@ -131,7 +154,7 @@ def add_sample_schedule():
                     staff['name'],
                     shift_date.isoformat(),
                     staff['department'],
-                    shift_time,
+                    shift_val,
                     staff['phone']
                 ))
                 entries_added += 1
