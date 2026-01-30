@@ -578,8 +578,9 @@ def view_schedule():
     """
     schedules = conn.execute(schedule_query, (start_str, end_str)).fetchall()
 
-    # If the requested week has no data, jump to the nearest future (or latest available) week with data
-    if not schedules:
+    # If we're showing the default week and it has no data, jump to the nearest week with data.
+    # If the user explicitly requested a week, leave it empty so they can browse freely.
+    if not schedules and not requested_week_start:
         fallback_row = conn.execute(
             "SELECT shift_date FROM schedules WHERE shift_date >= ? ORDER BY shift_date LIMIT 1",
             (today.isoformat(),)

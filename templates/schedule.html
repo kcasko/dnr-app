@@ -19,7 +19,6 @@
         {% if mode == 'edit' %}
         <a href="{{ url_for('view_schedule', week_start=current_week_start.isoformat(), mode='view') }}"
             class="btn btn-secondary">Done</a>
-        <button class="btn btn-primary" type="button" onclick="openAddModal('{{ week_dates[0].isoformat() }}', 1)">Add Shift</button>
         {% else %}
         <a href="{{ url_for('view_schedule', week_start=current_week_start.isoformat(), mode='edit') }}"
             class="btn btn-primary">Edit Schedule</a>
