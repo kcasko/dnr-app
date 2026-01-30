@@ -77,6 +77,18 @@ This scope is authoritative. Any implementation, feature, or design decision mus
 * Front Desk
 * Night Audit
 
+---
+
+## Database Migrations
+
+Run the unified upgrade script to bring an existing `dnr.db` up to the current schema:
+
+```
+python upgrade_db.py
+```
+
+All legacy one-off `migrate_*.py` scripts have been removed in favor of this single, idempotent upgrader.
+
 Roles are:
 
 * Assigned per shift
