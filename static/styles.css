@@ -3516,11 +3516,6 @@ body {
     color: var(--text-dark);
     vertical-align: top;
     background: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-    min-height: 72px;
 }
 
 .paper-schedule-table .shift-cell:empty::after {
