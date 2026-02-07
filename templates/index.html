@@ -721,9 +721,20 @@
         try {
             const res = await fetch('/api/csrf-token');
             const data = await res.json();
+            
+            if (!res.ok || !data.csrf_token) {
+                console.error('Failed to get CSRF token:', data.error || 'Unknown error');
+                if (res.status === 401) {
+                    // Session expired, redirect to login
+                    showToast('Session expired. Please log in again.', 'error');
+                    setTimeout(() => window.location.href = '/login', 2000);
+                }
+                return;
+            }
+            
             csrfToken = data.csrf_token;
         } catch (err) {
-            console.error('Failed to get CSRF token');
+            console.error('Failed to get CSRF token:', err);
         }
     }
 

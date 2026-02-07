@@ -97,6 +97,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # Session timeout
 # CSRF Protection
 app.config['WTF_CSRF_TIME_LIMIT'] = 3600  # CSRF token valid for 1 hour
 app.config['WTF_CSRF_SSL_STRICT'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['WTF_CSRF_ENABLED'] = os.environ.get('FLASK_ENV') != 'testing'
 csrf = CSRFProtect(app)
 
 # Rate limiting
@@ -444,6 +445,18 @@ def verify_manager_password(password: str) -> bool:
             return True
             
     return False
+
+
+def is_setup_required() -> bool:
+    """Check if initial setup is required (no users exist in database)."""
+    try:
+        conn = get_db_connection()
+        user_count = conn.execute("SELECT COUNT(*) as count FROM users").fetchone()['count']
+        conn.close()
+        return user_count == 0
+    except Exception:
+        # If there's any error (e.g., table doesn't exist), setup is required
+        return True
 
 # Settings & User Management Routes
 
@@ -1705,7 +1718,7 @@ def get_csrf_token():
     """Provide CSRF token for JavaScript API calls."""
     if is_setup_required():
         return jsonify({'csrf_token': generate_csrf()})
-    if not session.get('logged_in'):
+    if not session.get('user_id'):
         return jsonify({'error': 'Unauthorized'}), 401
     return jsonify({'csrf_token': generate_csrf()})
 
@@ -1714,9 +1727,7 @@ def get_csrf_token():
 @app.route("/setup", methods=["GET", "POST"])
 @limiter.limit("5 per minute")
 def setup():
-    """Initial setup page - only accessible when no credentials exist."""
-    global LOGIN_USERNAME, LOGIN_PASSWORD_HASH, MANAGER_PASSWORD_HASH, CREDENTIALS
-
+    """Initial setup page - only accessible when no users exist."""
     if not is_setup_required():
         return redirect(url_for('login'))
 
@@ -1763,16 +1774,22 @@ def setup():
             errors_html = Markup("".join(f"<li>{escape(error)}</li>" for error in errors))
             return render_template("setup.html", errors=errors, errors_html=errors_html)
 
-        # Create credentials
-        password_hash = hash_password(password)
-        manager_hash = hash_password(manager_password)
-        save_credentials(username, password_hash, manager_hash)
-
-        # Reload credentials
-        CREDENTIALS = load_credentials()
-        LOGIN_USERNAME = CREDENTIALS['username']
-        LOGIN_PASSWORD_HASH = CREDENTIALS['password_hash']
-        MANAGER_PASSWORD_HASH = CREDENTIALS['manager_password_hash']
+        # Create initial manager account in users table
+        try:
+            password_hash = hash_password(manager_password)
+            conn = get_db_connection()
+            conn.execute("""
+                INSERT INTO users (username, password_hash, role, is_active, force_password_change)
+                VALUES (?, ?, 'manager', 1, 0)
+            """, (username, password_hash))
+            conn.commit()
+            conn.close()
+            logger.info(f"Initial setup completed: Manager account '{username}' created")
+        except Exception as e:
+            logger.error(f"Setup failed: {e}")
+            errors.append("Failed to create account. Please try again.")
+            errors_html = Markup("".join(f"<li>{escape(error)}</li>" for error in errors))
+            return render_template("setup.html", errors=errors, errors_html=errors_html)
 
         return redirect(url_for('login'))
 
@@ -4017,99 +4034,20 @@ def delete_cleaning_checklist(template_id):
 @login_required
 @limiter.limit("5 per minute")
 def update_manager_password():
-    """Update manager password for lifting bans."""
-    global MANAGER_PASSWORD_HASH, CREDENTIALS
-
-    data = request.json
-    new_manager_password = data.get('new_manager_password', '').strip()
-    confirm_manager_password = data.get('confirm_manager_password', '').strip()
-    current_password = data.get('current_password', '').strip()
-
-    # Validate current login password using bcrypt
-    if not verify_login_password(current_password):
-        return jsonify({"error": "Current password is incorrect"}), 401
-
-    # Validation
-    if not new_manager_password or len(new_manager_password) < 8:
-        return jsonify({"error": "Manager password must be at least 8 characters"}), 400
-
-    # Server-side password confirmation check
-    if new_manager_password != confirm_manager_password:
-        return jsonify({"error": "Manager passwords do not match"}), 400
-
-    # Password strength check
-    has_upper = any(c.isupper() for c in new_manager_password)
-    has_lower = any(c.islower() for c in new_manager_password)
-    has_digit = any(c.isdigit() for c in new_manager_password)
-    if not (has_upper and has_lower and has_digit):
-        return jsonify({"error": "Manager password must contain uppercase, lowercase, and numbers"}), 400
-
-    # Update manager password with bcrypt
-    creds = load_credentials()
-    if not creds:
-        return jsonify({"error": "Configuration error"}), 500
-
-    new_manager_password_hash = hash_password(new_manager_password)
-    save_credentials(creds['username'], creds['password_hash'], new_manager_password_hash)
-
-    # Reload credentials
-    CREDENTIALS = load_credentials()
-    MANAGER_PASSWORD_HASH = CREDENTIALS['manager_password_hash']
-
-    return jsonify({"message": "Manager password updated successfully"}), 200
+    """Deprecated: Manager password management now handled through user accounts."""
+    return jsonify({
+        "error": "This feature is deprecated. Please manage user accounts through the Settings page."
+    }), 400
 
 
 @app.post("/api/settings/login")
 @login_required
 @limiter.limit("5 per minute")
 def update_login_credentials():
-    """Update login username and password."""
-    global LOGIN_USERNAME, LOGIN_PASSWORD_HASH, CREDENTIALS
-
-    data = request.json
-    new_username = data.get('username', '').strip()[:50]
-    new_password = data.get('password', '').strip()
-    confirm_password = data.get('confirm_password', '').strip()
-    current_password = data.get('current_password', '').strip()
-
-    # Validate current password using bcrypt
-    if not verify_login_password(current_password):
-        return jsonify({"error": "Current password is incorrect"}), 401
-
-    # Validation
-    if not new_username or len(new_username) < 3:
-        return jsonify({"error": "Username must be at least 3 characters"}), 400
-    if not new_password or len(new_password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters"}), 400
-
-    # Server-side password confirmation check
-    if new_password != confirm_password:
-        return jsonify({"error": "Passwords do not match"}), 400
-
-    # Password strength check
-    has_upper = any(c.isupper() for c in new_password)
-    has_lower = any(c.islower() for c in new_password)
-    has_digit = any(c.isdigit() for c in new_password)
-    if not (has_upper and has_lower and has_digit):
-        return jsonify({"error": "Password must contain uppercase, lowercase, and numbers"}), 400
-
-    # Update credentials with bcrypt and increment session version to invalidate all sessions
-    creds = load_credentials()
-    if not creds:
-        return jsonify({"error": "Configuration error"}), 500
-
-    new_password_hash = hash_password(new_password)
-    save_credentials(new_username, new_password_hash, creds['manager_password_hash'], increment_session=True)
-
-    # Reload credentials
-    CREDENTIALS = load_credentials()
-    LOGIN_USERNAME = CREDENTIALS['username']
-    LOGIN_PASSWORD_HASH = CREDENTIALS['password_hash']
-
-    # Clear current session (other sessions will be invalidated by version check)
-    session.clear()
-
-    return jsonify({"message": "Login credentials updated successfully"}), 200
+    """Deprecated: Login credentials now managed through user accounts."""
+    return jsonify({
+        "error": "This feature is deprecated. Please manage user accounts through the Settings page or change your password using the Change Password feature."
+    }), 400
 
 
 # Error handlers
