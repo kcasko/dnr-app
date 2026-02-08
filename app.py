@@ -2067,6 +2067,10 @@ def get_records():
     if ban_type_filter:
         sql += " AND ban_type = ?"
         params.append(ban_type_filter)
+        # Temporary tab should only show active records
+        if ban_type_filter == 'temporary' and not status_filter:
+            sql += " AND status = ?"
+            params.append('active')
 
     if search:
         sql += " AND guest_name LIKE ?"
